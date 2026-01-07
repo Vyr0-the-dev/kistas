@@ -1,0 +1,14 @@
+services:
+  soru-takip-node:
+    build:
+      context: .
+    container_name: soru-takip-node
+    volumes:
+      - .:/app
+      - gemini-config:/root/.config/gemini
+    stdin_open: true
+    tty: true
+    working_dir: /app
+
+volumes:
+  gemini-config:

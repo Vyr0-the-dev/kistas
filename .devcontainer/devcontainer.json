@@ -1,0 +1,24 @@
+{
+  "name": "Soru Takip Dev",
+  "dockerComposeFile": "../docker-compose.yaml",
+  "service": "soru-takip-node",
+  "workspaceFolder": "/app",
+
+  "forwardPorts": [
+    8081,
+    19000,
+    19001,
+    19002
+  ],
+
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-azuretools.vscode-docker",
+        "publisher.gemini-cli-companion",
+        "ms-python.python",
+        "ms-python.vscode-pylance"
+      ]
+    }
+  }
+}
