@@ -1,4 +1,5 @@
 name: p3_rota
+description: KPSSP3 calisma ve soru takip uygulamasi.
 version: 0.1.0
 publish_to: "none"
 
