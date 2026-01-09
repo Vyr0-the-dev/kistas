@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../data/topic_catalog.dart';
 import '../models/app_notification.dart';
+import '../models/flashcard.dart';
 import '../models/mock_exam.dart';
 import '../models/question_entry.dart';
 import '../models/topic_summary.dart';
@@ -28,16 +29,20 @@ const _weeklyPlanEnabledKey = 'weekly_plan_enabled';
 const _weeklyPlanTimeKey = 'weekly_plan_time';
 const _weeklyPlanWeekdayKey = 'weekly_plan_weekday';
 const _themeKey = 'theme_key';
+const _examDateKey = 'exam_date';
+const _flashcardsKey = 'flashcards';
 
 class AppRepository {
   AppRepository._(this._prefs)
       : questionEntries = ValueNotifier<List<QuestionEntry>>([]),
         mockExams = ValueNotifier<List<MockExam>>([]),
+        flashcards = ValueNotifier<Map<String, List<Flashcard>>>({}),
         dailyGoal = ValueNotifier<int>(100),
         aiRequestCountToday = ValueNotifier<int>(0),
         geminiApiKey = ValueNotifier<String>(''),
         geminiModel = ValueNotifier<String>(''),
         themeKey = ValueNotifier<String>('midnight'),
+        examDate = ValueNotifier<DateTime>(DateTime(2026, 7, 19)),
         aiGoalCadence = ValueNotifier<String>('daily'),
         aiNotificationsEnabled = ValueNotifier<bool>(false),
         aiGoalTargets = ValueNotifier<Map<String, int>>({}),
@@ -57,11 +62,13 @@ class AppRepository {
   final SharedPreferences _prefs;
   final ValueNotifier<List<QuestionEntry>> questionEntries;
   final ValueNotifier<List<MockExam>> mockExams;
+  final ValueNotifier<Map<String, List<Flashcard>>> flashcards;
   final ValueNotifier<int> dailyGoal;
   final ValueNotifier<int> aiRequestCountToday;
   final ValueNotifier<String> geminiApiKey;
   final ValueNotifier<String> geminiModel;
   final ValueNotifier<String> themeKey;
+  final ValueNotifier<DateTime> examDate;
   final ValueNotifier<String> aiGoalCadence;
   final ValueNotifier<bool> aiNotificationsEnabled;
   final ValueNotifier<Map<String, int>> aiGoalTargets;
@@ -93,6 +100,13 @@ class AppRepository {
     final updated = [...mockExams.value, exam];
     mockExams.value = updated;
     await _saveMockExams(updated);
+  }
+
+  Future<void> saveFlashcards(String topicTitle, List<Flashcard> cards) async {
+    final updated = Map<String, List<Flashcard>>.from(flashcards.value);
+    updated[topicTitle] = cards;
+    flashcards.value = updated;
+    await _saveFlashcards(updated);
   }
 
   Future<void> clearAll() async {
@@ -133,6 +147,11 @@ class AppRepository {
   Future<void> setTheme(String key) async {
     themeKey.value = key;
     await _prefs.setString(_themeKey, key);
+  }
+
+  Future<void> setExamDate(DateTime date) async {
+    examDate.value = date;
+    await _prefs.setString(_examDateKey, date.toIso8601String());
   }
 
   Future<void> setAiGoalCadence(String cadence) async {
@@ -239,6 +258,7 @@ class AppRepository {
     final payload = {
       'questionEntries': questionEntries.value.map((e) => e.toJson()).toList(),
       'mockExams': mockExams.value.map((e) => e.toJson()).toList(),
+      'flashcards': flashcards.value.map((key, value) => MapEntry(key, value.map((e) => e.toJson()).toList())),
       'notifications': notifications.value.map((e) => e.toJson()).toList(),
       'aiGoalTargets': aiGoalTargets.value,
       'aiGoalUpdatedAt': aiGoalUpdatedAt.value?.toIso8601String(),
@@ -307,6 +327,7 @@ class AppRepository {
 
     questionEntries.value = questions;
     mockExams.value = exams;
+    flashcards.value = _decodeFlashcards(jsonEncode(data['flashcards'] ?? {}));
     notifications.value = importedNotifications;
     aiGoalTargets.value = targets;
     final updatedRaw = data['aiGoalUpdatedAt'] as String?;
@@ -416,9 +437,14 @@ class AppRepository {
       _prefs.getString(_questionEntriesKey),
     );
     mockExams.value = _decodeMockExams(_prefs.getString(_mockExamsKey));
+    flashcards.value = _decodeFlashcards(_prefs.getString(_flashcardsKey));
     geminiApiKey.value = _prefs.getString(_geminiApiKey) ?? '';
     geminiModel.value = _prefs.getString(_geminiModel) ?? '';
     themeKey.value = _prefs.getString(_themeKey) ?? 'midnight';
+    final examDateRaw = _prefs.getString(_examDateKey);
+    if (examDateRaw != null) {
+      examDate.value = DateTime.tryParse(examDateRaw) ?? DateTime(2026, 7, 19);
+    }
     
     debugPrint('AppRepository: Yüklendi. API Key var mı: ${geminiApiKey.value.isNotEmpty}, Model: ${geminiModel.value}');
 
@@ -474,6 +500,13 @@ class AppRepository {
     await _prefs.setString(_mockExamsKey, encoded);
   }
 
+  Future<void> _saveFlashcards(Map<String, List<Flashcard>> data) async {
+    final encoded = jsonEncode(
+      data.map((key, value) => MapEntry(key, value.map((e) => e.toJson()).toList())),
+    );
+    await _prefs.setString(_flashcardsKey, encoded);
+  }
+
   Future<void> _saveNotifications(List<AppNotification> items) async {
     final encoded = jsonEncode(items.map((e) => e.toJson()).toList());
     await _prefs.setString(_notificationsKey, encoded);
@@ -505,6 +538,24 @@ class AppRepository {
         .whereType<Map<String, dynamic>>()
         .map(MockExam.fromJson)
         .toList();
+  }
+
+  Map<String, List<Flashcard>> _decodeFlashcards(String? raw) {
+    if (raw == null || raw.isEmpty) {
+      return {};
+    }
+    try {
+      final Map<String, dynamic> data = jsonDecode(raw);
+      return data.map((key, value) {
+        final list = value as List;
+        return MapEntry(
+          key,
+          list.whereType<Map<String, dynamic>>().map(Flashcard.fromJson).toList(),
+        );
+      });
+    } catch (_) {
+      return {};
+    }
   }
 
   List<AppNotification> _decodeNotifications(String? raw) {

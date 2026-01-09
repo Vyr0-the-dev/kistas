@@ -1,8 +1,10 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../theme/app_colors.dart';
 import '../widgets/ambient_background.dart';
+import '../widgets/glass_panel.dart';
 
 class FocusTimerScreen extends StatelessWidget {
   const FocusTimerScreen({
@@ -92,6 +94,38 @@ class FocusTimerScreen extends StatelessWidget {
                         );
                       },
                     ),
+                    SizedBox(height: 40),
+                    Text(
+                      'Odaklanma Atmosferi',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: Colors.white38,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: 1,
+                          ),
+                    ),
+                    SizedBox(height: 16),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        _AtmosphereButton(
+                          label: 'Lo-Fi',
+                          icon: Icons.headset,
+                          url: 'https://www.youtube.com/watch?v=jfKfPfyJRdk',
+                        ),
+                        SizedBox(width: 12),
+                        _AtmosphereButton(
+                          label: 'Yağmur',
+                          icon: Icons.umbrella,
+                          url: 'https://www.youtube.com/watch?v=mPZkdNFkNps',
+                        ),
+                        SizedBox(width: 12),
+                        _AtmosphereButton(
+                          label: 'Kütüphane',
+                          icon: Icons.local_library,
+                          url: 'https://www.youtube.com/watch?v=4vIQON2fDWM',
+                        ),
+                      ],
+                    ),
                   ],
                 ),
               ),
@@ -99,6 +133,46 @@ class FocusTimerScreen extends StatelessWidget {
           ],
         ),
       ),
+      ),
+    );
+  }
+}
+
+class _AtmosphereButton extends StatelessWidget {
+  const _AtmosphereButton({
+    required this.label,
+    required this.icon,
+    required this.url,
+  });
+
+  final String label;
+  final IconData icon;
+  final String url;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: () => launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication),
+      child: Column(
+        children: [
+          Container(
+            width: 56,
+            height: 56,
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.05),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: Colors.white.withOpacity(0.08)),
+            ),
+            child: Icon(icon, color: Colors.white70),
+          ),
+          SizedBox(height: 8),
+          Text(
+            label,
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                  color: Colors.white54,
+                ),
+          ),
+        ],
       ),
     );
   }

@@ -89,6 +89,26 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       },
                     ),
                     const Divider(color: Colors.white12, height: 24),
+                    ValueListenableBuilder<DateTime>(
+                      valueListenable: repository.examDate,
+                      builder: (context, examDate, _) {
+                        return _ExamDateRow(
+                          value: examDate,
+                          onTap: () async {
+                            final picked = await showDatePicker(
+                              context: context,
+                              initialDate: examDate,
+                              firstDate: DateTime.now(),
+                              lastDate: DateTime(2030),
+                            );
+                            if (picked != null) {
+                              await repository.setExamDate(picked);
+                            }
+                          },
+                        );
+                      },
+                    ),
+                    const Divider(color: Colors.white12, height: 24),
                     _AiUsageTracker(repository: repository),
                     const Divider(color: Colors.white12, height: 24),
                     _AiGoalSection(repository: repository),
@@ -391,6 +411,58 @@ class _ThemeOption extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _ExamDateRow extends StatelessWidget {
+  const _ExamDateRow({
+    required this.value,
+    required this.onTap,
+  });
+
+  final DateTime value;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Container(
+          width: 42,
+          height: 42,
+          decoration: BoxDecoration(
+            color: AppColors.of(context).primary.withOpacity(0.18),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Icon(Icons.event, color: AppColors.of(context).primary),
+        ),
+        SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Sınav Tarihi',
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w700,
+                    ),
+              ),
+              Text(
+                '${value.day}.${value.month}.${value.year}',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: AppColors.of(context).textSecondary,
+                    ),
+              ),
+            ],
+          ),
+        ),
+        OutlinedButton(
+          onPressed: onTap,
+          child: const Text('Düzenle'),
+        ),
+      ],
     );
   }
 }

@@ -221,6 +221,11 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
                               _weeklyReportKey,
                               weeklySummary,
                             ),
+                            onNewsletter: () => _requestAiNewsletter(
+                              context,
+                              repository,
+                              weeklySummary,
+                            ),
                           ),
                         ),
                       ),
@@ -521,6 +526,75 @@ KPSS P3 soru analizi yap. Hatalı eğilimleri ve hız/performans darboğazını 
     }
     
     _showSnack(context, message);
+  }
+}
+
+Future<void> _requestAiNewsletter(
+  BuildContext context,
+  AppRepository repository,
+  String rawSummary,
+) async {
+  final apiKey = repository.geminiApiKey.value;
+  if (apiKey.isEmpty) {
+    _showSnack(context, 'Gemini anahtarını profilden ekle.');
+    return;
+  }
+
+  final prompt = '''
+Sen KPSS P3 adayı için bir mentörsün. Aşağıdaki haftalık çalışma özetini al ve profesyonel, motive edici bir "Haftalık Performans Bülteni" hazırla.
+Veriler:
+$rawSummary
+
+Bülten yapısı:
+1) Geçen Haftanın Panoraması (Şık bir başlık ile)
+2) Güçlü ve Zayıf Yanlar Analizi
+3) Gelecek Hafta İçin 3 Kritik Tavsiye
+4) Kapanış Motivasyon Cümlesi
+
+Bülteni Markdown formatında, paylaşılmaya uygun şık bir şekilde yaz.
+''';
+
+  final closeLoading = _showLoadingDialog(context, 'Bülten hazırlanıyor...');
+  try {
+    final client = GeminiClient();
+    final model = repository.geminiModel.value.isEmpty
+        ? 'gemini-1.5-flash'
+        : repository.geminiModel.value;
+
+    final result = await client.generateText(
+      apiKey: apiKey,
+      prompt: prompt,
+      model: model,
+    );
+    await repository.incrementAiRequestCount();
+    
+    closeLoading();
+
+    if (!context.mounted) return;
+    
+    await _showResultDialog(context, 'Haftalık AI Bülteni', result);
+    
+    // Suggest sharing
+    final confirmShare = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Bülteni Paylaş'),
+        content: const Text('Bu bülteni arkadaşlarınla veya kendine not olarak paylaşmak ister misin?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Hayır')),
+          ElevatedButton(onPressed: () => Navigator.pop(context, true), child: const Text('Evet, Paylaş')),
+        ],
+      ),
+    );
+
+    if (confirmShare == true) {
+      await Share.share(result, subject: 'KPSS Haftalık Performans Bültenim');
+    }
+
+  } catch (e) {
+    closeLoading();
+    if (!context.mounted) return;
+    _showSnack(context, 'Bülten oluşturulamadı.');
   }
 }
 
@@ -1829,10 +1903,12 @@ class _WeeklyReportCard extends StatelessWidget {
   const _WeeklyReportCard({
     required this.summary,
     required this.onShare,
+    required this.onNewsletter,
   });
 
   final String summary;
   final VoidCallback onShare;
+  final VoidCallback onNewsletter;
 
   @override
   Widget build(BuildContext context) {
@@ -1857,14 +1933,29 @@ class _WeeklyReportCard extends StatelessWidget {
                   height: 1.4,
                 ),
           ),
-          SizedBox(height: 12),
-          SizedBox(
-            width: double.infinity,
-            child: OutlinedButton.icon(
-              onPressed: onShare,
-              icon: Icon(Icons.share),
-              label: Text('Raporu Paylaş'),
-            ),
+          SizedBox(height: 16),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: onShare,
+                  icon: Icon(Icons.share, size: 18),
+                  label: Text('Paylaş'),
+                ),
+              ),
+              SizedBox(width: 12),
+              Expanded(
+                child: ElevatedButton.icon(
+                  onPressed: onNewsletter,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.of(context).primary,
+                    foregroundColor: Colors.white,
+                  ),
+                  icon: Icon(Icons.auto_awesome, size: 18),
+                  label: Text('AI Bülten Al'),
+                ),
+              ),
+            ],
           ),
         ],
       ),

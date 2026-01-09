@@ -92,6 +92,17 @@ class _HomeScreenState extends State<HomeScreen> {
                                   _showNotificationsSheet(context, repository),
                             ),
                           ),
+                          SliverToBoxAdapter(
+                            child: Padding(
+                              padding: const EdgeInsets.fromLTRB(20, 12, 20, 4),
+                              child: ValueListenableBuilder<DateTime>(
+                                valueListenable: repository.examDate,
+                                builder: (context, examDate, _) {
+                                  return _KpssCountdownCard(examDate: examDate);
+                                },
+                              ),
+                            ),
+                          ),
                           if (isEmpty)
                             SliverToBoxAdapter(
                               child: Padding(
@@ -1856,6 +1867,111 @@ class _BottomNav extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return AppBottomNav(activeIndex: activeIndex, onSelect: onSelect);
+  }
+}
+
+class _KpssCountdownCard extends StatelessWidget {
+  const _KpssCountdownCard({required this.examDate});
+
+  final DateTime examDate;
+
+  @override
+  Widget build(BuildContext context) {
+    final now = DateTime.now();
+    final difference = examDate.difference(now);
+    final days = difference.inDays;
+    final isPassed = difference.isNegative;
+
+    return GlassPanel(
+      padding: const EdgeInsets.all(16),
+      radius: BorderRadius.circular(20),
+      child: Row(
+        children: [
+          Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              color: AppColors.of(context).primary.withOpacity(0.15),
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: Icon(
+              Icons.event_available,
+              color: AppColors.of(context).primary,
+            ),
+          ),
+          SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'KPSS 2026',
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                        color: AppColors.of(context).textSecondary,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 1,
+                      ),
+                ),
+                SizedBox(height: 2),
+                Text(
+                  isPassed ? 'Sınav Tamamlandı' : '$days Gün Kaldı',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w800,
+                      ),
+                ),
+              ],
+            ),
+          ),
+          if (!isPassed)
+            _MiniProgressIndicator(
+              total: 365, // Assume a year cycle for visualization
+              remaining: days,
+              color: AppColors.of(context).primary,
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MiniProgressIndicator extends StatelessWidget {
+  const _MiniProgressIndicator({
+    required this.total,
+    required this.remaining,
+    required this.color,
+  });
+
+  final int total;
+  final int remaining;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final ratio = (remaining / total).clamp(0.0, 1.0);
+    return Stack(
+      alignment: Alignment.center,
+      children: [
+        SizedBox(
+          width: 40,
+          height: 40,
+          child: CircularProgressIndicator(
+            value: ratio,
+            strokeWidth: 4,
+            backgroundColor: Colors.white10,
+            valueColor: AlwaysStoppedAnimation<Color>(color),
+          ),
+        ),
+        Text(
+          '%${(ratio * 100).round()}',
+          style: const TextStyle(
+            fontSize: 10,
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
+          ),
+        ),
+      ],
+    );
   }
 }
 

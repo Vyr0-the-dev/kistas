@@ -1,8 +1,10 @@
+import 'dart:convert';
 import 'dart:math';
 
 import 'package:flutter/material.dart';
 
 import '../models/app_notification.dart';
+import '../models/flashcard.dart';
 import '../models/question_entry.dart';
 import '../models/topic_summary.dart';
 import '../services/app_repository.dart';
@@ -18,6 +20,7 @@ import '../widgets/in_app_notice.dart';
 import '../widgets/progress_ring.dart';
 import 'analysis_screen.dart';
 import 'entry_wizard_screen.dart';
+import 'flashcard_study_screen.dart';
 import 'home_screen.dart';
 import 'profile_screen.dart';
 import 'quick_add_screen.dart';
@@ -889,54 +892,93 @@ class _ActionButtons extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        ElevatedButton.icon(
-          onPressed: () {
-            Navigator.of(context).push(
-              MaterialPageRoute(
-                builder: (_) => EntryWizardScreen(
-                  type: EntryType.question,
-                  preselectedTopic: topic,
+    final repository = AppRepositoryScope.of(context);
+    return ValueListenableBuilder<Map<String, List<Flashcard>>>(
+      valueListenable: repository.flashcards,
+      builder: (context, allCards, _) {
+        final cards = allCards[topic.title] ?? [];
+        return Column(
+          children: [
+            ElevatedButton.icon(
+              onPressed: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => EntryWizardScreen(
+                      type: EntryType.question,
+                      preselectedTopic: topic,
+                    ),
+                  ),
+                );
+              },
+              icon: Icon(Icons.add_circle),
+              label: Text('Bu Konudan Soru Ekle'),
+              style: ElevatedButton.styleFrom(
+                minimumSize: const Size.fromHeight(52),
+                shape:
+                    RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+              ),
+            ),
+            SizedBox(height: 12),
+            if (cards.isNotEmpty)
+              ElevatedButton.icon(
+                onPressed: () => _openFlashcards(context, cards, topic.title),
+                icon: Icon(Icons.Style),
+                label: Text('Bilgi Kartlarını Çalış (${cards.length})'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.of(context).success.withOpacity(0.8),
+                  minimumSize: const Size.fromHeight(52),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(18),
+                  ),
+                ),
+              )
+            else
+              OutlinedButton.icon(
+                onPressed: () => _generateFlashcards(context, topic),
+                icon: Icon(Icons.auto_awesome),
+                label: Text('AI ile Bilgi Kartı Üret'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: AppColors.of(context).primaryLight,
+                  minimumSize: const Size.fromHeight(52),
+                  side: BorderSide(
+                    color: AppColors.of(context).primary.withOpacity(0.3),
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(18),
+                  ),
                 ),
               ),
-            );
-          },
-          icon: Icon(Icons.add_circle),
-          label: Text('Bu Konudan Soru Ekle'),
-          style: ElevatedButton.styleFrom(
-            minimumSize: const Size.fromHeight(52),
-            shape:
-                RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-          ),
-        ),
-        SizedBox(height: 12),
-        OutlinedButton.icon(
-          onPressed: () => _scheduleReview(context, topic),
-          icon: Icon(Icons.event),
-          label: Text('Tekrar Planla'),
-          style: OutlinedButton.styleFrom(
-            foregroundColor: Colors.white70,
-            minimumSize: const Size.fromHeight(52),
-            side: BorderSide(color: Colors.white.withOpacity(0.12)),
-            shape:
-                RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-          ),
-        ),
-        SizedBox(height: 12),
-        OutlinedButton.icon(
-          onPressed: () => _requestTopicInsight(context, topic),
-          icon: Icon(Icons.lightbulb_outline),
-          label: Text('AI Çalışma Taktikleri'),
-          style: OutlinedButton.styleFrom(
-            foregroundColor: AppColors.of(context).primaryLight,
-            minimumSize: const Size.fromHeight(52),
-            side: BorderSide(color: AppColors.of(context).primary.withOpacity(0.3)),
-            shape:
-                RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-          ),
-        ),
-      ],
+            SizedBox(height: 12),
+            OutlinedButton.icon(
+              onPressed: () => _scheduleReview(context, topic),
+              icon: Icon(Icons.event),
+              label: Text('Tekrar Planla'),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: Colors.white70,
+                minimumSize: const Size.fromHeight(52),
+                side: BorderSide(color: Colors.white.withOpacity(0.12)),
+                shape:
+                    RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+              ),
+            ),
+            SizedBox(height: 12),
+            OutlinedButton.icon(
+              onPressed: () => _requestTopicInsight(context, topic),
+              icon: Icon(Icons.lightbulb_outline),
+              label: Text('AI Çalışma Taktikleri'),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: AppColors.of(context).primaryLight,
+                minimumSize: const Size.fromHeight(52),
+                side: BorderSide(
+                  color: AppColors.of(context).primary.withOpacity(0.3),
+                ),
+                shape:
+                    RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 }
@@ -1015,6 +1057,77 @@ KPSS P3 "${topic.title}" (${topic.subject}) konusu için özel çalışma rehber
     }
     _showSnack(context, message);
   }
+}
+
+Future<void> _generateFlashcards(
+  BuildContext context,
+  TopicSummary topic,
+) async {
+  final repository = AppRepositoryScope.of(context);
+  final apiKey = repository.geminiApiKey.value;
+  if (apiKey.isEmpty) {
+    _showSnack(context, 'Gemini anahtarını profilden ekle.');
+    return;
+  }
+
+  final prompt = '''
+KPSS P3 "${topic.title}" (${topic.subject}) konusu için 10 adet bilgi kartı (Flashcard) oluştur.
+İstenen çıktı sadece JSON formatında olsun.
+Şema: [{"id":"string","question":"soru","answer":"cevap","hint":"ipucu"}]
+Sorular kısa, öz ve sınavda çıkabilecek kritik bilgiler olsun.
+''';
+
+  final closeLoading = _showLoadingDialog(context, 'AI kartlar hazırlanıyor...');
+  try {
+    final client = GeminiClient();
+    final model = repository.geminiModel.value.isEmpty
+        ? 'gemini-1.5-flash'
+        : repository.geminiModel.value;
+
+    final result = await client.generateText(
+      apiKey: apiKey,
+      prompt: prompt,
+      model: model,
+    );
+    await repository.incrementAiRequestCount();
+    
+    final match = RegExp(r'\[[\s\S]*\]').firstMatch(result);
+    if (match == null) {
+      throw Exception('Format hatası');
+    }
+    
+    final List<dynamic> data = jsonDecode(match.group(0)!);
+    final cards = data.map((json) {
+      return Flashcard(
+        id: json['id'] ?? DateTime.now().microsecondsSinceEpoch.toString(),
+        question: json['question'] ?? '',
+        answer: json['answer'] ?? '',
+        hint: json['hint'],
+        topicTitle: topic.title,
+      );
+    }).toList();
+
+    await repository.saveFlashcards(topic.title, cards);
+    
+    closeLoading();
+
+    if (!context.mounted) return;
+    _showSnack(context, '${cards.length} yeni kart oluşturuldu.');
+    _openFlashcards(context, cards, topic.title);
+
+  } catch (e) {
+    closeLoading();
+    if (!context.mounted) return;
+    _showSnack(context, 'Kart üretilemedi: $e');
+  }
+}
+
+void _openFlashcards(BuildContext context, List<Flashcard> cards, String topic) {
+  Navigator.of(context).push(
+    MaterialPageRoute(
+      builder: (_) => FlashcardStudyScreen(cards: cards, topicTitle: topic),
+    ),
+  );
 }
 
 class _BottomNav extends StatelessWidget {

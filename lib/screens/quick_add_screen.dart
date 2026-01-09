@@ -12,6 +12,7 @@ import '../services/gemini_client.dart';
 import '../services/notification_service.dart';
 import '../theme/app_colors.dart';
 import '../widgets/ai_loading_dialog.dart';
+import '../widgets/ambient_background.dart';
 import '../widgets/app_bottom_nav.dart';
 import '../widgets/glass_panel.dart';
 import '../widgets/in_app_notice.dart';
