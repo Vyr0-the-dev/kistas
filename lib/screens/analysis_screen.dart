@@ -15,6 +15,7 @@ import '../services/gemini_client.dart';
 import '../theme/app_colors.dart';
 import '../widgets/ai_loading_dialog.dart';
 import '../widgets/ai_response_dialog.dart';
+import '../widgets/ambient_background.dart';
 import '../widgets/app_bottom_nav.dart';
 import '../widgets/glass_panel.dart';
 import 'entry_wizard_screen.dart';
@@ -42,35 +43,36 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
     final repository = AppRepositoryScope.of(context);
     return Scaffold(
       backgroundColor: AppColors.of(context).background,
-      body: SafeArea(
-        child: ValueListenableBuilder<List<QuestionEntry>>(
-          valueListenable: repository.questionEntries,
-          builder: (context, questionEntries, _) {
-            return ValueListenableBuilder<List<MockExam>>(
-              valueListenable: repository.mockExams,
-              builder: (context, mockExams, __) {
-                final hasQuestions = questionEntries.isNotEmpty;
-                final hasExams = mockExams.isNotEmpty;
-
-                final dateRange = _getDateRange(_rangeFilter, _customRange);
-                final questionFiltered = _filterQuestions(
-                  questionEntries,
-                  dateRange.start,
-                  dateRange.end,
-                );
-                final examsFiltered = _filterExams(
-                  mockExams,
-                  dateRange.start,
-                  dateRange.end,
-                );
-
-                if (!hasQuestions && !hasExams) {
-                  return _EmptyState(
-                    onAddExam: () => _openEntry(context, EntryType.mockExam),
-                    onAddQuestion: () =>
-                        _openEntry(context, EntryType.question),
+      body: AmbientBackground(
+        child: SafeArea(
+          child: ValueListenableBuilder<List<QuestionEntry>>(
+            valueListenable: repository.questionEntries,
+            builder: (context, questionEntries, _) {
+              return ValueListenableBuilder<List<MockExam>>(
+                valueListenable: repository.mockExams,
+                builder: (context, mockExams, __) {
+                  final hasQuestions = questionEntries.isNotEmpty;
+                  final hasExams = mockExams.isNotEmpty;
+  
+                  final dateRange = _getDateRange(_rangeFilter, _customRange);
+                  final questionFiltered = _filterQuestions(
+                    questionEntries,
+                    dateRange.start,
+                    dateRange.end,
                   );
-                }
+                  final examsFiltered = _filterExams(
+                    mockExams,
+                    dateRange.start,
+                    dateRange.end,
+                  );
+  
+                  if (!hasQuestions && !hasExams) {
+                    return _EmptyState(
+                      onAddExam: () => _openEntry(context, EntryType.mockExam),
+                      onAddQuestion: () =>
+                          _openEntry(context, EntryType.question),
+                    );
+                  }
 
                 final activeMode = _mode;
                 final hasActiveData = activeMode == AnalysisMode.exams
@@ -293,14 +295,15 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
           },
         ),
       ),
-      bottomNavigationBar: AppBottomNav(
-        activeIndex: 3,
-        onSelect: (index) => _navigateFromNav(context, index),
-      ),
-    );
-  }
+    ),
+    bottomNavigationBar: AppBottomNav(
+      activeIndex: 3,
+      onSelect: (index) => _navigateFromNav(context, index),
+    ),
+  );
+}
 
-  void _openEntry(BuildContext context, EntryType type) {
+void _openEntry(BuildContext context, EntryType type) {
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (context) => EntryWizardScreen(type: type),
@@ -308,7 +311,7 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
     );
   }
 
-  void _navigateFromNav(BuildContext context, int index) {
+void _navigateFromNav(BuildContext context, int index) {
     switch (index) {
       case 0:
         Navigator.of(context).pushReplacement(
@@ -425,7 +428,7 @@ Future<void> _requestAiQuestionAnalysis(
   BuildContext context,
   AppRepository repository,
   _QuestionMetrics metrics,
-  List<TopicProgress> weakTopics,
+List<TopicProgress> weakTopics,
 ) async {
   final apiKey = repository.geminiApiKey.value;
   if (apiKey.isEmpty) {
@@ -546,8 +549,8 @@ void _showSnack(BuildContext context, String message) {
 }
 
 String _buildWeeklySummary(
-  List<QuestionEntry> questions,
-  List<MockExam> exams,
+List<QuestionEntry> questions,
+List<MockExam> exams,
 ) {
   final now = DateTime.now();
   final last7Questions = questions
@@ -580,7 +583,7 @@ String _buildWeeklySummary(
 }
 
 List<_WeeklyTargetItem> _buildWeeklyTargets(
-  List<QuestionEntry> questions,
+List<QuestionEntry> questions,
   int dailyGoal,
 ) {
   if (questions.isEmpty) {
@@ -617,7 +620,7 @@ DateTime _startOfWeek(DateTime date) {
 enum _RangeFilter { days7, days30, days90, custom }
 
 List<QuestionEntry> _filterQuestions(
-  List<QuestionEntry> entries,
+List<QuestionEntry> entries,
   DateTime start,
   DateTime end,
 ) {
@@ -631,7 +634,7 @@ List<QuestionEntry> _filterQuestions(
 }
 
 List<MockExam> _filterExams(
-  List<MockExam> exams,
+List<MockExam> exams,
   DateTime start,
   DateTime end,
 ) {
@@ -1112,7 +1115,7 @@ class _TrendPainter extends CustomPainter {
   final Color accent;
 
   @override
-  void paint(Canvas canvas, Size size) {
+void paint(Canvas canvas, Size size) {
     if (values.isEmpty) {
       return;
     }
@@ -1230,56 +1233,61 @@ class _MetricCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: Colors.white.withOpacity(0.08)),
-        color: AppColors.of(context).surface,
-      ),
+    return GlassPanel(
+      radius: BorderRadius.circular(22),
+      padding: EdgeInsets.zero,
       child: Stack(
         children: [
-          Positioned(
-            right: -10,
-            bottom: -10,
-            child: Container(
-              width: 80,
-              height: 80,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: accent.withOpacity(0.08),
+          // Background chart/sparkline (positioned)
+          if (footer != null)
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 0,
+              height: 60,
+              child: Opacity(
+                opacity: 0.15,
+                child: footer!,
               ),
             ),
-          ),
           Padding(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(18),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  title,
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: Colors.white54,
+                Row(
+                  children: [
+                    Container(
+                      width: 4,
+                      height: 16,
+                      decoration: BoxDecoration(
+                        color: accent,
+                        borderRadius: BorderRadius.circular(2),
                       ),
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      title,
+                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                            color: Colors.white54,
+                          ),
+                    ),
+                  ],
                 ),
-                SizedBox(height: 6),
+                const SizedBox(height: 6),
                 Text(
                   value,
                   style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                        color: Colors.white,
                         fontWeight: FontWeight.w700,
                       ),
                 ),
-                SizedBox(height: 6),
+                const SizedBox(height: 6),
                 Text(
                   subtitle,
                   style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                        color: accent,
+                        color: Colors.white38,
                       ),
                 ),
-                if (footer != null) ...[
-                  SizedBox(height: 10),
-                  SizedBox(height: 40, child: footer),
-                ],
               ],
             ),
           ),
@@ -1314,7 +1322,7 @@ class _SparklinePainter extends CustomPainter {
   final Color color;
 
   @override
-  void paint(Canvas canvas, Size size) {
+void paint(Canvas canvas, Size size) {
     final minValue = values.reduce(min);
     final maxValue = values.reduce(max);
     final range = max(1.0, maxValue - minValue);
@@ -1661,7 +1669,7 @@ class _LineChartPainter extends CustomPainter {
   final Color primaryLightColor;
 
   @override
-  void paint(Canvas canvas, Size size) {
+void paint(Canvas canvas, Size size) {
     if (values.length < 2) {
       return;
     }
@@ -2098,8 +2106,8 @@ abstract class _AnalysisMetrics {
   String get value;
   String get unit;
   double get delta;
-  List<double> get trend;
-  List<String> get axisLabels;
+List<double> get trend;
+List<String> get axisLabels;
   Color accent(BuildContext context);
   String get leftTitle;
   String get leftValue;
@@ -2140,7 +2148,7 @@ class _ExamMetrics implements _AnalysisMetrics {
         : exams.fold<int>(0, (sum, e) => sum + e.minutes).toDouble() /
             exams.length;
 
-    List<String> labels = [];
+List<String> labels = [];
     if (sorted.isNotEmpty) {
       if (sorted.length <= 4) {
         labels = sorted.map((e) => '${e.createdAt.day}.${e.createdAt.month}').toList();
@@ -2225,7 +2233,7 @@ class _QuestionMetrics implements _AnalysisMetrics {
   final List<String> axisLabels;
 
   static _QuestionMetrics from(
-    List<QuestionEntry> entries,
+List<QuestionEntry> entries,
     DateTime start,
     DateTime end,
   ) {
@@ -2241,7 +2249,7 @@ class _QuestionMetrics implements _AnalysisMetrics {
     final trend = _buildQuestionTrend(entries, start, end);
 
     final daysDifference = end.difference(start).inDays;
-    List<String> labels;
+List<String> labels;
     
     if (daysDifference <= 8) {
        labels = List.generate(daysDifference, (i) {
@@ -2307,7 +2315,7 @@ class _QuestionMetrics implements _AnalysisMetrics {
 }
 
 List<double> _buildQuestionTrend(
-  List<QuestionEntry> entries,
+List<QuestionEntry> entries,
   DateTime start,
   DateTime end,
 ) {

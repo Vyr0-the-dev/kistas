@@ -11,6 +11,7 @@ import '../services/notification_service.dart';
 import '../theme/app_colors.dart';
 import '../widgets/ai_loading_dialog.dart';
 import '../widgets/ai_response_dialog.dart';
+import '../widgets/ambient_background.dart';
 import '../widgets/app_bottom_nav.dart';
 import '../widgets/glass_panel.dart';
 import '../widgets/in_app_notice.dart';
@@ -35,45 +36,47 @@ class TopicDetailScreen extends StatelessWidget {
 
     return Scaffold(
       backgroundColor: AppColors.of(context).background,
-      body: SafeArea(
-        child: Container(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: [Color(0xFF0F1116), Color(0xFF121622)],
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
+      body: AmbientBackground(
+        child: SafeArea(
+          child: Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [Color(0xFF0F1116).withOpacity(0.0), Color(0xFF121622).withOpacity(0.0)],
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+              ),
             ),
-          ),
-          child: Column(
-            children: [
-              _Header(topic: topic),
-              Expanded(
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.fromLTRB(20, 20, 20, 120),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _Hero(progress: progress),
-                      SizedBox(height: 16),
-                      _KpiRow(progress: progress),
-                      SizedBox(height: 12),
-                      _MasteryCard(
-                        mastery: _calculateMastery(progress),
-                        lastStudied: progress.lastStudied,
-                      ),
-                      SizedBox(height: 16),
-                      _NotesSection(topic: topic),
-                      SizedBox(height: 16),
-                      _TrendCard(entries: entries),
-                      SizedBox(height: 16),
-                      _MistakeSection(entries: entries),
-                      SizedBox(height: 18),
-                      _ActionButtons(topic: topic),
-                    ],
+            child: Column(
+              children: [
+                _Header(topic: topic),
+                Expanded(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.fromLTRB(20, 20, 20, 120),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _Hero(progress: progress),
+                        SizedBox(height: 16),
+                        _KpiRow(progress: progress),
+                        SizedBox(height: 12),
+                        _MasteryCard(
+                          mastery: _calculateMastery(progress),
+                          lastStudied: progress.lastStudied,
+                        ),
+                        SizedBox(height: 16),
+                        _NotesSection(topic: topic),
+                        SizedBox(height: 16),
+                        _TrendCard(entries: entries),
+                        SizedBox(height: 16),
+                        _MistakeSection(entries: entries),
+                        SizedBox(height: 18),
+                        _ActionButtons(topic: topic),
+                      ],
+                    ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
@@ -216,13 +219,9 @@ class _NotesSection extends StatelessWidget {
         ),
         SizedBox(height: 10),
         if (!hasNotes)
-          Container(
+          GlassPanel(
             padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: AppColors.of(context).surface,
-              borderRadius: BorderRadius.circular(18),
-              border: Border.all(color: Colors.white.withOpacity(0.05)),
-            ),
+            radius: BorderRadius.circular(18),
             child: Row(
               children: [
                 Icon(Icons.info_outline, color: Colors.white38),
@@ -239,29 +238,34 @@ class _NotesSection extends StatelessWidget {
             ),
           )
         else
-          Column(
-            children: [
-              if (topic.summary.isNotEmpty)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 12),
-                  child: Container(
-                    padding: const EdgeInsets.all(14),
-                    decoration: BoxDecoration(
-                      color: AppColors.of(context).primary.withOpacity(0.05),
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: AppColors.of(context).primary.withOpacity(0.2)),
-                    ),
-                    child: Text(
-                      topic.summary,
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            color: Colors.white.withOpacity(0.9),
-                            fontStyle: FontStyle.italic,
-                          ),
+          GlassPanel(
+            padding: const EdgeInsets.all(16),
+            radius: BorderRadius.circular(20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (topic.summary.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: Container(
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: AppColors.of(context).primary.withOpacity(0.05),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: AppColors.of(context).primary.withOpacity(0.2)),
+                      ),
+                      child: Text(
+                        topic.summary,
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                              color: Colors.white.withOpacity(0.9),
+                              fontStyle: FontStyle.italic,
+                            ),
+                      ),
                     ),
                   ),
-                ),
-              ...topic.notes.map((note) => _NoteItem(text: note)),
-            ],
+                ...topic.notes.map((note) => _NoteItem(text: note)),
+              ],
+            ),
           ),
       ],
     );
@@ -442,14 +446,10 @@ class _MasteryCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final subtitle = lastStudied == null
         ? 'Henüz çalışma yok'
-        : 'Son çalışma: ${lastStudied!.day}.${lastStudied!.month}';
-    return Container(
+        : 'Son çalışma: ${_daysAgo(lastStudied!)} gün önce';
+    return GlassPanel(
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: AppColors.of(context).surface,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: Colors.white.withOpacity(0.08)),
-      ),
+      radius: BorderRadius.circular(18),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -517,7 +517,7 @@ class _TrendCardState extends State<_TrendCard> {
     final points = _buildTrendSeries(widget.entries, days);
     
     final now = DateTime.now();
-    List<String> labels;
+List<String> labels;
     if (_range == _TrendRange.week) {
       labels = List.generate(7, (i) {
         final d = now.subtract(Duration(days: 6 - i));
@@ -659,7 +659,7 @@ class _TopicTrendPainter extends CustomPainter {
   final Color primaryColor;
 
   @override
-  void paint(Canvas canvas, Size size) {
+void paint(Canvas canvas, Size size) {
     if (values.isEmpty) {
       return;
     }
@@ -1224,7 +1224,7 @@ Future<void> _scheduleReview(
 
 void _showMistakeSheet(
   BuildContext context,
-  List<QuestionEntry> entries,
+List<QuestionEntry> entries,
   _MistakeFilter filter,
 ) {
   final filtered = entries.where((entry) {
@@ -1533,5 +1533,10 @@ Future<void> _showResultDialog(
   String content,
 ) {
   return AiResponseDialog.show(context, title, content);
+}
+
+int _daysAgo(DateTime date) {
+  final now = DateTime.now();
+  return now.difference(date).inDays;
 }
 

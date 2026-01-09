@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 
 import '../services/app_repository.dart';
 import '../theme/app_colors.dart';
+import '../widgets/ambient_background.dart';
 import '../widgets/app_bottom_nav.dart';
+import '../widgets/glass_panel.dart';
 import 'analysis_screen.dart';
 import 'entry_wizard_screen.dart';
 import 'home_screen.dart';
@@ -36,57 +38,59 @@ class _TopicSummariesScreenState extends State<TopicSummariesScreen> {
 
     return Scaffold(
       backgroundColor: AppColors.of(context).background,
-      body: SafeArea(
-        child: ValueListenableBuilder(
-          valueListenable: repository.questionEntries,
-          builder: (context, _, __) {
-            final progress = repository.buildTopicProgress();
-            final filtered = _applyFilters(progress);
-            return Column(
-              children: [
-                _Header(
-                  controller: _searchController,
-                  onFilterChanged: (value) => setState(() {
-                    _activeFilter = value;
-                  }),
-                  activeFilter: _activeFilter,
-                  weakOnly: _weakOnly,
-                  staleOnly: _staleOnly,
-                  onToggleWeak: () => setState(() {
-                    _weakOnly = !_weakOnly;
-                  }),
-                  onToggleStale: () => setState(() {
-                    _staleOnly = !_staleOnly;
-                  }),
-                  onOpenSort: () => _openSortSheet(context),
-                ),
-                Expanded(
-                  child: ListView.builder(
-                    padding: const EdgeInsets.fromLTRB(20, 16, 20, 120),
-                    itemCount: filtered.length,
-                    itemBuilder: (context, index) {
-                      final item = filtered[index];
-                      return Padding(
-                        padding: const EdgeInsets.only(bottom: 14),
-                        child: _TopicCard(
-                          progress: item,
-                          onTap: () {
-                            Navigator.of(context).push(
-                              MaterialPageRoute(
-                                builder: (_) => TopicDetailScreen(
-                                  topic: item.topic,
-                                ),
-                              ),
-                            );
-                          },
-                        ),
-                      );
-                    },
+      body: AmbientBackground(
+        child: SafeArea(
+          child: ValueListenableBuilder(
+            valueListenable: repository.questionEntries,
+            builder: (context, _, __) {
+              final progress = repository.buildTopicProgress();
+              final filtered = _applyFilters(progress);
+              return Column(
+                children: [
+                  _Header(
+                    controller: _searchController,
+                    onFilterChanged: (value) => setState(() {
+                      _activeFilter = value;
+                    }),
+                    activeFilter: _activeFilter,
+                    weakOnly: _weakOnly,
+                    staleOnly: _staleOnly,
+                    onToggleWeak: () => setState(() {
+                      _weakOnly = !_weakOnly;
+                    }),
+                    onToggleStale: () => setState(() {
+                      _staleOnly = !_staleOnly;
+                    }),
+                    onOpenSort: () => _openSortSheet(context),
                   ),
-                ),
-              ],
-            );
-          },
+                  Expanded(
+                    child: ListView.builder(
+                      padding: const EdgeInsets.fromLTRB(20, 16, 20, 120),
+                      itemCount: filtered.length,
+                      itemBuilder: (context, index) {
+                        final item = filtered[index];
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 14),
+                          child: _TopicCard(
+                            progress: item,
+                            onTap: () {
+                              Navigator.of(context).push(
+                                MaterialPageRoute(
+                                  builder: (_) => TopicDetailScreen(
+                                    topic: item.topic,
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ],
+              );
+            },
+          ),
         ),
       ),
       bottomNavigationBar: _BottomNav(
@@ -480,13 +484,9 @@ class _TopicCard extends StatelessWidget {
 
     return GestureDetector(
       onTap: onTap,
-      child: Container(
+      child: GlassPanel(
         padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: AppColors.of(context).surface,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: Colors.white.withOpacity(0.05)),
-        ),
+        radius: BorderRadius.circular(20),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
