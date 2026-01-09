@@ -263,6 +263,19 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
                       SliverToBoxAdapter(
                         child: Padding(
                           padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+                          child: _AiQuestionHunterCard(
+                            onPredict: () => _requestAiExamPrediction(
+                              context,
+                              repository,
+                              weakTopics,
+                            ),
+                          ),
+                        ),
+                      ),
+                    if (hasActiveData && activeMode == AnalysisMode.questions)
+                      SliverToBoxAdapter(
+                        child: Padding(
+                          padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
                           child: _QuestionInsightCard(
                             tags: _buildWrongTagCounts(questionEntries),
                             onAnalyze: () => _requestAiQuestionAnalysis(
@@ -276,13 +289,6 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
                       ),
                     if (hasActiveData && activeMode == AnalysisMode.questions)
                       SliverToBoxAdapter(
-                        child: Padding(
-                          padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
-                          child: _TimeDistributionCard(
-                            data: _buildSubjectMinutes(questionEntries),
-                          ),
-                        ),
-                      ),
                     if (hasActiveData && activeMode == AnalysisMode.exams)
                       SliverToBoxAdapter(
                         child: Padding(
@@ -526,6 +532,114 @@ KPSS P3 soru analizi yap. Hatalı eğilimleri ve hız/performans darboğazını 
     }
     
     _showSnack(context, message);
+  }
+}
+
+Future<void> _requestAiExamPrediction(
+  BuildContext context,
+  AppRepository repository,
+  List<TopicProgress> weakTopics,
+) async {
+  final apiKey = repository.geminiApiKey.value;
+  if (apiKey.isEmpty) {
+    _showSnack(context, 'Gemini anahtarını profilden ekle.');
+    return;
+  }
+
+  final weakLabel = weakTopics.isEmpty
+      ? 'Genel çalışma verileri yetersiz.'
+      : weakTopics.map((e) => "${e.topic.subject}: ${e.topic.title} (%${(e.accuracy*100).round()} başarı)").take(5).join(', ');
+
+  final prompt = '''
+Sen bir KPSS Soru Avcısı ve mentörsün. Kullanıcının şu anki zayıf olduğu konular şunlar:
+$weakLabel
+
+KPSS P3 (Lisans) sınav ağırlıklarını (son 10 yıl) göz önüne alarak şunları üret:
+1) ACİL MÜDAHALE: Sınavda çıkma ihtimali çok yüksek ama kullanıcının zayıf olduğu 2 konu.
+2) KRİTİK TAHMİN: Bu yıl çıkmasını beklediğin, kullanıcının dikkat etmesi gereken 3 nokta/soru tipi.
+3) TAKTİKSEL ÖNERİ: Hız veya net artışı için bu verilere göre 1 strateji.
+
+Markdown formatında, profesyonel ve heyecan verici bir dille yaz.
+''';
+
+  final closeLoading = _showLoadingDialog(context, 'Soru avcısı analiz yapıyor...');
+  try {
+    final client = GeminiClient();
+    final model = repository.geminiModel.value.isEmpty
+        ? 'gemini-1.5-flash-latest'
+        : repository.geminiModel.value;
+
+    final result = await client.generateText(
+      apiKey: apiKey,
+      prompt: prompt,
+      model: model,
+    );
+    await repository.incrementAiRequestCount();
+    
+    closeLoading();
+
+    if (!context.mounted) return;
+    await _showResultDialog(context, 'AI Soru Avcısı Tahminleri', result);
+  } catch (_) {
+    closeLoading();
+    if (!context.mounted) return;
+    _showSnack(context, 'Analiz alınamadı.');
+  }
+}
+
+class _AiQuestionHunterCard extends StatelessWidget {
+  const _AiQuestionHunterCard({required this.onPredict});
+  final VoidCallback onPredict;
+
+  @override
+  Widget build(BuildContext context) {
+    return GlassPanel(
+      padding: const EdgeInsets.all(20),
+      radius: BorderRadius.circular(24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.orange.withOpacity(0.15),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(Icons.radar, color: Colors.orangeAccent),
+              ),
+              const SizedBox(width: 12),
+              Text(
+                'AI Soru Avcısı',
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w700,
+                    ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          const Text(
+            'Zayıf olduğun konuları ve KPSS soru ağırlıklarını analiz ederek çıkması muhtemel noktaları yakalar.',
+            style: TextStyle(color: Colors.white54, fontSize: 13, height: 1.4),
+          ),
+          const SizedBox(height: 16),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: onPredict,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.orangeAccent.withOpacity(0.8),
+                foregroundColor: Colors.white,
+              ),
+              icon: const Icon(Icons.psychology),
+              label: const Text('Analizi Başlat'),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
 

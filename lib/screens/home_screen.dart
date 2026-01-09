@@ -23,6 +23,7 @@ import 'entry_wizard_screen.dart';
 import 'focus_timer_screen.dart';
 import 'profile_screen.dart';
 import 'quick_add_screen.dart';
+import 'streak_detail_screen.dart';
 import 'topic_summaries_screen.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -1077,50 +1078,55 @@ class _StreakCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GlassPanel(
-      padding: const EdgeInsets.all(16),
-      radius: BorderRadius.circular(20),
-      child: Row(
-        children: [
-          Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-              color: AppColors.of(context).primary.withOpacity(0.18),
-              borderRadius: BorderRadius.circular(12),
+    return GestureDetector(
+      onTap: () => Navigator.of(context).push(
+        MaterialPageRoute(builder: (_) => const StreakDetailScreen()),
+      ),
+      child: GlassPanel(
+        padding: const EdgeInsets.all(16),
+        radius: BorderRadius.circular(20),
+        child: Row(
+          children: [
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: AppColors.of(context).primary.withOpacity(0.18),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(Icons.local_fire_department,
+                  color: AppColors.of(context).primary),
             ),
-            child: Icon(Icons.local_fire_department,
-                color: AppColors.of(context).primary),
-          ),
-          SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Çalışma Serisi',
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w700,
-                      ),
-                ),
-                Text(
-                  streak == 0 ? 'Bugün başla' : '$streak gün üst üste',
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: AppColors.of(context).textSecondary,
-                      ),
-                ),
-              ],
+            SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Çalışma Serisi',
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w700,
+                        ),
+                  ),
+                  Text(
+                    streak == 0 ? 'Bugün başla' : '$streak gün üst üste',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: AppColors.of(context).textSecondary,
+                        ),
+                  ),
+                ],
+              ),
             ),
-          ),
-          Text(
-            streak.toString(),
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w700,
-                ),
-          ),
-        ],
+            Text(
+              streak.toString(),
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w700,
+                  ),
+            ),
+          ],
+        ),
       ),
     );
   }

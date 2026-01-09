@@ -10,6 +10,7 @@ import 'entry_wizard_screen.dart';
 import 'home_screen.dart';
 import 'profile_screen.dart';
 import 'quick_add_screen.dart';
+import 'roadmap_screen.dart';
 import 'topic_detail_screen.dart';
 
 class TopicSummariesScreen extends StatefulWidget {
@@ -258,12 +259,26 @@ class _Header extends StatelessWidget {
         Padding(
           padding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
           child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
                 'Konular',
                 style: Theme.of(context).textTheme.displaySmall?.copyWith(
                       fontWeight: FontWeight.w700,
                     ),
+              ),
+              IconButton(
+                onPressed: () => Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const RoadmapScreen()),
+                ),
+                icon: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: AppColors.of(context).primary.withOpacity(0.15),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(Icons.map, color: AppColors.of(context).primaryLight),
+                ),
               ),
             ],
           ),
