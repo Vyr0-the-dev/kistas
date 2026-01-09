@@ -69,12 +69,12 @@ class _AiLoadingDialogState extends State<AiLoadingDialog> with SingleTickerProv
                     shape: BoxShape.circle,
                     boxShadow: [
                       BoxShadow(
-                        color: AppColors.primary.withOpacity(_opacityAnimation.value * 0.6),
+                        color: AppColors.of(context).primary.withOpacity(_opacityAnimation.value * 0.6),
                         blurRadius: 30 * _scaleAnimation.value,
                         spreadRadius: 5,
                       ),
                       BoxShadow(
-                        color: AppColors.primaryLight.withOpacity(_opacityAnimation.value * 0.4),
+                        color: AppColors.of(context).primaryLight.withOpacity(_opacityAnimation.value * 0.4),
                         blurRadius: 15,
                         spreadRadius: 2,
                       ),
@@ -92,8 +92,8 @@ class _AiLoadingDialogState extends State<AiLoadingDialog> with SingleTickerProv
                             shape: BoxShape.circle,
                             gradient: LinearGradient(
                               colors: [
-                                AppColors.primaryLight,
-                                AppColors.primary,
+                                AppColors.of(context).primaryLight,
+                                AppColors.of(context).primary,
                               ],
                               begin: Alignment.topLeft,
                               end: Alignment.bottomRight,
@@ -101,7 +101,7 @@ class _AiLoadingDialogState extends State<AiLoadingDialog> with SingleTickerProv
                           ),
                         ),
                       ),
-                      const Icon(
+                      Icon(
                         Icons.auto_awesome,
                         color: Colors.white,
                         size: 32,
@@ -111,7 +111,7 @@ class _AiLoadingDialogState extends State<AiLoadingDialog> with SingleTickerProv
                 );
               },
             ),
-            const SizedBox(height: 32),
+            SizedBox(height: 32),
             GlassPanel(
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
               radius: BorderRadius.circular(16),

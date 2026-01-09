@@ -22,7 +22,7 @@ class FocusTimerScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: AppColors.of(context).background,
       body: SafeArea(
         child: Stack(
           children: [
@@ -30,7 +30,7 @@ class FocusTimerScreen extends StatelessWidget {
               top: 8,
               left: 8,
               child: IconButton(
-                icon: const Icon(Icons.close, color: Colors.white54),
+                icon: Icon(Icons.close, color: Colors.white54),
                 onPressed: () => Navigator.of(context).pop(),
               ),
             ),
@@ -47,7 +47,7 @@ class FocusTimerScreen extends StatelessWidget {
                             fontWeight: FontWeight.w700,
                           ),
                     ),
-                    const SizedBox(height: 16),
+                    SizedBox(height: 16),
                     ValueListenableBuilder<int>(
                       valueListenable: remainingSeconds,
                       builder: (context, seconds, _) {
@@ -64,7 +64,7 @@ class FocusTimerScreen extends StatelessWidget {
                         );
                       },
                     ),
-                    const SizedBox(height: 24),
+                    SizedBox(height: 24),
                     ValueListenableBuilder<bool>(
                       valueListenable: running,
                       builder: (context, isRunning, _) {
@@ -81,10 +81,10 @@ class FocusTimerScreen extends StatelessWidget {
                               ),
                               child: Text(isRunning ? 'Duraklat' : 'Devam Et'),
                             ),
-                            const SizedBox(width: 12),
+                            SizedBox(width: 12),
                             TextButton(
                               onPressed: onReset,
-                              child: const Text('Sıfırla'),
+                              child: Text('Sıfırla'),
                             ),
                           ],
                         );

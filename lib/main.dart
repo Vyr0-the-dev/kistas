@@ -46,7 +46,7 @@ class RoadToAtcApp extends StatelessWidget {
       child: MaterialApp(
         debugShowCheckedModeBanner: false,
         title: 'Road to ATC',
-        theme: buildAppTheme(),
+        theme: buildAppTheme('midnight'),
         home: const HomeScreen(),
       ),
     );

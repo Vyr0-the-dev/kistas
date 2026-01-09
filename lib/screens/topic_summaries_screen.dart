@@ -33,7 +33,7 @@ class _TopicSummariesScreenState extends State<TopicSummariesScreen> {
     final repository = AppRepositoryScope.of(context);
 
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: AppColors.of(context).background,
       body: SafeArea(
         child: ValueListenableBuilder(
           valueListenable: repository.questionEntries,
@@ -158,7 +158,7 @@ class _TopicSummariesScreenState extends State<TopicSummariesScreen> {
   void _openSortSheet(BuildContext context) {
     showModalBottomSheet(
       context: context,
-      backgroundColor: AppColors.surface,
+      backgroundColor: AppColors.of(context).surface,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
@@ -176,7 +176,7 @@ class _TopicSummariesScreenState extends State<TopicSummariesScreen> {
                   borderRadius: BorderRadius.circular(4),
                 ),
               ),
-              const SizedBox(height: 16),
+              SizedBox(height: 16),
               Text(
                 'Sıralama',
                 style: Theme.of(context).textTheme.titleMedium?.copyWith(
@@ -184,7 +184,7 @@ class _TopicSummariesScreenState extends State<TopicSummariesScreen> {
                       fontWeight: FontWeight.w700,
                     ),
               ),
-              const SizedBox(height: 12),
+              SizedBox(height: 12),
               _SortOption(
                 label: 'En son çalışılan',
                 active: _activeSort == TopicSort.recent,
@@ -265,14 +265,14 @@ class _Header extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 20),
           child: TextField(
             controller: controller,
-            decoration: const InputDecoration(
-              prefixIcon: Icon(Icons.search, color: AppColors.textSecondary),
+            decoration: InputDecoration(
+              prefixIcon: Icon(Icons.search, color: AppColors.of(context).textSecondary),
               hintText: 'Konu, ders veya etiket ara...'
             ),
             onChanged: (_) => onFilterChanged(activeFilter),
           ),
         ),
-        const SizedBox(height: 12),
+        SizedBox(height: 12),
         SizedBox(
           height: 36,
           child: ListView(
@@ -312,7 +312,7 @@ class _Header extends StatelessWidget {
             ],
           ),
         ),
-        const SizedBox(height: 10),
+        SizedBox(height: 10),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 20),
           child: Row(
@@ -323,13 +323,13 @@ class _Header extends StatelessWidget {
                   padding: const EdgeInsets.symmetric(
                       horizontal: 12, vertical: 8),
                   decoration: BoxDecoration(
-                    color: AppColors.surface,
+                    color: AppColors.of(context).surface,
                     borderRadius: BorderRadius.circular(999),
                   ),
                   child: Row(
                     children: [
-                      const Icon(Icons.sort, color: Colors.white70, size: 18),
-                      const SizedBox(width: 6),
+                      Icon(Icons.sort, color: Colors.white70, size: 18),
+                      SizedBox(width: 6),
                       Text(
                         'Sırala',
                         style: Theme.of(context).textTheme.labelSmall?.copyWith(
@@ -340,23 +340,23 @@ class _Header extends StatelessWidget {
                   ),
                 ),
               ),
-              const SizedBox(width: 12),
+              SizedBox(width: 12),
               Container(
                 width: 1,
                 height: 24,
                 color: Colors.white12,
               ),
-              const SizedBox(width: 12),
+              SizedBox(width: 12),
               _FilterToggle(
                 label: 'Zayıf',
-                color: AppColors.danger,
+                color: AppColors.of(context).danger,
                 active: weakOnly,
                 onTap: onToggleWeak,
               ),
-              const SizedBox(width: 8),
+              SizedBox(width: 8),
               _FilterToggle(
                 label: 'Uzun süre önce',
-                color: AppColors.warning,
+                color: AppColors.of(context).warning,
                 icon: Icons.history,
                 active: staleOnly,
                 onTap: onToggleStale,
@@ -390,13 +390,13 @@ class _ChipButton extends StatelessWidget {
           alignment: Alignment.center,
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
           decoration: BoxDecoration(
-            color: active ? AppColors.primary : AppColors.surface,
+            color: active ? AppColors.of(context).primary : AppColors.of(context).surface,
             borderRadius: BorderRadius.circular(999),
           ),
           child: Text(
             label,
             style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                  color: active ? Colors.white : AppColors.textSecondary,
+                  color: active ? Colors.white : AppColors.of(context).textSecondary,
                   fontWeight: FontWeight.w600,
                 ),
           ),
@@ -439,7 +439,7 @@ class _FilterToggle extends StatelessWidget {
           children: [
             if (icon != null) ...[
               Icon(icon, size: 12, color: color),
-              const SizedBox(width: 4),
+              SizedBox(width: 4),
             ] else
               Container(
                 width: 6,
@@ -449,7 +449,7 @@ class _FilterToggle extends StatelessWidget {
                   borderRadius: BorderRadius.circular(6),
                 ),
               ),
-            const SizedBox(width: 4),
+            SizedBox(width: 4),
             Text(
               label,
               style: Theme.of(context).textTheme.labelSmall?.copyWith(
@@ -472,7 +472,7 @@ class _TopicCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final status = _statusFromProgress(progress);
+    final status = _statusFromProgress(context, progress);
     final statusColor = status.color;
     final timeLabel = progress.lastStudied == null
         ? 'Hiç çalışılmadı'
@@ -483,7 +483,7 @@ class _TopicCard extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: AppColors.surface,
+          color: AppColors.of(context).surface,
           borderRadius: BorderRadius.circular(20),
           border: Border.all(color: Colors.white.withOpacity(0.05)),
         ),
@@ -503,11 +503,11 @@ class _TopicCard extends StatelessWidget {
                               fontWeight: FontWeight.w700,
                             ),
                       ),
-                      const SizedBox(height: 4),
+                      SizedBox(height: 4),
                       Text(
                         '${progress.topic.subject} • KPSS',
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color: AppColors.textSecondary,
+                              color: AppColors.of(context).textSecondary,
                             ),
                       ),
                     ],
@@ -529,7 +529,7 @@ class _TopicCard extends StatelessWidget {
                       child: Row(
                         children: [
                           Icon(status.icon, color: statusColor, size: 14),
-                          const SizedBox(width: 4),
+                          SizedBox(width: 4),
                           Text(
                             progress.totalQuestions == 0
                                 ? '—'
@@ -543,25 +543,25 @@ class _TopicCard extends StatelessWidget {
                         ],
                       ),
                     ),
-                    const SizedBox(height: 6),
+                    SizedBox(height: 6),
                     Text(
                       timeLabel,
                       style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                            color: AppColors.textSecondary,
+                            color: AppColors.of(context).textSecondary,
                           ),
                     ),
                   ],
                 ),
               ],
             ),
-            const SizedBox(height: 12),
+            SizedBox(height: 12),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
                   'İlerleme',
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: AppColors.textSecondary,
+                        color: AppColors.of(context).textSecondary,
                       ),
                 ),
                 Text(
@@ -575,13 +575,13 @@ class _TopicCard extends StatelessWidget {
                 ),
               ],
             ),
-            const SizedBox(height: 6),
+            SizedBox(height: 6),
             ClipRRect(
               borderRadius: BorderRadius.circular(8),
               child: LinearProgressIndicator(
                 value: progress.progressRatio,
                 minHeight: 6,
-                backgroundColor: AppColors.surfaceLight,
+                backgroundColor: AppColors.of(context).surfaceLight,
                 valueColor: AlwaysStoppedAnimation<Color>(statusColor),
               ),
             ),
@@ -599,17 +599,17 @@ class _StatusInfo {
   final Color color;
 }
 
-_StatusInfo _statusFromProgress(TopicProgress progress) {
+_StatusInfo _statusFromProgress(BuildContext context, TopicProgress progress) {
   if (progress.totalQuestions == 0) {
     return const _StatusInfo(icon: Icons.remove, color: Colors.white54);
   }
   if (progress.accuracy < 0.5) {
-    return const _StatusInfo(icon: Icons.warning, color: AppColors.danger);
+    return _StatusInfo(icon: Icons.warning, color: AppColors.of(context).danger);
   }
   if (progress.accuracy >= 0.8) {
-    return const _StatusInfo(icon: Icons.check_circle, color: AppColors.success);
+    return _StatusInfo(icon: Icons.check_circle, color: AppColors.of(context).success);
   }
-  return const _StatusInfo(icon: Icons.trending_up, color: AppColors.warning);
+  return _StatusInfo(icon: Icons.trending_up, color: AppColors.of(context).warning);
 }
 
 int _daysAgo(DateTime date) {
@@ -689,8 +689,8 @@ class _SortOption extends StatelessWidget {
             ),
       ),
       trailing: active
-          ? const Icon(Icons.check_circle, color: AppColors.primary)
-          : const Icon(Icons.circle_outlined, color: Colors.white38),
+          ? Icon(Icons.check_circle, color: AppColors.of(context).primary)
+          : Icon(Icons.circle_outlined, color: Colors.white38),
     );
   }
 }

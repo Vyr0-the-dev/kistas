@@ -38,12 +38,12 @@ class AiResponseDialog extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: AppColors.primary.withOpacity(0.2),
+                    color: AppColors.of(context).primary.withOpacity(0.2),
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: const Icon(Icons.auto_awesome, color: AppColors.primary),
+                  child: Icon(Icons.auto_awesome, color: AppColors.of(context).primary),
                 ),
-                const SizedBox(width: 12),
+                SizedBox(width: 12),
                 Expanded(
                   child: Text(
                     title,
@@ -55,11 +55,11 @@ class AiResponseDialog extends StatelessWidget {
                 ),
                 IconButton(
                   onPressed: () => Navigator.of(context).pop(),
-                  icon: const Icon(Icons.close, color: Colors.white70),
+                  icon: Icon(Icons.close, color: Colors.white70),
                 ),
               ],
             ),
-            const SizedBox(height: 16),
+            SizedBox(height: 16),
             Flexible(
               child: Container(
                 padding: const EdgeInsets.only(right: 8), // For scrollbar space
@@ -77,14 +77,14 @@ class AiResponseDialog extends StatelessWidget {
                       data: content,
                       selectable: true,
                       styleSheet: MarkdownStyleSheet(
-                        p: const TextStyle(color: Colors.white, fontSize: 15, height: 1.5),
-                        h1: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold),
-                        h2: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
-                        h3: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w600),
-                        strong: const TextStyle(color: AppColors.primaryLight, fontWeight: FontWeight.bold),
-                        em: const TextStyle(color: Colors.white70, fontStyle: FontStyle.italic),
-                        code: const TextStyle(
-                          color: AppColors.primaryLight,
+                        p: TextStyle(color: Colors.white, fontSize: 15, height: 1.5),
+                        h1: TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold),
+                        h2: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
+                        h3: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w600),
+                        strong: TextStyle(color: AppColors.of(context).primaryLight, fontWeight: FontWeight.bold),
+                        em: TextStyle(color: Colors.white70, fontStyle: FontStyle.italic),
+                        code: TextStyle(
+                          color: AppColors.of(context).primaryLight,
                           backgroundColor: Colors.transparent,
                           fontFamily: 'monospace',
                         ),
@@ -92,12 +92,12 @@ class AiResponseDialog extends StatelessWidget {
                           color: Colors.black26,
                           borderRadius: BorderRadius.circular(8),
                         ),
-                        listBullet: const TextStyle(color: AppColors.primary),
-                        blockquote: const TextStyle(color: Colors.white70),
+                        listBullet: TextStyle(color: AppColors.of(context).primary),
+                        blockquote: TextStyle(color: Colors.white70),
                         blockquoteDecoration: BoxDecoration(
                           color: Colors.white.withOpacity(0.05),
                           borderRadius: BorderRadius.circular(8),
-                          border: const Border(left: BorderSide(color: AppColors.primary, width: 4)),
+                          border: Border(left: BorderSide(color: AppColors.of(context).primary, width: 4)),
                         ),
                       ),
                     ),
@@ -105,17 +105,17 @@ class AiResponseDialog extends StatelessWidget {
                 ),
               ),
             ),
-            const SizedBox(height: 16),
+            SizedBox(height: 16),
             ElevatedButton(
               onPressed: () => Navigator.of(context).pop(),
               style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primary,
+                backgroundColor: AppColors.of(context).primary,
                 foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(vertical: 14),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                 elevation: 0,
               ),
-              child: const Text('Tamam'),
+              child: Text('Tamam'),
             ),
           ],
         ),

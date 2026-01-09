@@ -116,7 +116,7 @@ class _TopNoticeState extends State<_TopNotice>
                       vertical: 12,
                     ),
                     decoration: BoxDecoration(
-                      color: AppColors.surface,
+                      color: AppColors.of(context).surface,
                       borderRadius: BorderRadius.circular(18),
                       border: Border.all(
                         color: Colors.white.withOpacity(0.08),

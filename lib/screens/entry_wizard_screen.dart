@@ -101,7 +101,7 @@ class _EntryWizardScreenState extends State<EntryWizardScreen> {
         .toList();
 
     return Scaffold(
-      backgroundColor: const Color(0xFF0A0A0C),
+      backgroundColor: AppColors.of(context).background,
       body: SafeArea(
         child: Column(
           children: [
@@ -113,7 +113,7 @@ class _EntryWizardScreenState extends State<EntryWizardScreen> {
             ),
             Expanded(
               child: SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(20, 12, 20, 140),
+                padding: const EdgeInsets.fromLTRB(20, 12, 20, 40),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -132,7 +132,7 @@ class _EntryWizardScreenState extends State<EntryWizardScreen> {
                         selectedDate: _selectedDate,
                         onPickDate: _pickDate,
                       ),
-                    const SizedBox(height: 20),
+                    SizedBox(height: 20),
                     _SectionTitle(index: 2, title: 'Konu belirle'),
                     _TopicSelector(
                       topics: topics,
@@ -141,10 +141,10 @@ class _EntryWizardScreenState extends State<EntryWizardScreen> {
                           setState(() => _selectedTopic = value),
                     ),
                     if (widget.type == EntryType.question) ...[
-                      const SizedBox(height: 16),
+                      SizedBox(height: 16),
                       _SourceField(controller: _bookController),
                     ],
-                    const SizedBox(height: 20),
+                    SizedBox(height: 20),
                     _SectionTitle(index: 3, title: 'Sonuçlar'),
                     _ResultPicker(
                       correct: _correct,
@@ -152,13 +152,13 @@ class _EntryWizardScreenState extends State<EntryWizardScreen> {
                       blank: _blank,
                       onChanged: _updateResults,
                     ),
-                    const SizedBox(height: 16),
+                    SizedBox(height: 16),
                     _DurationPicker(
                       minutes: _minutes,
                       onChanged: (value) => setState(() => _minutes = value),
                     ),
                     if (widget.type == EntryType.question) ...[
-                      const SizedBox(height: 16),
+                      SizedBox(height: 16),
                       _SectionTitle(index: 4, title: 'Yanlış Türleri'),
                       _ErrorTagSelector(
                         tags: _errorTagOptions,
@@ -175,13 +175,13 @@ class _EntryWizardScreenState extends State<EntryWizardScreen> {
                       ),
                     ],
                     if (widget.type == EntryType.question) ...[
-                      const SizedBox(height: 16),
+                      SizedBox(height: 16),
                       _DatePickerRow(
                         selectedDate: _selectedDate,
                         onPickDate: _pickDate,
                       ),
                     ],
-                    const SizedBox(height: 20),
+                    SizedBox(height: 20),
                     if (widget.type == EntryType.mockExam) ...[
                       _SectionTitle(
                         index: 4,
@@ -197,13 +197,30 @@ class _EntryWizardScreenState extends State<EntryWizardScreen> {
                               () => _examSubjectMinutes[subject] = value);
                         },
                       ),
-                      const SizedBox(height: 20),
+                      SizedBox(height: 20),
                     ],
                     _SectionTitle(
                       index: widget.type == EntryType.mockExam ? 5 : 5,
                       title: 'Notlar',
                     ),
                     _NoteField(controller: _noteController),
+                    SizedBox(height: 32),
+                    ElevatedButton.icon(
+                      onPressed: () => _save(repository),
+                      icon: Icon(Icons.save),
+                      label: Text('Kaydet'),
+                      style: ElevatedButton.styleFrom(
+                        minimumSize: const Size.fromHeight(52),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(18),
+                        ),
+                      ),
+                    ),
+                    SizedBox(height: 12),
+                    TextButton(
+                      onPressed: () => _save(repository, keepOpen: true),
+                      child: Text('Kaydet ve Bir Tane Daha Ekle'),
+                    ),
                   ],
                 ),
               ),
@@ -211,9 +228,9 @@ class _EntryWizardScreenState extends State<EntryWizardScreen> {
           ],
         ),
       ),
-      bottomNavigationBar: _BottomActions(
-        onSave: () => _save(repository),
-        onSaveAndAdd: () => _save(repository, keepOpen: true),
+      bottomNavigationBar: AppBottomNav(
+        activeIndex: 2,
+        onSelect: (index) => _navigateFromNav(context, index),
       ),
     );
   }
@@ -361,7 +378,7 @@ class _WizardHeader extends StatelessWidget {
                 );
               }
             },
-            icon: const Icon(Icons.close, color: Colors.white70),
+            icon: Icon(Icons.close, color: Colors.white70),
           ),
           Expanded(
             child: Text(
@@ -375,7 +392,7 @@ class _WizardHeader extends StatelessWidget {
           ),
           TextButton(
             onPressed: onClear,
-            child: const Text('Temizle'),
+            child: Text('Temizle'),
           ),
         ],
       ),
@@ -411,7 +428,7 @@ class _SectionTitle extends StatelessWidget {
                   ),
             ),
           ),
-          const SizedBox(width: 10),
+          SizedBox(width: 10),
           Text(
             title,
             style: Theme.of(context).textTheme.titleMedium?.copyWith(
@@ -456,11 +473,11 @@ class _SubjectGrid extends StatelessWidget {
           child: Container(
             padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
-              color: active ? AppColors.primary.withOpacity(0.2) : const Color(0xFF1A1A1A),
+              color: active ? AppColors.of(context).primary.withOpacity(0.2) : AppColors.of(context).surface,
               borderRadius: BorderRadius.circular(18),
               border: Border.all(
                 color: active
-                    ? AppColors.primary
+                    ? AppColors.of(context).primary
                     : Colors.white.withOpacity(0.05),
               ),
             ),
@@ -475,7 +492,7 @@ class _SubjectGrid extends StatelessWidget {
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Icon(Icons.menu_book,
-                      color: active ? AppColors.primary : Colors.white54),
+                      color: active ? AppColors.of(context).primary : Colors.white54),
                 ),
                 const Spacer(),
                 Text(
@@ -513,24 +530,24 @@ class _ExamMetaSection extends StatelessWidget {
         _SectionTitle(index: 1, title: 'Deneme bilgisi'),
         TextField(
           controller: controller,
-          decoration: const InputDecoration(
+          decoration: InputDecoration(
             hintText: 'Deneme adı (Örn: Türkiye Geneli 1)',
           ),
         ),
-        const SizedBox(height: 12),
+        SizedBox(height: 12),
         GestureDetector(
           onTap: onPickDate,
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
             decoration: BoxDecoration(
-              color: const Color(0xFF1A1A1A),
+              color: AppColors.of(context).surface,
               borderRadius: BorderRadius.circular(16),
               border: Border.all(color: Colors.white.withOpacity(0.05)),
             ),
             child: Row(
               children: [
-                const Icon(Icons.event, color: AppColors.primary),
-                const SizedBox(width: 10),
+                Icon(Icons.event, color: AppColors.of(context).primary),
+                SizedBox(width: 10),
                 Text(
                   '${selectedDate.day}.${selectedDate.month}.${selectedDate.year}',
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
@@ -538,7 +555,7 @@ class _ExamMetaSection extends StatelessWidget {
                       ),
                 ),
                 const Spacer(),
-                const Icon(Icons.keyboard_arrow_down, color: Colors.white54),
+                Icon(Icons.keyboard_arrow_down, color: Colors.white54),
               ],
             ),
           ),
@@ -566,10 +583,10 @@ class _SourceField extends StatelessWidget {
                 letterSpacing: 0.4,
               ),
         ),
-        const SizedBox(height: 8),
+        SizedBox(height: 8),
         TextField(
           controller: controller,
-          decoration: const InputDecoration(
+          decoration: InputDecoration(
             hintText: 'Örn: Yediiklim Türkçe SB',
           ),
         ),
@@ -602,12 +619,12 @@ class _TopicSelector extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             decoration: BoxDecoration(
               color: active
-                  ? AppColors.primary.withOpacity(0.2)
+                  ? AppColors.of(context).primary.withOpacity(0.2)
                   : Colors.white.withOpacity(0.05),
               borderRadius: BorderRadius.circular(12),
               border: Border.all(
                 color: active
-                    ? AppColors.primary
+                    ? AppColors.of(context).primary
                     : Colors.white.withOpacity(0.05),
               ),
             ),
@@ -645,21 +662,21 @@ class _ResultPicker extends StatelessWidget {
         _CounterRow(
           label: 'Doğru',
           value: correct,
-          color: AppColors.success,
+          color: AppColors.of(context).success,
           onChanged: (value) => onChanged(value, wrong, blank),
         ),
-        const SizedBox(height: 12),
+        SizedBox(height: 12),
         _CounterRow(
           label: 'Yanlış',
           value: wrong,
-          color: AppColors.danger,
+          color: AppColors.of(context).danger,
           onChanged: (value) => onChanged(correct, value, blank),
         ),
-        const SizedBox(height: 12),
+        SizedBox(height: 12),
         _CounterRow(
           label: 'Boş',
           value: blank,
-          color: AppColors.warning,
+          color: AppColors.of(context).warning,
           onChanged: (value) => onChanged(correct, wrong, value),
         ),
       ],
@@ -685,7 +702,7 @@ class _CounterRow extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
-        color: const Color(0xFF1A1A1A),
+        color: AppColors.of(context).surface,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: Colors.white.withOpacity(0.05)),
       ),
@@ -702,7 +719,7 @@ class _CounterRow extends StatelessWidget {
                   borderRadius: BorderRadius.circular(6),
                 ),
               ),
-              const SizedBox(width: 8),
+              SizedBox(width: 8),
               Text(
                 label,
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
@@ -717,7 +734,7 @@ class _CounterRow extends StatelessWidget {
                 icon: Icons.remove,
                 onTap: () => onChanged(max(0, value - 1)),
               ),
-              const SizedBox(width: 8),
+              SizedBox(width: 8),
               Text(
                 value.toString(),
                 style: Theme.of(context).textTheme.titleMedium?.copyWith(
@@ -725,7 +742,7 @@ class _CounterRow extends StatelessWidget {
                       fontWeight: FontWeight.w700,
                     ),
               ),
-              const SizedBox(width: 8),
+              SizedBox(width: 8),
               _CounterButton(
                 icon: Icons.add,
                 onTap: () => onChanged(value + 1),
@@ -772,14 +789,14 @@ class _DurationPicker extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       decoration: BoxDecoration(
-        color: const Color(0xFF1A1A1A),
+        color: AppColors.of(context).surface,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: Colors.white.withOpacity(0.05)),
       ),
       child: Row(
         children: [
-          const Icon(Icons.timer, color: AppColors.primary),
-          const SizedBox(width: 10),
+          Icon(Icons.timer, color: AppColors.of(context).primary),
+          SizedBox(width: 10),
           Text(
             'Süre',
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
@@ -791,7 +808,7 @@ class _DurationPicker extends StatelessWidget {
             icon: Icons.remove,
             onTap: () => onChanged(max(0, minutes - 5)),
           ),
-          const SizedBox(width: 8),
+          SizedBox(width: 8),
           Text(
             '$minutes dk',
             style: Theme.of(context).textTheme.titleMedium?.copyWith(
@@ -799,7 +816,7 @@ class _DurationPicker extends StatelessWidget {
                   fontWeight: FontWeight.w700,
                 ),
           ),
-          const SizedBox(width: 8),
+          SizedBox(width: 8),
           _CounterButton(
             icon: Icons.add,
             onTap: () => onChanged(minutes + 5),
@@ -826,14 +843,14 @@ class _DatePickerRow extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         decoration: BoxDecoration(
-          color: const Color(0xFF1A1A1A),
+          color: AppColors.of(context).surface,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(color: Colors.white.withOpacity(0.05)),
         ),
         child: Row(
           children: [
-            const Icon(Icons.event, color: AppColors.primary),
-            const SizedBox(width: 10),
+            Icon(Icons.event, color: AppColors.of(context).primary),
+            SizedBox(width: 10),
             Text(
               'Tarih',
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
@@ -847,8 +864,8 @@ class _DatePickerRow extends StatelessWidget {
                     color: Colors.white70,
                   ),
             ),
-            const SizedBox(width: 6),
-            const Icon(Icons.keyboard_arrow_down, color: Colors.white54),
+            SizedBox(width: 6),
+            Icon(Icons.keyboard_arrow_down, color: Colors.white54),
           ],
         ),
       ),
@@ -878,7 +895,7 @@ class _ExamSubjectBreakdown extends StatelessWidget {
                 padding:
                     const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF1A1A1A),
+                  color: AppColors.of(context).surface,
                   borderRadius: BorderRadius.circular(16),
                   border: Border.all(color: Colors.white.withOpacity(0.05)),
                 ),
@@ -898,7 +915,7 @@ class _ExamSubjectBreakdown extends StatelessWidget {
                       child: TextField(
                         keyboardType:
                             const TextInputType.numberWithOptions(decimal: true),
-                        decoration: const InputDecoration(
+                        decoration: InputDecoration(
                           hintText: 'Net',
                         ),
                         onChanged: (value) {
@@ -910,12 +927,12 @@ class _ExamSubjectBreakdown extends StatelessWidget {
                         },
                       ),
                     ),
-                    const SizedBox(width: 12),
+                    SizedBox(width: 12),
                     SizedBox(
                       width: 72,
                       child: TextField(
                         keyboardType: TextInputType.number,
-                        decoration: const InputDecoration(
+                        decoration: InputDecoration(
                           hintText: 'dk',
                         ),
                         onChanged: (value) {
@@ -962,12 +979,12 @@ class _ErrorTagSelector extends StatelessWidget {
                     const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                 decoration: BoxDecoration(
                   color: selected.contains(tag)
-                      ? AppColors.primary.withOpacity(0.18)
+                      ? AppColors.of(context).primary.withOpacity(0.18)
                       : Colors.white.withOpacity(0.05),
                   borderRadius: BorderRadius.circular(14),
                   border: Border.all(
                     color: selected.contains(tag)
-                        ? AppColors.primary
+                        ? AppColors.of(context).primary
                         : Colors.white12,
                   ),
                 ),
@@ -998,60 +1015,14 @@ class _NoteField extends StatelessWidget {
     return TextField(
       controller: controller,
       maxLines: 4,
-      decoration: const InputDecoration(
+      decoration: InputDecoration(
         hintText: 'Not ekle (opsiyonel)',
       ),
     );
   }
 }
 
-class _BottomActions extends StatelessWidget {
-  const _BottomActions({required this.onSave, required this.onSaveAndAdd});
 
-  final VoidCallback onSave;
-  final VoidCallback onSaveAndAdd;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Container(
-          padding: const EdgeInsets.fromLTRB(20, 12, 20, 18),
-          decoration: BoxDecoration(
-            color: AppColors.background.withOpacity(0.95),
-            border: Border(top: BorderSide(color: Colors.white.withOpacity(0.08))),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              ElevatedButton.icon(
-                onPressed: onSave,
-                icon: const Icon(Icons.save),
-                label: const Text('Kaydet'),
-                style: ElevatedButton.styleFrom(
-                  minimumSize: const Size.fromHeight(52),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(18),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 10),
-              TextButton(
-                onPressed: onSaveAndAdd,
-                child: const Text('Kaydet ve Bir Tane Daha Ekle'),
-              ),
-            ],
-          ),
-        ),
-        AppBottomNav(
-          activeIndex: 2,
-          onSelect: (index) => _navigateFromNav(context, index),
-        ),
-      ],
-    );
-  }
-}
 
 void _navigateFromNav(BuildContext context, int index) {
   switch (index) {

@@ -29,7 +29,7 @@ class AppBottomNav extends StatelessWidget {
               child: Container(
                 padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
                 decoration: BoxDecoration(
-                  color: AppColors.background.withOpacity(0.85),
+                  color: AppColors.of(context).background.withOpacity(0.85),
                 ),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -46,7 +46,7 @@ class AppBottomNav extends StatelessWidget {
                       active: activeIndex == 1,
                       onTap: () => onSelect(1),
                     ),
-                    const SizedBox(width: 60),
+                    SizedBox(width: 60),
                     _NavItem(
                       label: 'Analiz',
                       icon: Icons.bar_chart,
@@ -92,7 +92,7 @@ class _NavItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = active ? AppColors.primary : Colors.white54;
+    final color = active ? AppColors.of(context).primary : Colors.white54;
     return Expanded(
       child: GestureDetector(
         onTap: onTap,
@@ -101,7 +101,7 @@ class _NavItem extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(icon, color: color, size: 22),
-            const SizedBox(height: 4),
+            SizedBox(height: 4),
             Text(
               label,
               style: Theme.of(context).textTheme.labelSmall?.copyWith(
@@ -135,26 +135,26 @@ class _CenterAction extends StatelessWidget {
               width: 54,
               height: 54,
               decoration: BoxDecoration(
-                color: AppColors.primary,
+                color: AppColors.of(context).primary,
                 borderRadius: BorderRadius.circular(18),
                 boxShadow: [
                   BoxShadow(
-                    color: AppColors.primary.withOpacity(0.5),
+                    color: AppColors.of(context).primary.withOpacity(0.5),
                     blurRadius: 18,
                     offset: const Offset(0, 8),
                   ),
                 ],
               ),
-              child: const Icon(Icons.add, color: Colors.white, size: 24),
+              child: Icon(Icons.add, color: Colors.white, size: 24),
             ),
           ),
-          const SizedBox(height: 4),
+          SizedBox(height: 4),
           Transform.translate(
             offset: const Offset(0, -6),
             child: Text(
               'Hızlı Ekle',
               style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                    color: active ? AppColors.primary : Colors.white54,
+                    color: active ? AppColors.of(context).primary : Colors.white54,
                     fontWeight: FontWeight.w700,
                   ),
             ),

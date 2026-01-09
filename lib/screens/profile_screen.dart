@@ -52,7 +52,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       _apiKeyController.text = repository.geminiApiKey.value;
     }
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: AppColors.of(context).background,
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.fromLTRB(20, 24, 20, 140),
@@ -64,14 +64,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     fontWeight: FontWeight.w700,
                   ),
             ),
-            const SizedBox(height: 6),
+            SizedBox(height: 6),
             Text(
               'Verilerini güvenle yönet ve yedekle.',
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: AppColors.textSecondary,
+                    color: AppColors.of(context).textSecondary,
                   ),
             ),
-            const SizedBox(height: 20),
+            SizedBox(height: 20),
             GlassPanel(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -93,8 +93,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   const Divider(color: Colors.white12, height: 24),
                   _ReminderSection(repository: repository),
                   const Divider(color: Colors.white12, height: 24),
-                  _BadgesSection(repository: repository),
-                  const Divider(color: Colors.white12, height: 24),
                   ValueListenableBuilder<String>(
                     valueListenable: repository.geminiApiKey,
                     builder: (context, key, _) {
@@ -111,15 +109,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                   fontWeight: FontWeight.w700,
                                 ),
                           ),
-                          const SizedBox(height: 8),
+                          SizedBox(height: 8),
                           TextField(
                             controller: _apiKeyController,
                             obscureText: true,
-                            decoration: const InputDecoration(
+                            decoration: InputDecoration(
                               hintText: 'AIza...',
                             ),
                           ),
-                          const SizedBox(height: 8),
+                          SizedBox(height: 8),
                           Row(
                             children: [
                               Expanded(
@@ -138,10 +136,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                     await _fetchAndSelectModel(
                                         context, repository, apiKey);
                                   },
-                                  child: const Text('Kaydet'),
+                                  child: Text('Kaydet'),
                                 ),
                               ),
-                              const SizedBox(width: 8),
+                              SizedBox(width: 8),
                               Expanded(
                                 child: ElevatedButton(
                                   onPressed: () => _fetchAndSelectModel(
@@ -149,17 +147,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                     repository,
                                     _apiKeyController.text,
                                   ),
-                                  child: const Text('Model Seç'),
+                                  child: Text('Model Seç'),
                                 ),
                               ),
                             ],
                           ),
-                          const SizedBox(height: 12),
+                          SizedBox(height: 12),
                           ValueListenableBuilder<String>(
                             valueListenable: repository.geminiModel,
                             builder: (context, model, _) {
                               if (model.isEmpty) {
-                                return const SizedBox.shrink();
+                                return SizedBox.shrink();
                               }
                               return _ModelInfoCard(model: model);
                             },
@@ -185,13 +183,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ],
               ),
             ),
-            const SizedBox(height: 16),
+            SizedBox(height: 16),
             GlassPanel(
               child: _ProfileAction(
                 title: 'Verileri Sıfırla',
                 subtitle: 'Tüm soru ve deneme kayıtlarını sil.',
                 icon: Icons.delete_forever,
-                iconColor: AppColors.danger,
+                iconColor: AppColors.of(context).danger,
                 onTap: () => _confirmReset(context, repository),
               ),
             ),
@@ -230,10 +228,10 @@ class _ProfileAction extends StatelessWidget {
         width: 42,
         height: 42,
         decoration: BoxDecoration(
-          color: (iconColor ?? AppColors.primary).withOpacity(0.18),
+          color: (iconColor ?? AppColors.of(context).primary).withOpacity(0.18),
           borderRadius: BorderRadius.circular(12),
         ),
-        child: Icon(icon, color: iconColor ?? AppColors.primary),
+        child: Icon(icon, color: iconColor ?? AppColors.of(context).primary),
       ),
       title: Text(
         title,
@@ -245,10 +243,10 @@ class _ProfileAction extends StatelessWidget {
       subtitle: Text(
         subtitle,
         style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: AppColors.textSecondary,
+              color: AppColors.of(context).textSecondary,
             ),
       ),
-      trailing: const Icon(Icons.chevron_right, color: Colors.white54),
+      trailing: Icon(Icons.chevron_right, color: Colors.white54),
     );
   }
 }
@@ -272,12 +270,12 @@ class _GoalRow extends StatelessWidget {
           width: 42,
           height: 42,
           decoration: BoxDecoration(
-            color: AppColors.primary.withOpacity(0.18),
+            color: AppColors.of(context).primary.withOpacity(0.18),
             borderRadius: BorderRadius.circular(12),
           ),
-          child: const Icon(Icons.flag, color: AppColors.primary),
+          child: Icon(Icons.flag, color: AppColors.of(context).primary),
         ),
-        const SizedBox(width: 12),
+        SizedBox(width: 12),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -292,7 +290,7 @@ class _GoalRow extends StatelessWidget {
               Text(
                 '$value soru',
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: AppColors.textSecondary,
+                      color: AppColors.of(context).textSecondary,
                     ),
               ),
             ],
@@ -301,7 +299,7 @@ class _GoalRow extends StatelessWidget {
         Row(
           children: [
             _GoalButton(icon: Icons.remove, onTap: onDecrease),
-            const SizedBox(width: 8),
+            SizedBox(width: 8),
             _GoalButton(icon: Icons.add, onTap: onIncrease),
           ],
         ),
@@ -327,14 +325,14 @@ class _AiGoalSection extends StatelessWidget {
                 fontWeight: FontWeight.w700,
               ),
         ),
-        const SizedBox(height: 6),
+        SizedBox(height: 6),
         Text(
           'Çalışma verilerine göre günlük/haftalık/aylık hedef önerir.',
           style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: AppColors.textSecondary,
+                color: AppColors.of(context).textSecondary,
               ),
         ),
-        const SizedBox(height: 12),
+        SizedBox(height: 12),
         ValueListenableBuilder<Map<String, int>>(
           valueListenable: repository.aiGoalTargets,
           builder: (context, targets, _) {
@@ -353,7 +351,7 @@ class _AiGoalSection extends StatelessWidget {
                             suffix: 'soru',
                           ),
                         ),
-                        const SizedBox(width: 8),
+                        SizedBox(width: 8),
                         Expanded(
                           child: _AiGoalTile(
                             label: 'Haftalık',
@@ -361,7 +359,7 @@ class _AiGoalSection extends StatelessWidget {
                             suffix: 'soru',
                           ),
                         ),
-                        const SizedBox(width: 8),
+                        SizedBox(width: 8),
                         Expanded(
                           child: _AiGoalTile(
                             label: 'Aylık',
@@ -371,13 +369,13 @@ class _AiGoalSection extends StatelessWidget {
                         ),
                       ],
                     ),
-                    const SizedBox(height: 8),
+                    SizedBox(height: 8),
                     Text(
                       updatedAt == null
                           ? 'Henüz hedef oluşturulmadı.'
                           : 'Son güncelleme: ${_formatDateTime(updatedAt)}',
                       style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                            color: AppColors.textSecondary,
+                            color: AppColors.of(context).textSecondary,
                           ),
                     ),
                   ],
@@ -386,7 +384,7 @@ class _AiGoalSection extends StatelessWidget {
             );
           },
         ),
-        const SizedBox(height: 14),
+        SizedBox(height: 14),
         ValueListenableBuilder<String>(
           valueListenable: repository.aiGoalCadence,
           builder: (context, cadence, _) {
@@ -413,7 +411,7 @@ class _AiGoalSection extends StatelessWidget {
             );
           },
         ),
-        const SizedBox(height: 12),
+        SizedBox(height: 12),
         ValueListenableBuilder<bool>(
           valueListenable: repository.aiNotificationsEnabled,
           builder: (context, enabled, _) {
@@ -423,13 +421,13 @@ class _AiGoalSection extends StatelessWidget {
                   width: 42,
                   height: 42,
                   decoration: BoxDecoration(
-                    color: AppColors.primary.withOpacity(0.18),
+                    color: AppColors.of(context).primary.withOpacity(0.18),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child:
-                      const Icon(Icons.notifications, color: AppColors.primary),
+                      Icon(Icons.notifications, color: AppColors.of(context).primary),
                 ),
-                const SizedBox(width: 12),
+                SizedBox(width: 12),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -444,7 +442,7 @@ class _AiGoalSection extends StatelessWidget {
                       Text(
                         'Öneriler bildirim kutusuna düşsün.',
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color: AppColors.textSecondary,
+                              color: AppColors.of(context).textSecondary,
                             ),
                       ),
                     ],
@@ -453,22 +451,22 @@ class _AiGoalSection extends StatelessWidget {
                 Switch.adaptive(
                   value: enabled,
                   onChanged: repository.setAiNotificationsEnabled,
-                  activeColor: AppColors.primary,
+                  activeColor: AppColors.of(context).primary,
                 ),
               ],
             );
           },
         ),
-        const SizedBox(height: 12),
+        SizedBox(height: 12),
         SizedBox(
           width: double.infinity,
           child: ElevatedButton.icon(
             onPressed: () => _requestAiGoals(context, repository),
-            icon: const Icon(Icons.auto_awesome),
-            label: const Text('AI Hedef Öner'),
+            icon: Icon(Icons.auto_awesome),
+            label: Text('AI Hedef Öner'),
           ),
         ),
-        const SizedBox(height: 12),
+        SizedBox(height: 12),
         ValueListenableBuilder<String?>(
           valueListenable: repository.aiProgramLast,
           builder: (context, program, _) {
@@ -483,19 +481,8 @@ class _AiGoalSection extends StatelessWidget {
                           ? 'Henüz bir program oluşturulmadı.'
                           : 'Son program: ${_formatDateTime(updatedAt)}',
                       style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                            color: AppColors.textSecondary,
+                            color: AppColors.of(context).textSecondary,
                           ),
-                    ),
-                    const SizedBox(height: 8),
-                    SizedBox(
-                      width: double.infinity,
-                      child: OutlinedButton.icon(
-                        onPressed: program == null
-                            ? null
-                            : () => _exportAiProgram(context, program),
-                        icon: const Icon(Icons.share),
-                        label: const Text('AI Programını Dışa Aktar'),
-                      ),
                     ),
                   ],
                 );
@@ -535,11 +522,11 @@ class _AiGoalTile extends StatelessWidget {
           Text(
             label,
             style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                  color: AppColors.textSecondary,
+                  color: AppColors.of(context).textSecondary,
                   letterSpacing: 0.4,
                 ),
           ),
-          const SizedBox(height: 4),
+          SizedBox(height: 4),
           Text(
             '$display $suffix',
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
@@ -573,17 +560,17 @@ class _AiCadenceChip extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
         decoration: BoxDecoration(
           color: isSelected
-              ? AppColors.primary.withOpacity(0.2)
+              ? AppColors.of(context).primary.withOpacity(0.2)
               : Colors.white.withOpacity(0.06),
           borderRadius: BorderRadius.circular(999),
           border: Border.all(
-            color: isSelected ? AppColors.primary : Colors.white12,
+            color: isSelected ? AppColors.of(context).primary : Colors.white12,
           ),
         ),
         child: Text(
           label,
           style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                color: isSelected ? Colors.white : AppColors.textSecondary,
+                color: isSelected ? Colors.white : AppColors.of(context).textSecondary,
                 fontWeight: FontWeight.w600,
               ),
         ),
@@ -592,70 +579,9 @@ class _AiCadenceChip extends StatelessWidget {
   }
 }
 
-class _Badge {
-  const _Badge({
-    required this.title,
-    required this.subtitle,
-    required this.achieved,
-    required this.icon,
-  });
 
-  final String title;
-  final String subtitle;
-  final bool achieved;
-  final IconData icon;
-}
 
-class _BadgesSection extends StatelessWidget {
-  const _BadgesSection({required this.repository});
 
-  final AppRepository repository;
-
-  @override
-  Widget build(BuildContext context) {
-    return ValueListenableBuilder<List<QuestionEntry>>(
-      valueListenable: repository.questionEntries,
-      builder: (context, entries, _) {
-        return ValueListenableBuilder<List<MockExam>>(
-          valueListenable: repository.mockExams,
-          builder: (context, exams, __) {
-            final badges = _buildBadges(entries, exams);
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Rozetler',
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w700,
-                      ),
-                ),
-                const SizedBox(height: 10),
-                if (badges.isEmpty)
-                  Text(
-                    'Henüz rozet kazanılmadı.',
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: AppColors.textSecondary,
-                        ),
-                  )
-                else
-                  Wrap(
-                    spacing: 10,
-                    runSpacing: 10,
-                    children: badges
-                        .map(
-                          (badge) => _BadgeChip(badge: badge),
-                        )
-                        .toList(),
-                  ),
-              ],
-            );
-          },
-        );
-      },
-    );
-  }
-}
 
 class _ReminderSection extends StatelessWidget {
   const _ReminderSection({required this.repository});
@@ -680,20 +606,20 @@ class _ReminderSection extends StatelessWidget {
                         fontWeight: FontWeight.w700,
                       ),
                 ),
-                const SizedBox(height: 8),
+                SizedBox(height: 8),
                 Row(
                   children: [
                     Container(
                       width: 42,
                       height: 42,
                       decoration: BoxDecoration(
-                        color: AppColors.primary.withOpacity(0.18),
+                        color: AppColors.of(context).primary.withOpacity(0.18),
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child:
-                          const Icon(Icons.alarm, color: AppColors.primary),
+                          Icon(Icons.alarm, color: AppColors.of(context).primary),
                     ),
-                    const SizedBox(width: 12),
+                    SizedBox(width: 12),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -716,7 +642,7 @@ class _ReminderSection extends StatelessWidget {
                                 .textTheme
                                 .bodySmall
                                 ?.copyWith(
-                                  color: AppColors.textSecondary,
+                                  color: AppColors.of(context).textSecondary,
                                 ),
                           ),
                         ],
@@ -734,33 +660,33 @@ class _ReminderSection extends StatelessWidget {
                           await NotificationService.cancelReminder();
                         }
                       },
-                      activeColor: AppColors.primary,
+                      activeColor: AppColors.of(context).primary,
                     ),
                   ],
                 ),
-                const SizedBox(height: 8),
+                SizedBox(height: 8),
                 SizedBox(
                   width: double.infinity,
                   child: OutlinedButton.icon(
                     onPressed: () => _requestExactAlarm(context),
-                    icon: const Icon(Icons.settings_suggest),
-                    label: const Text('Alarm İzni Kontrol'),
+                    icon: Icon(Icons.settings_suggest),
+                    label: Text('Alarm İzni Kontrol'),
                   ),
                 ),
-                const SizedBox(height: 8),
+                SizedBox(height: 8),
                 SizedBox(
                   width: double.infinity,
                   child: OutlinedButton.icon(
                     onPressed: enabled
                         ? () => _pickReminderTime(context, repository)
                         : null,
-                    icon: const Icon(Icons.schedule),
-                    label: const Text('Saat Seç'),
+                    icon: Icon(Icons.schedule),
+                    label: Text('Saat Seç'),
                   ),
                 ),
-                const SizedBox(height: 16),
+                SizedBox(height: 16),
                 _WeeklyPlanSection(repository: repository),
-                const SizedBox(height: 16),
+                SizedBox(height: 16),
                 SizedBox(
                   width: double.infinity,
                   child: OutlinedButton.icon(
@@ -769,11 +695,11 @@ class _ReminderSection extends StatelessWidget {
                       if (!context.mounted) return;
                       _showSnack(context, 'Test bildirimi gönderildi.');
                     },
-                    icon: const Icon(Icons.notifications_active),
-                    label: const Text('Test Bildirimi Gönder'),
+                    icon: Icon(Icons.notifications_active),
+                    label: Text('Test Bildirimi Gönder'),
                   ),
                 ),
-                const SizedBox(height: 8),
+                SizedBox(height: 8),
                 TextButton(
                   onPressed: () async {
                     final granted = await NotificationService.requestExactAlarmPermission();
@@ -783,7 +709,7 @@ class _ReminderSection extends StatelessWidget {
                       granted ? 'Tam zamanlı alarm izni var.' : 'İzin verilmedi. Ayarlardan açın.',
                     );
                   },
-                  child: const Text('Kesin Alarm İznini Kontrol Et (Android 12+)'),
+                  child: Text('Kesin Alarm İznini Kontrol Et (Android 12+)'),
                 ),
               ],
             );
@@ -820,20 +746,20 @@ class _WeeklyPlanSection extends StatelessWidget {
                             fontWeight: FontWeight.w700,
                           ),
                     ),
-                    const SizedBox(height: 8),
+                    SizedBox(height: 8),
                     Row(
                       children: [
                         Container(
                           width: 42,
                           height: 42,
                           decoration: BoxDecoration(
-                            color: AppColors.primary.withOpacity(0.18),
+                            color: AppColors.of(context).primary.withOpacity(0.18),
                             borderRadius: BorderRadius.circular(12),
                           ),
-                          child: const Icon(Icons.event_note,
-                              color: AppColors.primary),
+                          child: Icon(Icons.event_note,
+                              color: AppColors.of(context).primary),
                         ),
-                        const SizedBox(width: 12),
+                        SizedBox(width: 12),
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -856,7 +782,7 @@ class _WeeklyPlanSection extends StatelessWidget {
                                     .textTheme
                                     .bodySmall
                                     ?.copyWith(
-                                      color: AppColors.textSecondary,
+                                      color: AppColors.of(context).textSecondary,
                                     ),
                               ),
                             ],
@@ -877,11 +803,11 @@ class _WeeklyPlanSection extends StatelessWidget {
                               await NotificationService.cancelWeeklyPlan();
                             }
                           },
-                          activeColor: AppColors.primary,
+                          activeColor: AppColors.of(context).primary,
                         ),
                       ],
                     ),
-                    const SizedBox(height: 8),
+                    SizedBox(height: 8),
                     Row(
                       children: [
                         Expanded(
@@ -892,11 +818,11 @@ class _WeeklyPlanSection extends StatelessWidget {
                                       repository,
                                     )
                                 : null,
-                            icon: const Icon(Icons.calendar_today),
-                            label: const Text('Gün Seç'),
+                            icon: Icon(Icons.calendar_today),
+                            label: Text('Gün Seç'),
                           ),
                         ),
-                        const SizedBox(width: 12),
+                        SizedBox(width: 12),
                         Expanded(
                           child: OutlinedButton.icon(
                             onPressed: enabled
@@ -905,8 +831,8 @@ class _WeeklyPlanSection extends StatelessWidget {
                                       repository,
                                     )
                                 : null,
-                            icon: const Icon(Icons.schedule),
-                            label: const Text('Saat Seç'),
+                            icon: Icon(Icons.schedule),
+                            label: Text('Saat Seç'),
                           ),
                         ),
                       ],
@@ -922,51 +848,7 @@ class _WeeklyPlanSection extends StatelessWidget {
   }
 }
 
-class _BadgeChip extends StatelessWidget {
-  const _BadgeChip({required this.badge});
 
-  final _Badge badge;
-
-  @override
-  Widget build(BuildContext context) {
-    final color = badge.achieved ? AppColors.primary : Colors.white24;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      decoration: BoxDecoration(
-        color: badge.achieved
-            ? AppColors.primary.withOpacity(0.16)
-            : Colors.white.withOpacity(0.04),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: color),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(badge.icon, color: color, size: 18),
-          const SizedBox(width: 8),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                badge.title,
-                style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                      color: badge.achieved ? Colors.white : Colors.white54,
-                      fontWeight: FontWeight.w700,
-                    ),
-              ),
-              Text(
-                badge.subtitle,
-                style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                      color: AppColors.textSecondary,
-                    ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
 
 class _GoalButton extends StatelessWidget {
   const _GoalButton({required this.icon, required this.onTap});
@@ -1038,7 +920,7 @@ Future<void> _fetchAndSelectModel(
       builder: (context) {
         final currentModel = repository.geminiModel.value;
         return AlertDialog(
-          title: const Text('Model Seç'),
+          title: Text('Model Seç'),
           content: SizedBox(
             width: double.maxFinite,
             child: ListView.builder(
@@ -1052,10 +934,10 @@ Future<void> _fetchAndSelectModel(
                     model,
                     style: TextStyle(
                       fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
-                      color: isActive ? AppColors.primaryLight : Colors.white,
+                      color: isActive ? AppColors.of(context).primaryLight : Colors.white,
                     ),
                   ),
-                  trailing: isActive ? const Icon(Icons.check, color: AppColors.primaryLight) : null,
+                  trailing: isActive ? Icon(Icons.check, color: AppColors.of(context).primaryLight) : null,
                   onTap: () => Navigator.of(context).pop(model),
                 );
               },
@@ -1193,7 +1075,7 @@ Future<void> _showAiGoalDialog(
     context: context,
     builder: (context) {
       return AlertDialog(
-        title: const Text('AI Hedef Önerisi'),
+        title: Text('AI Hedef Önerisi'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -1201,9 +1083,9 @@ Future<void> _showAiGoalDialog(
             Text('Günlük: ${goals.daily} soru'),
             Text('Haftalık: ${goals.weekly} soru'),
             Text('Aylık: ${goals.monthly} soru'),
-            const SizedBox(height: 12),
+            SizedBox(height: 12),
             Text(goals.note),
-            const SizedBox(height: 8),
+            SizedBox(height: 8),
             Text(
               'Seçili kadans: $cadenceLabel',
               style: Theme.of(context).textTheme.labelSmall,
@@ -1214,12 +1096,12 @@ Future<void> _showAiGoalDialog(
           TextButton(
             onPressed: () =>
                 Navigator.of(context).pop(_AiGoalDialogAction.saveOnly),
-            child: const Text('Kaydet'),
+            child: Text('Kaydet'),
           ),
           ElevatedButton(
             onPressed: () =>
                 Navigator.of(context).pop(_AiGoalDialogAction.applySelected),
-            child: const Text('Uygula'),
+            child: Text('Uygula'),
           ),
         ],
       );
@@ -1335,62 +1217,7 @@ double _averageNet(List<MockExam> exams) {
   return total / exams.length;
 }
 
-List<_Badge> _buildBadges(
-  List<QuestionEntry> entries,
-  List<MockExam> exams,
-) {
-  final totalQuestions =
-      entries.fold<int>(0, (sum, entry) => sum + entry.total);
-  final totalMinutes =
-      entries.fold<int>(0, (sum, entry) => sum + entry.minutes);
-  final streak = _calculateStreak(entries, exams);
-  final avgNet = _averageNet(exams);
-  final accuracy = _overallAccuracy(entries);
-  return [
-    _Badge(
-      title: 'İstikrar',
-      subtitle: '3 gün seri',
-      achieved: streak >= 3,
-      icon: Icons.local_fire_department,
-    ),
-    _Badge(
-      title: '100 Soru',
-      subtitle: 'Toplam çözüm',
-      achieved: totalQuestions >= 100,
-      icon: Icons.task_alt,
-    ),
-    _Badge(
-      title: '1000 Soru',
-      subtitle: 'Maraton',
-      achieved: totalQuestions >= 1000,
-      icon: Icons.emoji_events,
-    ),
-    _Badge(
-      title: 'Deneme Ustası',
-      subtitle: '5 deneme',
-      achieved: exams.length >= 5,
-      icon: Icons.assessment,
-    ),
-    _Badge(
-      title: 'Süre Disiplini',
-      subtitle: '500 dk',
-      achieved: totalMinutes >= 500,
-      icon: Icons.timer,
-    ),
-    _Badge(
-      title: 'Net Dengesi',
-      subtitle: '70+ net',
-      achieved: avgNet >= 70,
-      icon: Icons.trending_up,
-    ),
-    _Badge(
-      title: 'Doğruluk',
-      subtitle: '%80+',
-      achieved: accuracy >= 0.8,
-      icon: Icons.check_circle,
-    ),
-  ];
-}
+
 
 double _overallAccuracy(List<QuestionEntry> entries) {
   final correct = entries.fold<int>(0, (sum, entry) => sum + entry.correct);
@@ -1479,17 +1306,7 @@ Future<void> _exportBackup(
   await Share.shareXFiles([XFile(file.path)], text: 'Road to ATC yedeği');
 }
 
-Future<void> _exportAiProgram(
-  BuildContext context,
-  String program,
-) async {
-  final fileName =
-      'road_to_atc_ai_program_${DateTime.now().millisecondsSinceEpoch}.txt';
-  final dir = await getTemporaryDirectory();
-  final file = File('${dir.path}/$fileName');
-  await file.writeAsString(program);
-  await Share.shareXFiles([XFile(file.path)], text: 'Road to ATC AI programı');
-}
+
 
 Future<void> _requestExactAlarm(BuildContext context) async {
   final granted = await NotificationService.requestExactAlarmPermission();
@@ -1539,7 +1356,7 @@ Future<void> _pickWeeklyPlanDay(
 ) async {
   final selected = await showModalBottomSheet<int>(
     context: context,
-    backgroundColor: AppColors.surface,
+    backgroundColor: AppColors.of(context).surface,
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
     ),
@@ -1689,16 +1506,16 @@ Future<void> _confirmReset(
     context: context,
     builder: (context) {
       return AlertDialog(
-        title: const Text('Verileri Sıfırla'),
-        content: const Text('Tüm kayıtlar silinsin mi? Bu işlem geri alınamaz.'),
+        title: Text('Verileri Sıfırla'),
+        content: Text('Tüm kayıtlar silinsin mi? Bu işlem geri alınamaz.'),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Vazgeç'),
+            child: Text('Vazgeç'),
           ),
           ElevatedButton(
             onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('Sil'),
+            child: Text('Sil'),
           ),
         ],
       );
@@ -1737,28 +1554,28 @@ class _AiUsageTracker extends StatelessWidget {
                 fontWeight: FontWeight.w700,
               ),
         ),
-        const SizedBox(height: 6),
+        SizedBox(height: 6),
         Text(
           'Bugün yapılan AI isteklerinin sayısı.',
           style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: AppColors.textSecondary,
+                color: AppColors.of(context).textSecondary,
               ),
         ),
-        const SizedBox(height: 12),
+        SizedBox(height: 12),
         ValueListenableBuilder<int>(
           valueListenable: repository.aiRequestCountToday,
           builder: (context, count, _) {
             return Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: AppColors.primary.withOpacity(0.1),
+                color: AppColors.of(context).primary.withOpacity(0.1),
                 borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: AppColors.primary.withOpacity(0.3)),
+                border: Border.all(color: AppColors.of(context).primary.withOpacity(0.3)),
               ),
               child: Row(
                 children: [
-                  const Icon(Icons.analytics, color: AppColors.primary),
-                  const SizedBox(width: 12),
+                  Icon(Icons.analytics, color: AppColors.of(context).primary),
+                  SizedBox(width: 12),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1766,7 +1583,7 @@ class _AiUsageTracker extends StatelessWidget {
                         Text(
                           'Bugünkü İstekler',
                           style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                                color: AppColors.textSecondary,
+                                color: AppColors.of(context).textSecondary,
                               ),
                         ),
                         Text(
@@ -1813,17 +1630,17 @@ class _ModelInfoCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: AppColors.surface,
+        color: AppColors.of(context).surface,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.primary.withOpacity(0.3)),
+        border: Border.all(color: AppColors.of(context).primary.withOpacity(0.3)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              const Icon(Icons.smart_toy, color: AppColors.primary),
-              const SizedBox(width: 10),
+              Icon(Icons.smart_toy, color: AppColors.of(context).primary),
+              SizedBox(width: 10),
               Expanded(
                 child: Text(
                   model,
@@ -1835,14 +1652,14 @@ class _ModelInfoCard extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 8),
+          SizedBox(height: 8),
           Text(
             info.description,
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
                   color: Colors.white70,
                 ),
           ),
-          const SizedBox(height: 12),
+          SizedBox(height: 12),
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
@@ -1855,11 +1672,11 @@ class _ModelInfoCard extends StatelessWidget {
                 Text(
                   'Tahmini Limitler (Ücretsiz Paket)',
                   style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                        color: AppColors.textSecondary,
+                        color: AppColors.of(context).textSecondary,
                         fontWeight: FontWeight.w600,
                       ),
                 ),
-                const SizedBox(height: 6),
+                SizedBox(height: 6),
                 _LimitRow(label: 'Dakikalık İstek (RPM)', value: info.rpm),
                 _LimitRow(label: 'Günlük İstek (RPD)', value: info.rpd),
                 _LimitRow(label: 'Dakikalık Token (TPM)', value: info.tpm),
@@ -1894,7 +1711,7 @@ class _LimitRow extends StatelessWidget {
           Text(
             value,
             style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                  color: AppColors.primaryLight,
+                  color: AppColors.of(context).primaryLight,
                   fontWeight: FontWeight.w700,
                 ),
           ),

@@ -18,6 +18,7 @@ import '../widgets/ai_response_dialog.dart';
 import '../widgets/app_bottom_nav.dart';
 import '../widgets/glass_panel.dart';
 import 'entry_wizard_screen.dart';
+import 'quick_add_screen.dart';
 import 'home_screen.dart';
 import 'profile_screen.dart';
 import 'topic_detail_screen.dart';
@@ -40,7 +41,7 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
   Widget build(BuildContext context) {
     final repository = AppRepositoryScope.of(context);
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: AppColors.of(context).background,
       body: SafeArea(
         child: ValueListenableBuilder<List<QuestionEntry>>(
           valueListenable: repository.questionEntries,
@@ -173,23 +174,23 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
                                   title: metrics.leftTitle,
                                   value: metrics.leftValue,
                                   subtitle: metrics.leftSubtitle,
-                                  accent: metrics.leftAccent,
+                                  accent: metrics.leftAccent(context),
                                   footer: _MiniSparkline(
                                     values: metrics.trend,
-                                    color: metrics.leftAccent,
+                                    color: metrics.leftAccent(context),
                                   ),
                                 ),
                               ),
-                              const SizedBox(width: 12),
+                              SizedBox(width: 12),
                               Expanded(
                                 child: _MetricCard(
                                   title: metrics.rightTitle,
                                   value: metrics.rightValue,
                                   subtitle: metrics.rightSubtitle,
-                                  accent: metrics.rightAccent,
+                                  accent: metrics.rightAccent(context),
                                   footer: _MiniBars(
                                     values: metrics.trend,
-                                    color: metrics.rightAccent,
+                                    color: metrics.rightAccent(context),
                                   ),
                                 ),
                               ),
@@ -301,7 +302,9 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
 
   void _openEntry(BuildContext context, EntryType type) {
     Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => EntryWizardScreen(type: type)),
+      MaterialPageRoute(
+        builder: (context) => EntryWizardScreen(type: type),
+      ),
     );
   }
 
@@ -319,7 +322,7 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
         return;
       case 2:
         Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (_) => const EntryWizardScreen(type: EntryType.question)),
+          MaterialPageRoute(builder: (_) => const QuickAddScreen()),
         );
         return;
       case 3:
@@ -738,9 +741,9 @@ class _Header extends StatelessWidget {
         children: [
           IconButton(
             onPressed: () => Navigator.of(context).maybePop(),
-            icon: const Icon(Icons.arrow_back, color: Colors.white70),
+            icon: Icon(Icons.arrow_back, color: Colors.white70),
           ),
-          const SizedBox(width: 4),
+          SizedBox(width: 4),
           Text(
             'Performans Analizi',
             style: Theme.of(context).textTheme.titleMedium?.copyWith(
@@ -751,7 +754,7 @@ class _Header extends StatelessWidget {
           const Spacer(),
           IconButton(
             onPressed: onShare,
-            icon: const Icon(Icons.ios_share, color: Colors.white70),
+            icon: Icon(Icons.ios_share, color: Colors.white70),
           ),
         ],
       ),
@@ -814,14 +817,14 @@ class _ModeChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = active ? AppColors.primary : Colors.white54;
+    final color = active ? AppColors.of(context).primary : Colors.white54;
     return Expanded(
       child: GestureDetector(
         onTap: onTap,
         child: Container(
           padding: const EdgeInsets.symmetric(vertical: 8),
           decoration: BoxDecoration(
-            color: active ? AppColors.primary.withOpacity(0.25) : Colors.transparent,
+            color: active ? AppColors.of(context).primary.withOpacity(0.25) : Colors.transparent,
             borderRadius: BorderRadius.circular(14),
           ),
           child: Text(
@@ -896,7 +899,7 @@ class _RangeChip extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.symmetric(vertical: 8),
           decoration: BoxDecoration(
-            color: active ? AppColors.primary : Colors.transparent,
+            color: active ? AppColors.of(context).primary : Colors.transparent,
             borderRadius: BorderRadius.circular(14),
           ),
           child: Text(
@@ -937,7 +940,7 @@ class _ModeEmptyState extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: AppColors.surface,
+        color: AppColors.of(context).surface,
         borderRadius: BorderRadius.circular(24),
         border: Border.all(color: Colors.white.withOpacity(0.08)),
       ),
@@ -951,14 +954,14 @@ class _ModeEmptyState extends StatelessWidget {
                   fontWeight: FontWeight.w700,
                 ),
           ),
-          const SizedBox(height: 8),
+          SizedBox(height: 8),
           Text(
             message,
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
                   color: Colors.white54,
                 ),
           ),
-          const SizedBox(height: 16),
+          SizedBox(height: 16),
           SizedBox(
             width: double.infinity,
             child: ElevatedButton(
@@ -996,7 +999,7 @@ class _TrendCard extends StatelessWidget {
                             color: Colors.white54,
                           ),
                     ),
-                    const SizedBox(height: 6),
+                    SizedBox(height: 6),
                     Row(
                       crossAxisAlignment: CrossAxisAlignment.end,
                       children: [
@@ -1010,7 +1013,7 @@ class _TrendCard extends StatelessWidget {
                                 fontWeight: FontWeight.w700,
                               ),
                         ),
-                        const SizedBox(width: 6),
+                        SizedBox(width: 6),
                         Text(
                           metrics.unit,
                           style: Theme.of(context).textTheme.bodySmall?.copyWith(
@@ -1025,12 +1028,12 @@ class _TrendCard extends StatelessWidget {
               _DeltaChip(delta: metrics.delta),
             ],
           ),
-          const SizedBox(height: 16),
+          SizedBox(height: 16),
           SizedBox(
             height: 140,
-            child: _TrendChart(values: metrics.trend, accent: metrics.accent),
+            child: _TrendChart(values: metrics.trend, accent: metrics.accent(context)),
           ),
-          const SizedBox(height: 8),
+          SizedBox(height: 8),
           _TrendAxis(labels: metrics.axisLabels),
         ],
       ),
@@ -1046,7 +1049,7 @@ class _DeltaChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final positive = delta >= 0;
-    final color = positive ? AppColors.success : AppColors.danger;
+    final color = positive ? AppColors.of(context).success : AppColors.of(context).danger;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
@@ -1061,7 +1064,7 @@ class _DeltaChip extends StatelessWidget {
             size: 14,
             color: color,
           ),
-          const SizedBox(width: 4),
+          SizedBox(width: 4),
           Text(
             '%${(delta * 100).abs().toStringAsFixed(1)}',
             style: Theme.of(context).textTheme.labelSmall?.copyWith(
@@ -1096,7 +1099,7 @@ class _TrendChart extends StatelessWidget {
     return RepaintBoundary(
       child: CustomPaint(
         painter: _TrendPainter(values, accent),
-        child: const SizedBox.expand(),
+        child: SizedBox.expand(),
       ),
     );
   }
@@ -1231,7 +1234,7 @@ class _MetricCard extends StatelessWidget {
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(22),
         border: Border.all(color: Colors.white.withOpacity(0.08)),
-        color: AppColors.surface,
+        color: AppColors.of(context).surface,
       ),
       child: Stack(
         children: [
@@ -1258,7 +1261,7 @@ class _MetricCard extends StatelessWidget {
                         color: Colors.white54,
                       ),
                 ),
-                const SizedBox(height: 6),
+                SizedBox(height: 6),
                 Text(
                   value,
                   style: Theme.of(context).textTheme.titleLarge?.copyWith(
@@ -1266,7 +1269,7 @@ class _MetricCard extends StatelessWidget {
                         fontWeight: FontWeight.w700,
                       ),
                 ),
-                const SizedBox(height: 6),
+                SizedBox(height: 6),
                 Text(
                   subtitle,
                   style: Theme.of(context).textTheme.labelSmall?.copyWith(
@@ -1274,7 +1277,7 @@ class _MetricCard extends StatelessWidget {
                       ),
                 ),
                 if (footer != null) ...[
-                  const SizedBox(height: 10),
+                  SizedBox(height: 10),
                   SizedBox(height: 40, child: footer),
                 ],
               ],
@@ -1295,11 +1298,11 @@ class _MiniSparkline extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (values.length < 2) {
-      return const SizedBox.shrink();
+      return SizedBox.shrink();
     }
     return CustomPaint(
       painter: _SparklinePainter(values: values, color: color),
-      child: const SizedBox.expand(),
+      child: SizedBox.expand(),
     );
   }
 }
@@ -1350,7 +1353,7 @@ class _MiniBars extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (values.isEmpty) {
-      return const SizedBox.shrink();
+      return SizedBox.shrink();
     }
     final maxValue = values.reduce(max);
     return Row(
@@ -1407,13 +1410,13 @@ class _WeakTopicsCard extends StatelessWidget {
                 child: Text(
                   'AI Özet',
                   style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                        color: AppColors.primaryLight,
+                        color: AppColors.of(context).primaryLight,
                       ),
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 8),
+          SizedBox(height: 8),
           if (topics.isEmpty)
             Text(
               'Henüz zayıf konu tespiti yapılmadı.',
@@ -1475,7 +1478,7 @@ class _WeakTopicRow extends StatelessWidget {
               Text(
                 '%$accuracyPercent',
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: AppColors.warning,
+                      color: AppColors.of(context).warning,
                       fontWeight: FontWeight.w700,
                     ),
               ),
@@ -1487,7 +1490,7 @@ class _WeakTopicRow extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(width: 12),
+          SizedBox(width: 12),
           OutlinedButton(
             onPressed: onStudy,
             style: OutlinedButton.styleFrom(
@@ -1497,7 +1500,7 @@ class _WeakTopicRow extends StatelessWidget {
                 borderRadius: BorderRadius.circular(16),
               ),
             ),
-            child: const Text('Çalış'),
+            child: Text('Çalış'),
           ),
         ],
       ),
@@ -1529,14 +1532,14 @@ class _QuestionInsightCard extends StatelessWidget {
                   fontWeight: FontWeight.w700,
                 ),
           ),
-          const SizedBox(height: 8),
+          SizedBox(height: 8),
           Text(
             'Yanlış eğilimlerini ve hız darboğazını yorumlar.',
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
                   color: Colors.white54,
                 ),
           ),
-          const SizedBox(height: 10),
+          SizedBox(height: 10),
           if (tags.isEmpty)
             Text(
               'Yanlış türü etiketlenmedi.',
@@ -1554,9 +1557,9 @@ class _QuestionInsightCard extends StatelessWidget {
                       padding: const EdgeInsets.symmetric(
                           horizontal: 10, vertical: 6),
                       decoration: BoxDecoration(
-                        color: AppColors.primary.withOpacity(0.15),
+                        color: AppColors.of(context).primary.withOpacity(0.15),
                         borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: AppColors.primary),
+                        border: Border.all(color: AppColors.of(context).primary),
                       ),
                       child: Text(
                         '${entry.key} • ${entry.value}',
@@ -1569,13 +1572,13 @@ class _QuestionInsightCard extends StatelessWidget {
                   )
                   .toList(),
             ),
-          const SizedBox(height: 12),
+          SizedBox(height: 12),
           SizedBox(
             width: double.infinity,
             child: OutlinedButton.icon(
               onPressed: onAnalyze,
-              icon: const Icon(Icons.psychology_alt),
-              label: const Text('Analiz Al'),
+              icon: Icon(Icons.psychology_alt),
+              label: Text('Analiz Al'),
             ),
           ),
         ],
@@ -1605,7 +1608,7 @@ class _ExamCompareCard extends StatelessWidget {
                   fontWeight: FontWeight.w700,
                 ),
           ),
-          const SizedBox(height: 8),
+          SizedBox(height: 8),
           if (exams.isEmpty)
             Text(
               'Henüz deneme eklenmedi.',
@@ -1618,12 +1621,15 @@ class _ExamCompareCard extends StatelessWidget {
               child: SizedBox(
                 height: 140,
                 child: CustomPaint(
-                  painter: _LineChartPainter(values: points),
-                  child: const SizedBox.expand(),
+                  painter: _LineChartPainter(
+                    values: points,
+                    primaryColor: AppColors.of(context).primary,
+                    primaryLightColor: AppColors.of(context).primaryLight,
+                  ),
                 ),
               ),
             ),
-            const SizedBox(height: 12),
+            SizedBox(height: 12),
             Column(
               children: exams
                   .map(
@@ -1644,9 +1650,15 @@ class _ExamCompareCard extends StatelessWidget {
 }
 
 class _LineChartPainter extends CustomPainter {
-  _LineChartPainter({required this.values});
+  _LineChartPainter({
+    required this.values,
+    required this.primaryColor,
+    required this.primaryLightColor,
+  });
 
   final List<double> values;
+  final Color primaryColor;
+  final Color primaryLightColor;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -1657,11 +1669,11 @@ class _LineChartPainter extends CustomPainter {
     final minValue = values.reduce(min);
     final range = max(1.0, maxValue - minValue);
     final paintLine = Paint()
-      ..color = AppColors.primaryLight
+      ..color = primaryLightColor
       ..strokeWidth = 3
       ..style = PaintingStyle.stroke;
     final paintDot = Paint()
-      ..color = AppColors.primary
+      ..color = primaryColor
       ..style = PaintingStyle.fill;
     final path = Path();
     for (var i = 0; i < values.length; i++) {
@@ -1673,14 +1685,20 @@ class _LineChartPainter extends CustomPainter {
       } else {
         path.lineTo(x, y);
       }
-      canvas.drawCircle(Offset(x, y), 3.5, paintDot);
     }
     canvas.drawPath(path, paintLine);
+    // last point dot
+    final lastX = size.width;
+    final lastNormalized = (values.last - minValue) / range;
+    final lastY = size.height - (lastNormalized * size.height);
+    canvas.drawCircle(Offset(lastX, lastY), 5, paintDot);
   }
 
   @override
   bool shouldRepaint(covariant _LineChartPainter oldDelegate) {
-    return oldDelegate.values != values;
+    return oldDelegate.values != values ||
+        oldDelegate.primaryColor != primaryColor ||
+        oldDelegate.primaryLightColor != primaryLightColor;
   }
 }
 
@@ -1716,7 +1734,7 @@ class _WeeklyTargetCard extends StatelessWidget {
                   fontWeight: FontWeight.w700,
                 ),
           ),
-          const SizedBox(height: 10),
+          SizedBox(height: 10),
           if (items.isEmpty)
             Text(
               'Hedef grafiği için yeterli veri yok.',
@@ -1756,7 +1774,7 @@ class _WeeklyTargetCard extends StatelessWidget {
                               ),
                             ],
                           ),
-                          const SizedBox(height: 6),
+                          SizedBox(height: 6),
                           Stack(
                             children: [
                               ClipRRect(
@@ -1780,8 +1798,8 @@ class _WeeklyTargetCard extends StatelessWidget {
                                   minHeight: 6,
                                   backgroundColor: Colors.transparent,
                                   valueColor:
-                                      const AlwaysStoppedAnimation<Color>(
-                                          AppColors.primary),
+                                      AlwaysStoppedAnimation<Color>(
+                                          AppColors.of(context).primary),
                                 ),
                               ),
                             ],
@@ -1822,7 +1840,7 @@ class _WeeklyReportCard extends StatelessWidget {
                   fontWeight: FontWeight.w700,
                 ),
           ),
-          const SizedBox(height: 8),
+          SizedBox(height: 8),
           Text(
             summary,
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
@@ -1830,13 +1848,13 @@ class _WeeklyReportCard extends StatelessWidget {
                   height: 1.4,
                 ),
           ),
-          const SizedBox(height: 12),
+          SizedBox(height: 12),
           SizedBox(
             width: double.infinity,
             child: OutlinedButton.icon(
               onPressed: onShare,
-              icon: const Icon(Icons.share),
-              label: const Text('Raporu Paylaş'),
+              icon: Icon(Icons.share),
+              label: Text('Raporu Paylaş'),
             ),
           ),
         ],
@@ -1877,7 +1895,7 @@ class _TimeDistributionCard extends StatelessWidget {
                   fontWeight: FontWeight.w700,
                 ),
           ),
-          const SizedBox(height: 12),
+          SizedBox(height: 12),
           if (data.isEmpty)
             Text(
               'Henüz süre verisi yok.',
@@ -1933,7 +1951,7 @@ class _ExamBranchCard extends StatelessWidget {
                   fontWeight: FontWeight.w700,
                 ),
           ),
-          const SizedBox(height: 12),
+          SizedBox(height: 12),
           if (stats.isEmpty)
             Text(
               'Branş netleri girilmedi. Deneme eklerken branş netlerini doldurabilirsin.',
@@ -1997,7 +2015,7 @@ class _BarRow extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 6),
+          SizedBox(height: 6),
           ClipRRect(
             borderRadius: BorderRadius.circular(999),
             child: LinearProgressIndicator(
@@ -2005,7 +2023,7 @@ class _BarRow extends StatelessWidget {
               minHeight: 6,
               backgroundColor: Colors.white12,
               valueColor:
-                  const AlwaysStoppedAnimation<Color>(AppColors.primary),
+                  AlwaysStoppedAnimation<Color>(AppColors.of(context).primary),
             ),
           ),
         ],
@@ -2035,9 +2053,9 @@ class _EmptyState extends StatelessWidget {
                 color: Colors.white.withOpacity(0.05),
                 borderRadius: BorderRadius.circular(22),
               ),
-              child: const Icon(Icons.analytics, color: Colors.white70, size: 40),
+              child: Icon(Icons.analytics, color: Colors.white70, size: 40),
             ),
-            const SizedBox(height: 16),
+            SizedBox(height: 16),
             Text(
               'Henüz Veri Yok',
               style: Theme.of(context).textTheme.titleLarge?.copyWith(
@@ -2045,7 +2063,7 @@ class _EmptyState extends StatelessWidget {
                     fontWeight: FontWeight.w700,
                   ),
             ),
-            const SizedBox(height: 8),
+            SizedBox(height: 8),
             Text(
               'Önce soru veya deneme ekleyerek analiz panelini aç.',
               textAlign: TextAlign.center,
@@ -2053,18 +2071,18 @@ class _EmptyState extends StatelessWidget {
                     color: Colors.white54,
                   ),
             ),
-            const SizedBox(height: 18),
+            SizedBox(height: 18),
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 OutlinedButton(
                   onPressed: onAddQuestion,
-                  child: const Text('Soru Ekle'),
+                  child: Text('Soru Ekle'),
                 ),
-                const SizedBox(width: 12),
+                SizedBox(width: 12),
                 ElevatedButton(
                   onPressed: onAddExam,
-                  child: const Text('Deneme Ekle'),
+                  child: Text('Deneme Ekle'),
                 ),
               ],
             ),
@@ -2082,15 +2100,15 @@ abstract class _AnalysisMetrics {
   double get delta;
   List<double> get trend;
   List<String> get axisLabels;
-  Color get accent;
+  Color accent(BuildContext context);
   String get leftTitle;
   String get leftValue;
   String get leftSubtitle;
-  Color get leftAccent;
+  Color leftAccent(BuildContext context);
   String get rightTitle;
   String get rightValue;
   String get rightSubtitle;
-  Color get rightAccent;
+  Color rightAccent(BuildContext context);
 }
 
 class _ExamMetrics implements _AnalysisMetrics {
@@ -2159,7 +2177,7 @@ class _ExamMetrics implements _AnalysisMetrics {
   String get unit => 'Net';
 
   @override
-  Color get accent => AppColors.primaryLight;
+  Color accent(BuildContext context) => AppColors.of(context).primaryLight;
 
   @override
   String get leftTitle => 'Ortalama Net';
@@ -2171,7 +2189,7 @@ class _ExamMetrics implements _AnalysisMetrics {
   String get leftSubtitle => 'Deneme ortalaması';
 
   @override
-  Color get leftAccent => AppColors.primaryLight;
+  Color leftAccent(BuildContext context) => AppColors.of(context).primaryLight;
 
   @override
   String get rightTitle => 'Ortalama Süre';
@@ -2183,7 +2201,7 @@ class _ExamMetrics implements _AnalysisMetrics {
   String get rightSubtitle => 'Deneme süresi';
 
   @override
-  Color get rightAccent => AppColors.warning;
+  Color rightAccent(BuildContext context) => AppColors.of(context).warning;
 }
 
 class _QuestionMetrics implements _AnalysisMetrics {
@@ -2259,7 +2277,7 @@ class _QuestionMetrics implements _AnalysisMetrics {
   String get unit => 'Soru';
 
   @override
-  Color get accent => AppColors.primaryLight;
+  Color accent(BuildContext context) => AppColors.of(context).primaryLight;
 
   @override
   String get leftTitle => 'Doğruluk Oranı';
@@ -2271,7 +2289,7 @@ class _QuestionMetrics implements _AnalysisMetrics {
   String get leftSubtitle => 'Soru doğruluğu';
 
   @override
-  Color get leftAccent => AppColors.success;
+  Color leftAccent(BuildContext context) => AppColors.of(context).success;
 
   @override
   String get rightTitle => 'Ortalama Süre';
@@ -2285,7 +2303,7 @@ class _QuestionMetrics implements _AnalysisMetrics {
   String get rightSubtitle => 'Soru başına';
 
   @override
-  Color get rightAccent => AppColors.warning;
+  Color rightAccent(BuildContext context) => AppColors.of(context).warning;
 }
 
 List<double> _buildQuestionTrend(

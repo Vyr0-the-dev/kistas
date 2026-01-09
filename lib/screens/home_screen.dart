@@ -44,7 +44,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final repository = AppRepositoryScope.of(context);
 
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: AppColors.of(context).background,
       body: SafeArea(
         child: ValueListenableBuilder<List<QuestionEntry>>(
           valueListenable: repository.questionEntries,
@@ -56,7 +56,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   valueListenable: repository.dailyGoal,
                   builder: (context, dailyGoal, ___) {
                     final avgNet = _averageNet(mockExams);
-                    final activity = _buildActivity(questionEntries, mockExams);
+                    final activity = _buildActivity(context, questionEntries, mockExams);
                     final focusTopic =
                         _pickFocusTopic(repository, questionEntries);
                     final isEmpty =
@@ -367,7 +367,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
                 padding: const EdgeInsets.all(20),
                 decoration: BoxDecoration(
-                  color: AppColors.surface,
+                  color: AppColors.of(context).surface,
                   borderRadius: BorderRadius.circular(28),
                   border: Border.all(color: Colors.white.withOpacity(0.08)),
                 ),
@@ -382,7 +382,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         borderRadius: BorderRadius.circular(999),
                       ),
                     ),
-                    const SizedBox(height: 16),
+                    SizedBox(height: 16),
                     Text(
                       'Odak Zamanlayıcı',
                       style: Theme.of(context).textTheme.titleMedium?.copyWith(
@@ -390,7 +390,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             fontWeight: FontWeight.w700,
                           ),
                     ),
-                    const SizedBox(height: 6),
+                    SizedBox(height: 6),
                     Text(
                       _formatTimer(minutes * 60),
                       style: Theme.of(context).textTheme.displaySmall?.copyWith(
@@ -398,12 +398,12 @@ class _HomeScreenState extends State<HomeScreen> {
                             fontWeight: FontWeight.w700,
                           ),
                     ),
-                    const SizedBox(height: 12),
+                    SizedBox(height: 12),
                     SliderTheme(
                       data: SliderTheme.of(context).copyWith(
-                        activeTrackColor: AppColors.primary,
+                        activeTrackColor: AppColors.of(context).primary,
                         inactiveTrackColor: Colors.white12,
-                        thumbColor: AppColors.primary,
+                        thumbColor: AppColors.of(context).primary,
                       ),
                       child: Slider(
                         value: minutes.toDouble(),
@@ -418,7 +418,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         },
                       ),
                     ),
-                    const SizedBox(height: 6),
+                    SizedBox(height: 6),
                     Wrap(
                       spacing: 8,
                       runSpacing: 8,
@@ -436,7 +436,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           )
                           .toList(),
                     ),
-                    const SizedBox(height: 18),
+                    SizedBox(height: 18),
                     Row(
                       children: [
                         Expanded(
@@ -445,10 +445,10 @@ class _HomeScreenState extends State<HomeScreen> {
                               _setFocusDuration(minutes);
                               Navigator.of(sheetContext).pop();
                             },
-                            child: const Text('Süreyi Uygula'),
+                            child: Text('Süreyi Uygula'),
                           ),
                         ),
-                        const SizedBox(width: 12),
+                        SizedBox(width: 12),
                         Expanded(
                           child: ElevatedButton(
                             onPressed: () {
@@ -460,24 +460,24 @@ class _HomeScreenState extends State<HomeScreen> {
                               }
                               _openFocusTimerScreen();
                             },
-                            child: const Text('Başlat'),
+                            child: Text('Başlat'),
                           ),
                         ),
                       ],
                     ),
-                    const SizedBox(height: 10),
+                    SizedBox(height: 10),
                     Row(
                       children: [
                         Expanded(
                           child: TextButton(
                             onPressed: _focusRunning ? _pauseFocusTimer : null,
-                            child: const Text('Duraklat'),
+                            child: Text('Duraklat'),
                           ),
                         ),
                         Expanded(
                           child: TextButton(
                             onPressed: _resetFocusTimer,
-                            child: const Text('Sıfırla'),
+                            child: Text('Sıfırla'),
                           ),
                         ),
                       ],
@@ -510,7 +510,7 @@ class _Header extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.fromLTRB(20, 20, 20, 12),
       decoration: BoxDecoration(
-        color: AppColors.background.withOpacity(0.92),
+        color: AppColors.of(context).background.withOpacity(0.92),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.35),
@@ -530,16 +530,16 @@ class _Header extends StatelessWidget {
                     Text(
                       'Merhaba, Öğrenci',
                       style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                            color: AppColors.textSecondary,
+                            color: AppColors.of(context).textSecondary,
                             letterSpacing: 1,
                           ),
                     ),
-                    const SizedBox(height: 6),
+                    SizedBox(height: 6),
                     Text(
                       _formatToday(now),
                       style: Theme.of(context).textTheme.displaySmall?.copyWith(
                             fontWeight: FontWeight.w700,
-                            color: AppColors.textPrimary,
+                            color: AppColors.of(context).textPrimary,
                           ),
                     ),
                   ],
@@ -552,11 +552,11 @@ class _Header extends StatelessWidget {
                   width: 42,
                   height: 42,
                   decoration: BoxDecoration(
-                    color: AppColors.surfaceLight,
+                    color: AppColors.of(context).surfaceLight,
                     borderRadius: BorderRadius.circular(16),
                     border: Border.all(color: Colors.white.withOpacity(0.05)),
                   ),
-                  child: const Icon(
+                  child: Icon(
                     Icons.notifications_none,
                     color: Colors.white,
                   ),
@@ -564,11 +564,11 @@ class _Header extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 16),
+          SizedBox(height: 16),
           Container(
             padding: const EdgeInsets.all(6),
             decoration: BoxDecoration(
-              color: AppColors.surfaceLight.withOpacity(0.5),
+              color: AppColors.of(context).surfaceLight.withOpacity(0.5),
               borderRadius: BorderRadius.circular(16),
             ),
             child: Row(
@@ -617,7 +617,7 @@ class _SegmentedButton extends StatelessWidget {
           duration: const Duration(milliseconds: 220),
           padding: const EdgeInsets.symmetric(vertical: 8),
           decoration: BoxDecoration(
-            color: active ? AppColors.surfaceLight : Colors.transparent,
+            color: active ? AppColors.of(context).surfaceLight : Colors.transparent,
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
               color: active
@@ -630,7 +630,7 @@ class _SegmentedButton extends StatelessWidget {
             textAlign: TextAlign.center,
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
                   fontWeight: FontWeight.w600,
-                  color: active ? Colors.white : AppColors.textSecondary,
+                  color: active ? Colors.white : AppColors.of(context).textSecondary,
                 ),
           ),
         ),
@@ -663,7 +663,7 @@ class _FocusCard extends StatelessWidget {
       margin: const EdgeInsets.only(top: 16),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: AppColors.surface,
+        color: AppColors.of(context).surface,
         borderRadius: BorderRadius.circular(24),
         border: Border.all(color: Colors.white.withOpacity(0.05)),
         boxShadow: [
@@ -683,70 +683,70 @@ class _FocusCard extends StatelessWidget {
                     Container(
                       padding: const EdgeInsets.all(6),
                       decoration: BoxDecoration(
-                        color: AppColors.primary.withOpacity(0.15),
+                        color: AppColors.of(context).primary.withOpacity(0.15),
                         borderRadius: BorderRadius.circular(10),
                       ),
-                      child: const Icon(
+                      child: Icon(
                         Icons.explore,
-                        color: AppColors.primary,
+                        color: AppColors.of(context).primary,
                         size: 18,
                       ),
                     ),
-                    const SizedBox(width: 8),
+                    SizedBox(width: 8),
                     Text(
                       'Konu Pusulası',
                       style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                            color: AppColors.primary,
+                            color: AppColors.of(context).primary,
                             fontWeight: FontWeight.w700,
                             letterSpacing: 1,
                           ),
                     ),
                   ],
                 ),
-                const SizedBox(height: 12),
+                SizedBox(height: 12),
                 Text(
                   '${focusTopic!.topic.subject} - ${focusTopic!.topic.title}',
                   style: Theme.of(context).textTheme.titleLarge?.copyWith(
                         fontWeight: FontWeight.w700,
                       ),
                 ),
-                const SizedBox(height: 12),
+                SizedBox(height: 12),
                 Text(
                   remaining == 0
                       ? 'Hedef tamamlandı'
                       : 'Önerilen: $remaining soru çöz',
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: AppColors.textSecondary,
+                        color: AppColors.of(context).textSecondary,
                       ),
                 ),
-                const SizedBox(height: 8),
+                SizedBox(height: 8),
                 ClipRRect(
                   borderRadius: BorderRadius.circular(8),
                   child: LinearProgressIndicator(
                     value: focusTopic!.progressRatio,
                     minHeight: 6,
-                    backgroundColor: AppColors.surfaceLight,
+                    backgroundColor: AppColors.of(context).surfaceLight,
                     valueColor:
-                        const AlwaysStoppedAnimation<Color>(AppColors.primary),
+                        AlwaysStoppedAnimation<Color>(AppColors.of(context).primary),
                   ),
                 ),
-                const SizedBox(height: 14),
+                SizedBox(height: 14),
                 Row(
                   children: [
                     TextButton.icon(
                       onPressed: onAiSuggestion,
-                      icon: const Icon(Icons.auto_awesome,
-                          size: 16, color: AppColors.primary),
-                      label: const Text(
+                      icon: Icon(Icons.auto_awesome,
+                          size: 16, color: AppColors.of(context).primary),
+                      label: Text(
                         'AI Mentor',
-                        style: TextStyle(color: AppColors.primary),
+                        style: TextStyle(color: AppColors.of(context).primary),
                       ),
                     ),
                     const Spacer(),
                     ElevatedButton.icon(
                       onPressed: onQuickAdd,
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.primary,
+                        backgroundColor: AppColors.of(context).primary,
                         foregroundColor: Colors.white,
                         elevation: 0,
                         shape: RoundedRectangleBorder(
@@ -757,8 +757,8 @@ class _FocusCard extends StatelessWidget {
                           vertical: 10,
                         ),
                       ),
-                      icon: const Icon(Icons.arrow_forward, size: 18),
-                      label: const Text('Başla'),
+                      icon: Icon(Icons.arrow_forward, size: 18),
+                      label: Text('Başla'),
                     ),
                   ],
                 ),
@@ -773,25 +773,25 @@ class _FocusCard extends StatelessWidget {
                         fontWeight: FontWeight.w700,
                       ),
                 ),
-                const SizedBox(height: 8),
+                SizedBox(height: 8),
                 Text(
                   'Bugün ilk kaydını ekleyerek paneli doldur.',
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: AppColors.textSecondary,
+                        color: AppColors.of(context).textSecondary,
                       ),
                 ),
-                const SizedBox(height: 14),
+                SizedBox(height: 14),
                 OutlinedButton.icon(
                   onPressed: onQuickAdd,
                   style: OutlinedButton.styleFrom(
-                    foregroundColor: AppColors.primary,
-                    side: BorderSide(color: AppColors.primary.withOpacity(0.4)),
+                    foregroundColor: AppColors.of(context).primary,
+                    side: BorderSide(color: AppColors.of(context).primary.withOpacity(0.4)),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(16),
                     ),
                   ),
-                  icon: const Icon(Icons.bolt),
-                  label: const Text('Hızlı Kayıt Aç'),
+                  icon: Icon(Icons.bolt),
+                  label: Text('Hızlı Kayıt Aç'),
                 ),
               ],
             ),
@@ -809,7 +809,7 @@ class _EmptyStateHero extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: AppColors.surface,
+        color: AppColors.of(context).surface,
         borderRadius: BorderRadius.circular(22),
         border: Border.all(color: Colors.white.withOpacity(0.05)),
       ),
@@ -819,12 +819,12 @@ class _EmptyStateHero extends StatelessWidget {
             width: 60,
             height: 60,
             decoration: BoxDecoration(
-              color: AppColors.surfaceLight,
+              color: AppColors.of(context).surfaceLight,
               borderRadius: BorderRadius.circular(18),
             ),
-            child: const Icon(Icons.insights, color: AppColors.primary),
+            child: Icon(Icons.insights, color: AppColors.of(context).primary),
           ),
-          const SizedBox(width: 14),
+          SizedBox(width: 14),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -835,20 +835,20 @@ class _EmptyStateHero extends StatelessWidget {
                         fontWeight: FontWeight.w700,
                       ),
                 ),
-                const SizedBox(height: 6),
+                SizedBox(height: 6),
                 Text(
                   'İlk soru veya denemeni ekleyerek dashboardu doldur.',
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: AppColors.textSecondary,
+                        color: AppColors.of(context).textSecondary,
                       ),
                 ),
-                const SizedBox(height: 8),
+                SizedBox(height: 8),
                 TextButton.icon(
                   onPressed: onQuickAdd,
-                  icon: const Icon(Icons.bolt, color: AppColors.primary),
-                  label: const Text(
+                  icon: Icon(Icons.bolt, color: AppColors.of(context).primary),
+                  label: Text(
                     'Hızlı Ekle',
-                    style: TextStyle(color: AppColors.primary),
+                    style: TextStyle(color: AppColors.of(context).primary),
                   ),
                 ),
               ],
@@ -873,15 +873,15 @@ class _MiniAvatar extends StatelessWidget {
       height: 24,
       margin: const EdgeInsets.only(right: 4),
       decoration: BoxDecoration(
-        color: color ?? AppColors.surfaceLight,
+        color: color ?? AppColors.of(context).surfaceLight,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: AppColors.surface),
+        border: Border.all(color: AppColors.of(context).surface),
       ),
       alignment: Alignment.center,
       child: Text(
         label,
         style: Theme.of(context).textTheme.labelSmall?.copyWith(
-              color: color == null ? AppColors.textSecondary : Colors.white,
+              color: color == null ? AppColors.of(context).textSecondary : Colors.white,
               fontWeight: FontWeight.w600,
             ),
       ),
@@ -915,7 +915,7 @@ class _AiGoalPanel extends StatelessWidget {
                   padding:
                       const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                   decoration: BoxDecoration(
-                    color: AppColors.surface,
+                    color: AppColors.of(context).surface,
                     borderRadius: BorderRadius.circular(20),
                     border: Border.all(color: Colors.white.withOpacity(0.05)),
                   ),
@@ -928,15 +928,15 @@ class _AiGoalPanel extends StatelessWidget {
                             width: 38,
                             height: 38,
                             decoration: BoxDecoration(
-                              color: AppColors.primary.withOpacity(0.18),
+                              color: AppColors.of(context).primary.withOpacity(0.18),
                               borderRadius: BorderRadius.circular(12),
                             ),
-                            child: const Icon(
+                            child: Icon(
                               Icons.auto_awesome,
-                              color: AppColors.primary,
+                              color: AppColors.of(context).primary,
                             ),
                           ),
-                          const SizedBox(width: 10),
+                          SizedBox(width: 10),
                           Expanded(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
@@ -959,7 +959,7 @@ class _AiGoalPanel extends StatelessWidget {
                                       .textTheme
                                       .labelSmall
                                       ?.copyWith(
-                                        color: AppColors.textSecondary,
+                                        color: AppColors.of(context).textSecondary,
                                       ),
                                 ),
                               ],
@@ -967,11 +967,11 @@ class _AiGoalPanel extends StatelessWidget {
                           ),
                           TextButton(
                             onPressed: onOpenProfile,
-                            child: const Text('Düzenle'),
+                            child: Text('Düzenle'),
                           ),
                         ],
                       ),
-                      const SizedBox(height: 12),
+                      SizedBox(height: 12),
                       Row(
                         children: [
                           Expanded(
@@ -982,7 +982,7 @@ class _AiGoalPanel extends StatelessWidget {
                                   : displayValue.toString(),
                             ),
                           ),
-                          const SizedBox(width: 12),
+                          SizedBox(width: 12),
                           Expanded(
                             child: _AiGoalValueCard(
                               label: 'Günlük',
@@ -992,7 +992,7 @@ class _AiGoalPanel extends StatelessWidget {
                           ),
                         ],
                       ),
-                      const SizedBox(height: 10),
+                      SizedBox(height: 10),
                       Row(
                         children: [
                           Expanded(
@@ -1002,7 +1002,7 @@ class _AiGoalPanel extends StatelessWidget {
                               isMuted: cadence != 'weekly',
                             ),
                           ),
-                          const SizedBox(width: 12),
+                          SizedBox(width: 12),
                           Expanded(
                             child: _AiGoalValueCard(
                               label: 'Aylık',
@@ -1012,13 +1012,13 @@ class _AiGoalPanel extends StatelessWidget {
                           ),
                         ],
                       ),
-                      const SizedBox(height: 12),
+                      SizedBox(height: 12),
                       SizedBox(
                         width: double.infinity,
                         child: OutlinedButton.icon(
                           onPressed: () => _requestAiPlan(context, repository),
-                          icon: const Icon(Icons.psychology_alt),
-                          label: const Text('AI Program Hazırla'),
+                          icon: Icon(Icons.psychology_alt),
+                          label: Text('AI Program Hazırla'),
                         ),
                       ),
                     ],
@@ -1059,10 +1059,10 @@ class _AiGoalValueCard extends StatelessWidget {
           Text(
             label,
             style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                  color: AppColors.textSecondary,
+                  color: AppColors.of(context).textSecondary,
                 ),
           ),
-          const SizedBox(height: 4),
+          SizedBox(height: 4),
           Text(
             '$value soru',
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
@@ -1086,7 +1086,7 @@ class _StreakCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: AppColors.surface,
+        color: AppColors.of(context).surface,
         borderRadius: BorderRadius.circular(20),
         border: Border.all(color: Colors.white.withOpacity(0.05)),
       ),
@@ -1096,13 +1096,13 @@ class _StreakCard extends StatelessWidget {
             width: 40,
             height: 40,
             decoration: BoxDecoration(
-              color: AppColors.primary.withOpacity(0.18),
+              color: AppColors.of(context).primary.withOpacity(0.18),
               borderRadius: BorderRadius.circular(12),
             ),
-            child: const Icon(Icons.local_fire_department,
-                color: AppColors.primary),
+            child: Icon(Icons.local_fire_department,
+                color: AppColors.of(context).primary),
           ),
-          const SizedBox(width: 12),
+          SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -1117,7 +1117,7 @@ class _StreakCard extends StatelessWidget {
                 Text(
                   streak == 0 ? 'Bugün başla' : '$streak gün üst üste',
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: AppColors.textSecondary,
+                        color: AppColors.of(context).textSecondary,
                       ),
                 ),
               ],
@@ -1146,7 +1146,7 @@ class _DailyTasksCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: AppColors.surface,
+        color: AppColors.of(context).surface,
         borderRadius: BorderRadius.circular(20),
         border: Border.all(color: Colors.white.withOpacity(0.05)),
       ),
@@ -1160,12 +1160,12 @@ class _DailyTasksCard extends StatelessWidget {
                   fontWeight: FontWeight.w700,
                 ),
           ),
-          const SizedBox(height: 8),
+          SizedBox(height: 8),
           if (tasks.isEmpty)
             Text(
               'Henüz görev oluşturulmadı.',
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: AppColors.textSecondary,
+                    color: AppColors.of(context).textSecondary,
                   ),
             )
           else
@@ -1176,9 +1176,9 @@ class _DailyTasksCard extends StatelessWidget {
                       padding: const EdgeInsets.only(bottom: 6),
                       child: Row(
                         children: [
-                          const Icon(Icons.check_circle_outline,
-                              size: 16, color: AppColors.primary),
-                          const SizedBox(width: 8),
+                          Icon(Icons.check_circle_outline,
+                              size: 16, color: AppColors.of(context).primary),
+                          SizedBox(width: 8),
                           Expanded(
                             child: Text(
                               task,
@@ -1222,7 +1222,7 @@ class _ReviewScheduleCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: AppColors.surface,
+        color: AppColors.of(context).surface,
         borderRadius: BorderRadius.circular(20),
         border: Border.all(color: Colors.white.withOpacity(0.05)),
       ),
@@ -1236,12 +1236,12 @@ class _ReviewScheduleCard extends StatelessWidget {
                   fontWeight: FontWeight.w700,
                 ),
           ),
-          const SizedBox(height: 8),
+          SizedBox(height: 8),
           if (schedule.isEmpty)
             Text(
               'Henüz tekrar planı oluşmadı.',
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: AppColors.textSecondary,
+                    color: AppColors.of(context).textSecondary,
                   ),
             )
           else
@@ -1255,12 +1255,12 @@ class _ReviewScheduleCard extends StatelessWidget {
                           Container(
                             width: 6,
                             height: 6,
-                            decoration: const BoxDecoration(
-                              color: AppColors.primary,
+                            decoration: BoxDecoration(
+                              color: AppColors.of(context).primary,
                               shape: BoxShape.circle,
                             ),
                           ),
-                          const SizedBox(width: 8),
+                          SizedBox(width: 8),
                           Expanded(
                             child: Text(
                               '${item.subject} • ${item.title}',
@@ -1275,7 +1275,7 @@ class _ReviewScheduleCard extends StatelessWidget {
                             style: Theme.of(context)
                                 .textTheme
                                 .labelSmall
-                                ?.copyWith(color: AppColors.textSecondary),
+                                ?.copyWith(color: AppColors.of(context).textSecondary),
                           ),
                         ],
                       ),
@@ -1313,7 +1313,7 @@ class _FocusTimerCard extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: AppColors.surface,
+          color: AppColors.of(context).surface,
           borderRadius: BorderRadius.circular(20),
           border: Border.all(color: Colors.white.withOpacity(0.05)),
         ),
@@ -1323,12 +1323,12 @@ class _FocusTimerCard extends StatelessWidget {
               width: 40,
               height: 40,
               decoration: BoxDecoration(
-                color: AppColors.primary.withOpacity(0.18),
+                color: AppColors.of(context).primary.withOpacity(0.18),
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: const Icon(Icons.timer, color: AppColors.primary),
+              child: Icon(Icons.timer, color: AppColors.of(context).primary),
             ),
-            const SizedBox(width: 12),
+            SizedBox(width: 12),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -1353,16 +1353,16 @@ class _FocusTimerCard extends StatelessWidget {
             if (!running)
               IconButton(
                 onPressed: onStart,
-                icon: const Icon(Icons.play_arrow, color: Colors.white),
+                icon: Icon(Icons.play_arrow, color: Colors.white),
               )
             else
               IconButton(
                 onPressed: onPause,
-                icon: const Icon(Icons.pause, color: Colors.white),
+                icon: Icon(Icons.pause, color: Colors.white),
               ),
             IconButton(
               onPressed: onReset,
-              icon: const Icon(Icons.replay, color: Colors.white54),
+              icon: Icon(Icons.replay, color: Colors.white54),
             ),
           ],
         ),
@@ -1390,12 +1390,12 @@ class _FocusPresetChip extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
           color: selected
-              ? AppColors.primary.withOpacity(0.25)
+              ? AppColors.of(context).primary.withOpacity(0.25)
               : Colors.white.withOpacity(0.06),
           borderRadius: BorderRadius.circular(14),
           border: Border.all(
             color: selected
-                ? AppColors.primary.withOpacity(0.4)
+                ? AppColors.of(context).primary.withOpacity(0.4)
                 : Colors.white.withOpacity(0.08),
           ),
         ),
@@ -1421,7 +1421,7 @@ class _AiCheckInCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: AppColors.surface,
+        color: AppColors.of(context).surface,
         borderRadius: BorderRadius.circular(20),
         border: Border.all(color: Colors.white.withOpacity(0.05)),
       ),
@@ -1431,12 +1431,12 @@ class _AiCheckInCard extends StatelessWidget {
             width: 40,
             height: 40,
             decoration: BoxDecoration(
-              color: AppColors.primary.withOpacity(0.18),
+              color: AppColors.of(context).primary.withOpacity(0.18),
               borderRadius: BorderRadius.circular(12),
             ),
-            child: const Icon(Icons.psychology_alt, color: AppColors.primary),
+            child: Icon(Icons.psychology_alt, color: AppColors.of(context).primary),
           ),
-          const SizedBox(width: 12),
+          SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -1451,7 +1451,7 @@ class _AiCheckInCard extends StatelessWidget {
                 Text(
                   'Kısa check-in ile yönlendirme al.',
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: AppColors.textSecondary,
+                        color: AppColors.of(context).textSecondary,
                       ),
                 ),
               ],
@@ -1459,7 +1459,7 @@ class _AiCheckInCard extends StatelessWidget {
           ),
           TextButton(
             onPressed: onStart,
-            child: const Text('Başlat'),
+            child: Text('Başlat'),
           ),
         ],
       ),
@@ -1493,7 +1493,7 @@ class _PerformanceRow extends StatelessWidget {
             dailyGoal: dailyGoal,
           ),
         ),
-        const SizedBox(width: 12),
+        SizedBox(width: 12),
         Expanded(
           flex: 7,
           child: Column(
@@ -1509,7 +1509,7 @@ class _PerformanceRow extends StatelessWidget {
                         positive: avgNet! >= 0,
                       ),
               ),
-              const SizedBox(height: 10),
+              SizedBox(height: 10),
               Row(
                 children: [
                   Expanded(
@@ -1518,10 +1518,10 @@ class _PerformanceRow extends StatelessWidget {
                       value: accuracy == null
                           ? '—'
                           : '%${(accuracy! * 100).round()}',
-                      valueColor: AppColors.primary,
+                      valueColor: AppColors.of(context).primary,
                     ),
                   ),
-                  const SizedBox(width: 10),
+                  SizedBox(width: 10),
                   Expanded(
                     child: _MiniStatCard(
                       label: 'Toplam',
@@ -1553,7 +1553,7 @@ class _RingCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: AppColors.surface,
+        color: AppColors.of(context).surface,
         borderRadius: BorderRadius.circular(24),
         border: Border.all(color: Colors.white.withOpacity(0.05)),
       ),
@@ -1563,9 +1563,9 @@ class _RingCard extends StatelessWidget {
                   value: ratio,
                   size: 156,
                   strokeWidth: 12,
-                  trackColor: AppColors.surfaceLight,
-                  progressColor: AppColors.primary,
-                  centerColor: AppColors.surface,
+                  trackColor: AppColors.of(context).surfaceLight,
+                  progressColor: AppColors.of(context).primary,
+                  centerColor: AppColors.of(context).surface,
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
@@ -1579,22 +1579,22 @@ class _RingCard extends StatelessWidget {
                                   ),
                         ),
                       ),
-                      const SizedBox(height: 2),
+                      SizedBox(height: 2),
                       Text(
                         '/$dailyGoal',
                         style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                              color: AppColors.textSecondary,
+                              color: AppColors.of(context).textSecondary,
                               letterSpacing: 1,
                             ),
                       ),
                     ],
                   ),
                 ),
-          const SizedBox(height: 12),
+          SizedBox(height: 12),
           Text(
             'Günlük Soru',
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: AppColors.textSecondary,
+                  color: AppColors.of(context).textSecondary,
                 ),
           ),
         ],
@@ -1619,7 +1619,7 @@ class _StatCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
-        color: AppColors.surface,
+        color: AppColors.of(context).surface,
         borderRadius: BorderRadius.circular(18),
         border: Border.all(color: Colors.white.withOpacity(0.05)),
       ),
@@ -1632,10 +1632,10 @@ class _StatCard extends StatelessWidget {
               Text(
                 label,
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: AppColors.textSecondary,
+                      color: AppColors.of(context).textSecondary,
                     ),
               ),
-              const SizedBox(height: 4),
+              SizedBox(height: 4),
               Text(
                 value,
                 style: Theme.of(context).textTheme.titleMedium?.copyWith(
@@ -1659,7 +1659,7 @@ class _TrendChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = positive ? AppColors.success : AppColors.danger;
+    final color = positive ? AppColors.of(context).success : AppColors.of(context).danger;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
@@ -1673,7 +1673,7 @@ class _TrendChip extends StatelessWidget {
             size: 14,
             color: color,
           ),
-          const SizedBox(width: 4),
+          SizedBox(width: 4),
           Text(
             delta,
             style: Theme.of(context).textTheme.labelSmall?.copyWith(
@@ -1703,7 +1703,7 @@ class _MiniStatCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
-        color: AppColors.surface,
+        color: AppColors.of(context).surface,
         borderRadius: BorderRadius.circular(18),
         border: Border.all(color: Colors.white.withOpacity(0.05)),
       ),
@@ -1713,15 +1713,15 @@ class _MiniStatCard extends StatelessWidget {
           Text(
             label,
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: AppColors.textSecondary,
+                  color: AppColors.of(context).textSecondary,
                 ),
           ),
-          const SizedBox(height: 4),
+          SizedBox(height: 4),
           Text(
             value,
             style: Theme.of(context).textTheme.titleMedium?.copyWith(
                   fontWeight: FontWeight.w700,
-                  color: valueColor ?? AppColors.textPrimary,
+                  color: valueColor ?? AppColors.of(context).textPrimary,
                 ),
           ),
         ],
@@ -1751,19 +1751,19 @@ class _ActivitySection extends StatelessWidget {
             ),
             TextButton(
               onPressed: onShowAll,
-              child: const Text(
+              child: Text(
                 'Tümü',
-                style: TextStyle(color: AppColors.primary),
+                style: TextStyle(color: AppColors.of(context).primary),
               ),
             ),
           ],
         ),
-        const SizedBox(height: 6),
+        SizedBox(height: 6),
         if (activity.isEmpty)
           Container(
             padding: const EdgeInsets.all(18),
             decoration: BoxDecoration(
-              color: AppColors.surface,
+              color: AppColors.of(context).surface,
               borderRadius: BorderRadius.circular(20),
               border: Border.all(color: Colors.white.withOpacity(0.05)),
             ),
@@ -1773,17 +1773,17 @@ class _ActivitySection extends StatelessWidget {
                   width: 40,
                   height: 40,
                   decoration: BoxDecoration(
-                    color: AppColors.surfaceLight,
+                    color: AppColors.of(context).surfaceLight,
                     borderRadius: BorderRadius.circular(14),
                   ),
-                  child: const Icon(Icons.timeline, color: Colors.white54),
+                  child: Icon(Icons.timeline, color: Colors.white54),
                 ),
-                const SizedBox(width: 12),
+                SizedBox(width: 12),
                 Expanded(
                   child: Text(
                     'Henüz etkinlik yok. İlk kaydın burada görünecek.',
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: AppColors.textSecondary,
+                          color: AppColors.of(context).textSecondary,
                         ),
                   ),
                 ),
@@ -1814,7 +1814,7 @@ class _ActivityCard extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: AppColors.surface,
+        color: AppColors.of(context).surface,
         borderRadius: BorderRadius.circular(18),
         border: Border.all(color: Colors.white.withOpacity(0.05)),
       ),
@@ -1824,13 +1824,13 @@ class _ActivityCard extends StatelessWidget {
             width: 38,
             height: 38,
             decoration: BoxDecoration(
-              color: AppColors.surfaceLight,
+              color: AppColors.of(context).surfaceLight,
               borderRadius: BorderRadius.circular(14),
               border: Border.all(color: item.accentColor.withOpacity(0.5)),
             ),
             child: Icon(item.icon, color: item.accentColor),
           ),
-          const SizedBox(width: 12),
+          SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -1838,15 +1838,15 @@ class _ActivityCard extends StatelessWidget {
                 Text(
                   item.title,
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: AppColors.textPrimary,
+                        color: AppColors.of(context).textPrimary,
                         fontWeight: FontWeight.w700,
                       ),
                 ),
-                const SizedBox(height: 4),
+                SizedBox(height: 4),
                 Text(
                   item.subtitle,
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: AppColors.textSecondary,
+                        color: AppColors.of(context).textSecondary,
                       ),
                 ),
               ],
@@ -1858,10 +1858,10 @@ class _ActivityCard extends StatelessWidget {
               Text(
                 item.timeLabel,
                 style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                      color: AppColors.textSecondary,
+                      color: AppColors.of(context).textSecondary,
                     ),
               ),
-              const SizedBox(height: 6),
+              SizedBox(height: 6),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
@@ -1917,6 +1917,7 @@ class _ActivityItem {
 }
 
 List<_ActivityItem> _buildActivity(
+  BuildContext context,
   List<QuestionEntry> questionEntries,
   List<MockExam> mockExams,
 ) {
@@ -1930,7 +1931,7 @@ List<_ActivityItem> _buildActivity(
         timeLabel: _formatTime(entry.createdAt),
         badge: '${entry.correct} doğru',
         icon: Icons.quiz,
-        accentColor: AppColors.primary,
+        accentColor: AppColors.of(context).primary,
         timestamp: entry.createdAt,
       ),
     );
@@ -1944,7 +1945,7 @@ List<_ActivityItem> _buildActivity(
         timeLabel: _formatTime(exam.createdAt),
         badge: '${exam.totalNet.toStringAsFixed(1)} net',
         icon: Icons.school,
-        accentColor: AppColors.success,
+        accentColor: AppColors.of(context).success,
         timestamp: exam.createdAt,
       ),
     );
@@ -1958,6 +1959,7 @@ List<_ActivityItem> _buildActivity(
 }
 
 List<_ActivityItem> _buildActivityAll(
+  BuildContext context,
   List<QuestionEntry> questionEntries,
   List<MockExam> mockExams,
 ) {
@@ -1971,7 +1973,7 @@ List<_ActivityItem> _buildActivityAll(
         timeLabel: _formatTime(entry.createdAt),
         badge: '${entry.correct} doğru',
         icon: Icons.quiz,
-        accentColor: AppColors.primary,
+        accentColor: AppColors.of(context).primary,
         timestamp: entry.createdAt,
       ),
     );
@@ -1985,7 +1987,7 @@ List<_ActivityItem> _buildActivityAll(
         timeLabel: _formatTime(exam.createdAt),
         badge: '${exam.totalNet.toStringAsFixed(1)} net',
         icon: Icons.school,
-        accentColor: AppColors.success,
+        accentColor: AppColors.of(context).success,
         timestamp: exam.createdAt,
       ),
     );
@@ -2000,7 +2002,7 @@ void _showActivitySheet(
   List<QuestionEntry> questionEntries,
   List<MockExam> mockExams,
 ) {
-  final items = _buildActivityAll(questionEntries, mockExams);
+  final items = _buildActivityAll(context, questionEntries, mockExams);
   showModalBottomSheet(
     context: context,
     isScrollControlled: true,
@@ -2013,13 +2015,13 @@ void _showActivitySheet(
         builder: (context, controller) {
           return Container(
             decoration: BoxDecoration(
-              color: AppColors.surface,
+              color: AppColors.of(context).surface,
               borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
               border: Border.all(color: Colors.white.withOpacity(0.08)),
             ),
             child: Column(
               children: [
-                const SizedBox(height: 8),
+                SizedBox(height: 8),
                 Container(
                   width: 44,
                   height: 4,
@@ -2028,7 +2030,7 @@ void _showActivitySheet(
                     borderRadius: BorderRadius.circular(999),
                   ),
                 ),
-                const SizedBox(height: 12),
+                SizedBox(height: 12),
                 Text(
                   'Tüm Aktiviteler',
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
@@ -2036,7 +2038,7 @@ void _showActivitySheet(
                         fontWeight: FontWeight.w700,
                       ),
                 ),
-                const SizedBox(height: 8),
+                SizedBox(height: 8),
                 Expanded(
                   child: items.isEmpty
                       ? Center(
@@ -2337,7 +2339,7 @@ void _showNotificationsSheet(
 ) {
   showModalBottomSheet<void>(
     context: context,
-    backgroundColor: AppColors.surface,
+    backgroundColor: AppColors.of(context).surface,
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
     ),
@@ -2358,30 +2360,30 @@ void _showNotificationsSheet(
                         fontWeight: FontWeight.w700,
                       ),
                 ),
-                const SizedBox(height: 8),
+                SizedBox(height: 8),
                 Row(
                   children: [
                     TextButton(
                       onPressed: notifications.isEmpty
                           ? null
                           : () => repository.markAllNotificationsRead(),
-                      child: const Text('Okundu Yap'),
+                      child: Text('Okundu Yap'),
                     ),
-                    const SizedBox(width: 8),
+                    SizedBox(width: 8),
                     TextButton(
                       onPressed: notifications.isEmpty
                           ? null
                           : () => repository.clearNotifications(),
-                      child: const Text('Temizle'),
+                      child: Text('Temizle'),
                     ),
                   ],
                 ),
-                const SizedBox(height: 12),
+                SizedBox(height: 12),
                 if (notifications.isEmpty)
                   Text(
                     'Henüz bildirim yok.',
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: AppColors.textSecondary,
+                          color: AppColors.of(context).textSecondary,
                         ),
                   )
                 else
@@ -2401,12 +2403,12 @@ void _showNotificationsSheet(
                               ? Container(
                                   width: 8,
                                   height: 8,
-                                  decoration: const BoxDecoration(
+                                  decoration: BoxDecoration(
                                     shape: BoxShape.circle,
-                                    color: AppColors.primary,
+                                    color: AppColors.of(context).primary,
                                   ),
                                 )
-                              : const SizedBox(width: 8),
+                              : SizedBox(width: 8),
                           title: Text(
                             item.title,
                             style: Theme.of(context)
@@ -2422,14 +2424,14 @@ void _showNotificationsSheet(
                             style: Theme.of(context)
                                 .textTheme
                                 .bodySmall
-                                ?.copyWith(color: AppColors.textSecondary),
+                                ?.copyWith(color: AppColors.of(context).textSecondary),
                           ),
                           trailing: Text(
                             _formatTime(item.createdAt),
                             style: Theme.of(context)
                                 .textTheme
                                 .labelSmall
-                                ?.copyWith(color: AppColors.textSecondary),
+                                ?.copyWith(color: AppColors.of(context).textSecondary),
                           ),
                         );
                       },
@@ -2700,26 +2702,26 @@ Future<void> _showAiCoachDialog(
     context: context,
     builder: (context) {
       return AlertDialog(
-        title: const Text('AI Koç Planı'),
+        title: Text('AI Koç Planı'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text('Önerilen günlük hedef: ${result.dailyGoal} soru'),
-            const SizedBox(height: 8),
+            SizedBox(height: 8),
             ...result.tasks.map((task) => Text('• $task')),
-            const SizedBox(height: 8),
+            SizedBox(height: 8),
             Text(result.note),
           ],
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Vazgeç'),
+            child: Text('Vazgeç'),
           ),
           ElevatedButton(
             onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('Hedefe Uygula'),
+            child: Text('Hedefe Uygula'),
           ),
         ],
       );
@@ -2807,27 +2809,27 @@ Future<_CheckInInput?> _askCheckInInput(BuildContext context) async {
     context: context,
     builder: (context) {
       return AlertDialog(
-        title: const Text('AI Mini Koç'),
+        title: Text('AI Mini Koç'),
         content: SingleChildScrollView(
           child: Column(
             children: [
               TextField(
                 controller: moodController,
-                decoration: const InputDecoration(
+                decoration: InputDecoration(
                   hintText: 'Bugün moralin nasıl?',
                 ),
               ),
-              const SizedBox(height: 10),
+              SizedBox(height: 10),
               TextField(
                 controller: blockerController,
-                decoration: const InputDecoration(
+                decoration: InputDecoration(
                   hintText: 'Bugün seni zorlayan konu ne?',
                 ),
               ),
-              const SizedBox(height: 10),
+              SizedBox(height: 10),
               TextField(
                 controller: goalController,
-                decoration: const InputDecoration(
+                decoration: InputDecoration(
                   hintText: 'Bugün ulaşmak istediğin hedef?',
                 ),
               ),
@@ -2837,7 +2839,7 @@ Future<_CheckInInput?> _askCheckInInput(BuildContext context) async {
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Vazgeç'),
+            child: Text('Vazgeç'),
           ),
           ElevatedButton(
             onPressed: () => Navigator.of(context).pop(
@@ -2847,7 +2849,7 @@ Future<_CheckInInput?> _askCheckInInput(BuildContext context) async {
                 goal: goalController.text.trim(),
               ),
             ),
-            child: const Text('Gönder'),
+            child: Text('Gönder'),
           ),
         ],
       );
@@ -2874,11 +2876,11 @@ Future<String?> _askAiPlanInput(BuildContext context) async {
     context: context,
     builder: (context) {
       return AlertDialog(
-        title: const Text('Derdi Anlat'),
+        title: Text('Derdi Anlat'),
         content: TextField(
           controller: controller,
           maxLines: 5,
-          decoration: const InputDecoration(
+          decoration: InputDecoration(
             hintText:
                 'Örn: Netlerim düştü, matematikte zorlanıyorum, 4 hafta içinde hızlanmak istiyorum.',
           ),
@@ -2886,11 +2888,11 @@ Future<String?> _askAiPlanInput(BuildContext context) async {
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Vazgeç'),
+            child: Text('Vazgeç'),
           ),
           ElevatedButton(
             onPressed: () => Navigator.of(context).pop(controller.text),
-            child: const Text('Program İste'),
+            child: Text('Program İste'),
           ),
         ],
       );

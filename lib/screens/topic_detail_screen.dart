@@ -34,10 +34,10 @@ class TopicDetailScreen extends StatelessWidget {
     final progress = TopicProgress.fromEntries(topic, entries);
 
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: AppColors.of(context).background,
       body: SafeArea(
         child: Container(
-          decoration: const BoxDecoration(
+          decoration: BoxDecoration(
             gradient: LinearGradient(
               colors: [Color(0xFF0F1116), Color(0xFF121622)],
               begin: Alignment.topCenter,
@@ -54,20 +54,20 @@ class TopicDetailScreen extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       _Hero(progress: progress),
-                      const SizedBox(height: 16),
+                      SizedBox(height: 16),
                       _KpiRow(progress: progress),
-                      const SizedBox(height: 12),
+                      SizedBox(height: 12),
                       _MasteryCard(
                         mastery: _calculateMastery(progress),
                         lastStudied: progress.lastStudied,
                       ),
-                      const SizedBox(height: 16),
+                      SizedBox(height: 16),
                       _NotesSection(topic: topic),
-                      const SizedBox(height: 16),
+                      SizedBox(height: 16),
                       _TrendCard(entries: entries),
-                      const SizedBox(height: 16),
+                      SizedBox(height: 16),
                       _MistakeSection(entries: entries),
-                      const SizedBox(height: 18),
+                      SizedBox(height: 18),
                       _ActionButtons(topic: topic),
                     ],
                   ),
@@ -96,14 +96,14 @@ class _Header extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       decoration: BoxDecoration(
-        color: AppColors.background.withOpacity(0.85),
+        color: AppColors.of(context).background.withOpacity(0.85),
         border: Border(bottom: BorderSide(color: Colors.white.withOpacity(0.05))),
       ),
       child: Row(
         children: [
           IconButton(
             onPressed: () => Navigator.of(context).pop(),
-            icon: const Icon(Icons.arrow_back, color: Colors.white70),
+            icon: Icon(Icons.arrow_back, color: Colors.white70),
           ),
           const Spacer(),
           Text(
@@ -116,7 +116,7 @@ class _Header extends StatelessWidget {
           const Spacer(),
           IconButton(
             onPressed: () => _showMoreActions(context, topic),
-            icon: const Icon(Icons.more_horiz, color: Colors.white70),
+            icon: Icon(Icons.more_horiz, color: Colors.white70),
           ),
         ],
       ),
@@ -148,19 +148,19 @@ class _Hero extends StatelessWidget {
                 padding:
                     const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                 decoration: BoxDecoration(
-                  color: AppColors.primary.withOpacity(0.2),
+                  color: AppColors.of(context).primary.withOpacity(0.2),
                   borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: AppColors.primary.withOpacity(0.3)),
+                  border: Border.all(color: AppColors.of(context).primary.withOpacity(0.3)),
                 ),
                 child: Text(
                   'Konu Analizi',
                   style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                        color: AppColors.primary,
+                        color: AppColors.of(context).primary,
                         fontWeight: FontWeight.w700,
                       ),
                 ),
               ),
-              const SizedBox(height: 10),
+              SizedBox(height: 10),
               Text(
                 progress.topic.title,
                 style: Theme.of(context).textTheme.displaySmall?.copyWith(
@@ -168,7 +168,7 @@ class _Hero extends StatelessWidget {
                       fontWeight: FontWeight.w700,
                     ),
               ),
-              const SizedBox(height: 6),
+              SizedBox(height: 6),
               Text(
                 label,
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
@@ -178,7 +178,7 @@ class _Hero extends StatelessWidget {
             ],
           ),
         ),
-        const SizedBox(width: 16),
+        SizedBox(width: 16),
         _RingScore(score: mastery, label: 'HAKİMİYET'),
       ],
     );
@@ -209,24 +209,24 @@ class _NotesSection extends StatelessWidget {
             if (!hasNotes)
               TextButton.icon(
                 onPressed: () => _requestTopicInsight(context, topic),
-                icon: const Icon(Icons.auto_awesome, size: 16),
-                label: const Text('AI ile Oluştur'),
+                icon: Icon(Icons.auto_awesome, size: 16),
+                label: Text('AI ile Oluştur'),
               ),
           ],
         ),
-        const SizedBox(height: 10),
+        SizedBox(height: 10),
         if (!hasNotes)
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: AppColors.surface,
+              color: AppColors.of(context).surface,
               borderRadius: BorderRadius.circular(18),
               border: Border.all(color: Colors.white.withOpacity(0.05)),
             ),
             child: Row(
               children: [
-                const Icon(Icons.info_outline, color: Colors.white38),
-                const SizedBox(width: 12),
+                Icon(Icons.info_outline, color: Colors.white38),
+                SizedBox(width: 12),
                 Expanded(
                   child: Text(
                     'Bu konu için henüz kayıtlı not yok. AI ile hızlıca kritik notlar oluşturabilirsin.',
@@ -247,9 +247,9 @@ class _NotesSection extends StatelessWidget {
                   child: Container(
                     padding: const EdgeInsets.all(14),
                     decoration: BoxDecoration(
-                      color: AppColors.primary.withOpacity(0.05),
+                      color: AppColors.of(context).primary.withOpacity(0.05),
                       borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: AppColors.primary.withOpacity(0.2)),
+                      border: Border.all(color: AppColors.of(context).primary.withOpacity(0.2)),
                     ),
                     child: Text(
                       topic.summary,
@@ -284,12 +284,12 @@ class _NoteItem extends StatelessWidget {
             margin: const EdgeInsets.only(top: 6),
             width: 6,
             height: 6,
-            decoration: const BoxDecoration(
-              color: AppColors.primaryLight,
+            decoration: BoxDecoration(
+              color: AppColors.of(context).primaryLight,
               shape: BoxShape.circle,
             ),
           ),
-          const SizedBox(width: 12),
+          SizedBox(width: 12),
           Expanded(
             child: Text(
               text,
@@ -319,8 +319,8 @@ class _RingScore extends StatelessWidget {
       size: 164,
       strokeWidth: 12,
       trackColor: Colors.white12,
-      progressColor: AppColors.primary,
-      centerColor: AppColors.background,
+      progressColor: AppColors.of(context).primary,
+      centerColor: AppColors.of(context).background,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -363,15 +363,15 @@ class _KpiRow extends StatelessWidget {
             valueColor: Colors.white,
           ),
         ),
-        const SizedBox(width: 8),
+        SizedBox(width: 8),
         Expanded(
           child: _KpiCard(
             title: 'Doğruluk\nOranı',
             value: '%${(progress.accuracy * 100).round()}',
-            valueColor: AppColors.success,
+            valueColor: AppColors.of(context).success,
           ),
         ),
-        const SizedBox(width: 8),
+        SizedBox(width: 8),
         Expanded(
           child: _KpiCard(
             title: 'Ortalama\nSüre',
@@ -415,7 +415,7 @@ class _KpiCard extends StatelessWidget {
                   letterSpacing: 0.4,
                 ),
           ),
-          const SizedBox(height: 8),
+          SizedBox(height: 8),
           Text(
             value,
             style: Theme.of(context).textTheme.titleLarge?.copyWith(
@@ -446,7 +446,7 @@ class _MasteryCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: AppColors.surface,
+        color: AppColors.of(context).surface,
         borderRadius: BorderRadius.circular(18),
         border: Border.all(color: Colors.white.withOpacity(0.08)),
       ),
@@ -460,14 +460,14 @@ class _MasteryCard extends StatelessWidget {
                   fontWeight: FontWeight.w700,
                 ),
           ),
-          const SizedBox(height: 6),
+          SizedBox(height: 6),
           Text(
             subtitle,
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
                   color: Colors.white54,
                 ),
           ),
-          const SizedBox(height: 10),
+          SizedBox(height: 10),
           Row(
             children: [
               Expanded(
@@ -477,13 +477,13 @@ class _MasteryCard extends StatelessWidget {
                     value: mastery / 100,
                     minHeight: 8,
                     backgroundColor: Colors.white12,
-                    valueColor: const AlwaysStoppedAnimation<Color>(
-                      AppColors.primary,
+                    valueColor: AlwaysStoppedAnimation<Color>(
+                      AppColors.of(context).primary,
                     ),
                   ),
                 ),
               ),
-              const SizedBox(width: 12),
+              SizedBox(width: 12),
               Text(
                 '%$mastery',
                 style: Theme.of(context).textTheme.titleMedium?.copyWith(
@@ -552,7 +552,7 @@ class _TrendCardState extends State<_TrendCard> {
                           fontWeight: FontWeight.w700,
                         ),
                   ),
-                  const SizedBox(height: 4),
+                  SizedBox(height: 4),
                   Text(
                     widget.entries.isEmpty
                         ? 'Henüz veri yok'
@@ -590,7 +590,7 @@ class _TrendCardState extends State<_TrendCard> {
               ),
             ],
           ),
-          const SizedBox(height: 12),
+          SizedBox(height: 12),
           SizedBox(
             height: 140,
             child: points.isEmpty
@@ -603,8 +603,12 @@ class _TrendCardState extends State<_TrendCard> {
                     ),
                   )
                 : CustomPaint(
-                    painter: _TopicTrendPainter(points, labels),
-                    child: const SizedBox.expand(),
+                    painter: _TopicTrendPainter(
+                      points,
+                      labels,
+                      AppColors.of(context).primary,
+                    ),
+                    child: SizedBox.expand(),
                   ),
           ),
         ],
@@ -648,19 +652,20 @@ class _RangeBadge extends StatelessWidget {
 }
 
 class _TopicTrendPainter extends CustomPainter {
-  _TopicTrendPainter(this.values, this.labels);
+  _TopicTrendPainter(this.values, this.labels, this.primaryColor);
 
   final List<double> values;
   final List<String> labels;
+  final Color primaryColor;
 
   @override
   void paint(Canvas canvas, Size size) {
     if (values.isEmpty) {
       return;
     }
-    
+
     final chartHeight = size.height - 20;
-    
+
     final minValue = values.reduce(min);
     final maxValue = values.reduce(max);
     final range = maxValue - minValue == 0 ? 1 : maxValue - minValue;
@@ -676,9 +681,7 @@ class _TopicTrendPainter extends CustomPainter {
     final path = Path();
     final divisor = values.length > 1 ? (values.length - 1) : 1;
     for (var i = 0; i < values.length; i++) {
-      final x = values.length == 1
-          ? size.width / 2
-          : size.width * (i / divisor);
+      final x = values.length == 1 ? size.width / 2 : size.width * (i / divisor);
       final normalized = (values[i] - minValue) / range;
       final y = chartHeight - (normalized * chartHeight);
       if (i == 0) {
@@ -689,39 +692,39 @@ class _TopicTrendPainter extends CustomPainter {
     }
 
     final paint = Paint()
-      ..color = AppColors.primary
+      ..color = primaryColor
       ..strokeWidth = 3
       ..style = PaintingStyle.stroke;
 
     canvas.drawPath(path, paint);
 
-    final lastX =
-        values.length == 1 ? size.width / 2 : size.width;
+    final lastX = values.length == 1 ? size.width / 2 : size.width;
     final lastNormalized = (values.last - minValue) / range;
     final lastY = chartHeight - (lastNormalized * chartHeight);
     final pointPaint = Paint()..color = Colors.white;
     final outlinePaint = Paint()
-      ..color = AppColors.primary
+      ..color = primaryColor
       ..style = PaintingStyle.stroke
       ..strokeWidth = 2;
     canvas.drawCircle(Offset(lastX, lastY), 4, pointPaint);
     canvas.drawCircle(Offset(lastX, lastY), 6, outlinePaint);
-    
+
     // Draw Axis Labels
-    final textStyle = const TextStyle(
+    final textStyle = TextStyle(
       color: Colors.white38,
       fontSize: 10,
     );
     final textPainter = TextPainter(
       textDirection: TextDirection.ltr,
     );
-    
+
     if (labels.length > 3) {
       // Draw all labels for weekly view (assumed short list)
       for (var i = 0; i < labels.length; i++) {
         textPainter.text = TextSpan(text: labels[i], style: textStyle);
         textPainter.layout();
-        final x = size.width * (i / (labels.length - 1)) - (textPainter.width / 2);
+        final x =
+            size.width * (i / (labels.length - 1)) - (textPainter.width / 2);
         textPainter.paint(canvas, Offset(x, size.height - textPainter.height));
       }
     } else {
@@ -744,7 +747,9 @@ class _TopicTrendPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _TopicTrendPainter oldDelegate) {
-    return oldDelegate.values != values || oldDelegate.labels != labels;
+    return oldDelegate.values != values ||
+        oldDelegate.labels != labels ||
+        oldDelegate.primaryColor != primaryColor;
   }
 }
 
@@ -771,7 +776,7 @@ class _MistakeSection extends StatelessWidget {
             TextButton(
               onPressed: () =>
                   _showMistakeSheet(context, entries, _MistakeFilter.all),
-              child: const Text('Tümünü Gör'),
+              child: Text('Tümünü Gör'),
             ),
           ],
         ),
@@ -849,14 +854,14 @@ class _MistakeChip extends StatelessWidget {
                 borderRadius: BorderRadius.circular(6),
               ),
             ),
-            const SizedBox(width: 6),
+            SizedBox(width: 6),
             Text(
               label,
               style: Theme.of(context).textTheme.labelSmall?.copyWith(
                     color: Colors.white,
                   ),
             ),
-            const SizedBox(width: 6),
+            SizedBox(width: 6),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
               decoration: BoxDecoration(
@@ -897,19 +902,19 @@ class _ActionButtons extends StatelessWidget {
               ),
             );
           },
-          icon: const Icon(Icons.add_circle),
-          label: const Text('Bu Konudan Soru Ekle'),
+          icon: Icon(Icons.add_circle),
+          label: Text('Bu Konudan Soru Ekle'),
           style: ElevatedButton.styleFrom(
             minimumSize: const Size.fromHeight(52),
             shape:
                 RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
           ),
         ),
-        const SizedBox(height: 12),
+        SizedBox(height: 12),
         OutlinedButton.icon(
           onPressed: () => _scheduleReview(context, topic),
-          icon: const Icon(Icons.event),
-          label: const Text('Tekrar Planla'),
+          icon: Icon(Icons.event),
+          label: Text('Tekrar Planla'),
           style: OutlinedButton.styleFrom(
             foregroundColor: Colors.white70,
             minimumSize: const Size.fromHeight(52),
@@ -918,15 +923,15 @@ class _ActionButtons extends StatelessWidget {
                 RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
           ),
         ),
-        const SizedBox(height: 12),
+        SizedBox(height: 12),
         OutlinedButton.icon(
           onPressed: () => _requestTopicInsight(context, topic),
-          icon: const Icon(Icons.lightbulb_outline),
-          label: const Text('AI Çalışma Taktikleri'),
+          icon: Icon(Icons.lightbulb_outline),
+          label: Text('AI Çalışma Taktikleri'),
           style: OutlinedButton.styleFrom(
-            foregroundColor: AppColors.primaryLight,
+            foregroundColor: AppColors.of(context).primaryLight,
             minimumSize: const Size.fromHeight(52),
-            side: BorderSide(color: AppColors.primary.withOpacity(0.3)),
+            side: BorderSide(color: AppColors.of(context).primary.withOpacity(0.3)),
             shape:
                 RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
           ),
@@ -1062,7 +1067,7 @@ void _showMoreActions(BuildContext context, TopicSummary topic) {
           margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
           padding: const EdgeInsets.symmetric(vertical: 12),
           decoration: BoxDecoration(
-            color: AppColors.surface,
+            color: AppColors.of(context).surface,
             borderRadius: BorderRadius.circular(24),
             border: Border.all(color: Colors.white.withOpacity(0.08)),
           ),
@@ -1245,13 +1250,13 @@ void _showMistakeSheet(
         builder: (context, controller) {
           return Container(
             decoration: BoxDecoration(
-              color: AppColors.surface,
+              color: AppColors.of(context).surface,
               borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
               border: Border.all(color: Colors.white.withOpacity(0.08)),
             ),
             child: Column(
               children: [
-                const SizedBox(height: 8),
+                SizedBox(height: 8),
                 Container(
                   width: 48,
                   height: 4,
@@ -1260,7 +1265,7 @@ void _showMistakeSheet(
                     borderRadius: BorderRadius.circular(999),
                   ),
                 ),
-                const SizedBox(height: 12),
+                SizedBox(height: 12),
                 Text(
                   _mistakeTitle(filter),
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
@@ -1268,7 +1273,7 @@ void _showMistakeSheet(
                         fontWeight: FontWeight.w700,
                       ),
                 ),
-                const SizedBox(height: 8),
+                SizedBox(height: 8),
                 Expanded(
                   child: filtered.isEmpty
                       ? Center(
@@ -1288,7 +1293,7 @@ void _showMistakeSheet(
                             return _MistakeDetailTile(entry: entry);
                           },
                           separatorBuilder: (_, __) =>
-                              const SizedBox(height: 12),
+                              SizedBox(height: 12),
                           itemCount: filtered.length,
                         ),
                 ),
@@ -1336,20 +1341,20 @@ class _MistakeDetailTile extends StatelessWidget {
                   fontWeight: FontWeight.w700,
                 ),
           ),
-          const SizedBox(height: 4),
+          SizedBox(height: 4),
           Text(
             '${entry.subject} • ${_formatShortDate(entry.createdAt)} ${_formatClock(entry.createdAt)}',
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
                   color: Colors.white54,
                 ),
           ),
-          const SizedBox(height: 12),
+          SizedBox(height: 12),
           Row(
             children: [
-              _MistakeStat(label: 'Doğru', value: entry.correct, color: AppColors.success),
-              const SizedBox(width: 8),
+              _MistakeStat(label: 'Doğru', value: entry.correct, color: AppColors.of(context).success),
+              SizedBox(width: 8),
               _MistakeStat(label: 'Yanlış', value: entry.wrong, color: Colors.redAccent),
-              const SizedBox(width: 8),
+              SizedBox(width: 8),
               _MistakeStat(label: 'Boş', value: entry.blank, color: Colors.amber),
             ],
           ),
@@ -1388,7 +1393,7 @@ class _MistakeStat extends StatelessWidget {
                     color: Colors.white70,
                   ),
             ),
-            const SizedBox(height: 4),
+            SizedBox(height: 4),
             Text(
               value.toString(),
               style: Theme.of(context).textTheme.titleMedium?.copyWith(

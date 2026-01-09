@@ -29,7 +29,7 @@ class QuickAddScreen extends StatelessWidget {
     final repository = AppRepositoryScope.of(context);
     final topics = repository.topics;
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: AppColors.of(context).background,
       body: SafeArea(
         child: ValueListenableBuilder<List<QuestionEntry>>(
           valueListenable: repository.questionEntries,
@@ -43,6 +43,7 @@ class QuickAddScreen extends StatelessWidget {
                 final recentExam =
                     mockExams.isNotEmpty ? mockExams.last : null;
                 final todayItems = _buildTodayItems(
+                  context,
                   questionEntries,
                   mockExams,
                 );
@@ -62,7 +63,7 @@ class QuickAddScreen extends StatelessWidget {
                               onTap: () => _openSmartAdd(context),
                             ),
                           ),
-                          const SizedBox(height: 14),
+                          SizedBox(height: 14),
                           _ActionCards(
                             onQuestionAdd: () => _openEntry(
                               context,
@@ -73,7 +74,7 @@ class QuickAddScreen extends StatelessWidget {
                               EntryType.mockExam,
                             ),
                           ),
-                          const SizedBox(height: 18),
+                          SizedBox(height: 18),
                       _SectionHeader(
                         title: 'Hızlı Seçimler',
                         actionLabel: 'Tümü',
@@ -84,7 +85,7 @@ class QuickAddScreen extends StatelessWidget {
                           topics,
                         ),
                       ),
-                          const SizedBox(height: 8),
+                          SizedBox(height: 8),
                           _SuggestionsRow(
                             recentEntry: recentEntry,
                             recentExam: recentExam,
@@ -95,7 +96,7 @@ class QuickAddScreen extends StatelessWidget {
                               exam,
                             ),
                           ),
-                          const SizedBox(height: 20),
+                          SizedBox(height: 20),
                           Padding(
                             padding: const EdgeInsets.symmetric(horizontal: 20),
                             child: Text(
@@ -109,7 +110,7 @@ class QuickAddScreen extends StatelessWidget {
                                   ),
                             ),
                           ),
-                          const SizedBox(height: 8),
+                          SizedBox(height: 8),
                           _TodayList(items: todayItems),
                         ],
                       ),
@@ -178,8 +179,8 @@ class _AiSmartAddButton extends StatelessWidget {
         decoration: BoxDecoration(
           gradient: LinearGradient(
             colors: [
-              AppColors.primary.withOpacity(0.8),
-              AppColors.primary.withOpacity(0.4),
+              AppColors.of(context).primary.withOpacity(0.8),
+              AppColors.of(context).primary.withOpacity(0.4),
             ],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
@@ -188,7 +189,7 @@ class _AiSmartAddButton extends StatelessWidget {
           border: Border.all(color: Colors.white.withOpacity(0.2)),
           boxShadow: [
             BoxShadow(
-              color: AppColors.primary.withOpacity(0.3),
+              color: AppColors.of(context).primary.withOpacity(0.3),
               blurRadius: 12,
               offset: const Offset(0, 6),
             ),
@@ -202,9 +203,9 @@ class _AiSmartAddButton extends StatelessWidget {
                 color: Colors.white.withOpacity(0.2),
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: const Icon(Icons.auto_awesome, color: Colors.white),
+              child: Icon(Icons.auto_awesome, color: Colors.white),
             ),
-            const SizedBox(width: 14),
+            SizedBox(width: 14),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -216,7 +217,7 @@ class _AiSmartAddButton extends StatelessWidget {
                           fontWeight: FontWeight.w800,
                         ),
                   ),
-                  const SizedBox(height: 2),
+                  SizedBox(height: 2),
                   Text(
                     '"Bugün matematikten 30 soru çözdüm..."',
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
@@ -227,7 +228,7 @@ class _AiSmartAddButton extends StatelessWidget {
                 ],
               ),
             ),
-            const Icon(Icons.chevron_right, color: Colors.white70),
+            Icon(Icons.chevron_right, color: Colors.white70),
           ],
         ),
       ),
@@ -241,20 +242,20 @@ Future<void> _openSmartAdd(BuildContext context) async {
     context: context,
     builder: (context) {
       return AlertDialog(
-        title: const Text('AI ile Ekle'),
+        title: Text('AI ile Ekle'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Text(
+            Text(
               'Çalışmanı doğal dille anlat, AI verileri ayıklayıp forma doldursun.',
               style: TextStyle(color: Colors.white70, fontSize: 13),
             ),
-            const SizedBox(height: 16),
+            SizedBox(height: 16),
             TextField(
               controller: controller,
               maxLines: 3,
               autofocus: true,
-              decoration: const InputDecoration(
+              decoration: InputDecoration(
                 hintText: 'Örn: Tarih çalışmamda 40 soru çözdüm, 35 doğru 5 yanlış çıktı. 50 dakika sürdü.',
                 border: OutlineInputBorder(),
               ),
@@ -264,12 +265,12 @@ Future<void> _openSmartAdd(BuildContext context) async {
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
-            child: const Text('İptal'),
+            child: Text('İptal'),
           ),
           ElevatedButton.icon(
             onPressed: () => Navigator.of(context).pop(controller.text),
-            icon: const Icon(Icons.auto_awesome),
-            label: const Text('Analiz Et'),
+            icon: Icon(Icons.auto_awesome),
+            label: Text('Analiz Et'),
           ),
         ],
       );
@@ -408,7 +409,7 @@ class _Header extends StatelessWidget {
                   letterSpacing: 1,
                 ),
           ),
-          const SizedBox(height: 8),
+          SizedBox(height: 8),
           Text(
             'Bugünkü hedeflerini\ntamamla.',
             style: Theme.of(context).textTheme.displaySmall?.copyWith(
@@ -442,17 +443,17 @@ class _ActionCards extends StatelessWidget {
               title: 'Soru\nEkle',
               subtitle: 'Konu ve soru sayısı gir',
               icon: Icons.edit_note,
-              accent: AppColors.primary,
+              accent: AppColors.of(context).primary,
               onTap: onQuestionAdd,
             ),
           ),
-          const SizedBox(width: 14),
+          SizedBox(width: 14),
           Expanded(
             child: _QuickCard(
               title: 'Deneme\nEkle',
               subtitle: 'Net ve puan hesapla',
               icon: Icons.timer,
-              accent: AppColors.primaryLight,
+              accent: AppColors.of(context).primaryLight,
               onTap: onExamAdd,
             ),
           ),
@@ -506,7 +507,7 @@ class _QuickCard extends StatelessWidget {
                       fontWeight: FontWeight.w800,
                     ),
               ),
-              const SizedBox(height: 6),
+              SizedBox(height: 6),
               Text(
                 subtitle,
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
@@ -550,7 +551,7 @@ class _SectionHeader extends StatelessWidget {
             onPressed: onAction,
             child: Text(
               actionLabel,
-              style: const TextStyle(color: AppColors.primary),
+              style: TextStyle(color: AppColors.of(context).primary),
             ),
           ),
         ],
@@ -585,7 +586,7 @@ class _SuggestionsRow extends StatelessWidget {
               ? 'Devam et'
               : recentEntry!.subject,
           label: 'Son Çalışılan',
-          accent: AppColors.primary,
+          accent: AppColors.of(context).primary,
           onTap: () => onQuestionTap(recentEntry!),
         ),
       );
@@ -598,7 +599,7 @@ class _SuggestionsRow extends StatelessWidget {
               : recentExam!.title,
           subtitle: '${recentExam!.totalNet.toStringAsFixed(1)} net',
           label: 'Son Deneme',
-          accent: AppColors.primaryLight,
+          accent: AppColors.of(context).primaryLight,
           onTap: () => onExamTap(recentExam!),
         ),
       );
@@ -624,7 +625,7 @@ class _SuggestionsRow extends StatelessWidget {
         itemBuilder: (context, index) => _SuggestionCard(
           item: items[index],
         ),
-        separatorBuilder: (_, __) => const SizedBox(width: 12),
+        separatorBuilder: (_, __) => SizedBox(width: 12),
         itemCount: items.length,
       ),
     );
@@ -660,7 +661,7 @@ class _SuggestionCard extends StatelessWidget {
         width: 240,
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color: AppColors.surface,
+          color: AppColors.of(context).surface,
           borderRadius: BorderRadius.circular(18),
           border: Border.all(color: Colors.white.withOpacity(0.05)),
         ),
@@ -675,7 +676,7 @@ class _SuggestionCard extends StatelessWidget {
               ),
               child: Icon(Icons.auto_awesome, color: item.accent),
             ),
-            const SizedBox(width: 12),
+            SizedBox(width: 12),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -688,7 +689,7 @@ class _SuggestionCard extends StatelessWidget {
                           letterSpacing: 1,
                         ),
                   ),
-                  const SizedBox(height: 4),
+                  SizedBox(height: 4),
                   Text(
                     item.title,
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
@@ -706,7 +707,7 @@ class _SuggestionCard extends StatelessWidget {
                 ],
               ),
             ),
-            const SizedBox(width: 6),
+            SizedBox(width: 6),
             Container(
               width: 32,
               height: 32,
@@ -714,7 +715,7 @@ class _SuggestionCard extends StatelessWidget {
                 color: Colors.white.withOpacity(0.05),
                 borderRadius: BorderRadius.circular(10),
               ),
-              child: const Icon(Icons.add, color: Colors.white70, size: 18),
+              child: Icon(Icons.add, color: Colors.white70, size: 18),
             ),
           ],
         ),
@@ -810,7 +811,7 @@ class _TodayTile extends StatelessWidget {
               ),
               child: Icon(item.icon, color: item.accent, size: 20),
             ),
-            const SizedBox(width: 12),
+            SizedBox(width: 12),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -867,12 +868,12 @@ class _AmbientOrbs extends StatelessWidget {
           Positioned(
             top: 40,
             right: -30,
-            child: _Orb(color: AppColors.primaryLight, size: 96),
+            child: _Orb(color: AppColors.of(context).primaryLight, size: 96),
           ),
           Positioned(
             bottom: 140,
             left: -20,
-            child: _Orb(color: AppColors.primary, size: 110),
+            child: _Orb(color: AppColors.of(context).primary, size: 110),
           ),
         ],
       ),
@@ -897,13 +898,14 @@ class _Orb extends StatelessWidget {
       ),
       child: BackdropFilter(
         filter: ImageFilter.blur(sigmaX: 60, sigmaY: 60),
-        child: const SizedBox.shrink(),
+        child: SizedBox.shrink(),
       ),
     );
   }
 }
 
 List<_TodayItem> _buildTodayItems(
+  BuildContext context,
   List<QuestionEntry> questionEntries,
   List<MockExam> mockExams,
 ) {
@@ -918,7 +920,7 @@ List<_TodayItem> _buildTodayItems(
           subtitle: '${entry.total} soru çözüldü',
           timeLabel: _formatTime(entry.createdAt),
           icon: Icons.school,
-          accent: AppColors.primary,
+          accent: AppColors.of(context).primary,
           timestamp: entry.createdAt,
           type: _TodayItemType.question,
           questionEntry: entry,
@@ -935,7 +937,7 @@ List<_TodayItem> _buildTodayItems(
           subtitle: '${exam.totalNet.toStringAsFixed(1)} net',
           timeLabel: _formatTime(exam.createdAt),
           icon: Icons.assignment,
-          accent: AppColors.primaryLight,
+          accent: AppColors.of(context).primaryLight,
           timestamp: exam.createdAt,
           type: _TodayItemType.exam,
           mockExam: exam,
@@ -1015,7 +1017,7 @@ void _showQuickSelectionsSheet(
         builder: (context, controller) {
           return Container(
             decoration: BoxDecoration(
-              color: AppColors.surface,
+              color: AppColors.of(context).surface,
               borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
               border: Border.all(color: Colors.white.withOpacity(0.08)),
             ),
@@ -1033,7 +1035,7 @@ void _showQuickSelectionsSheet(
                     ),
                   ),
                 ),
-                const SizedBox(height: 14),
+                SizedBox(height: 14),
                 Text(
                   'Hızlı Seçimler',
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
@@ -1041,7 +1043,7 @@ void _showQuickSelectionsSheet(
                         fontWeight: FontWeight.w700,
                       ),
                 ),
-                const SizedBox(height: 12),
+                SizedBox(height: 12),
                 Row(
                   children: [
                     Expanded(
@@ -1060,7 +1062,7 @@ void _showQuickSelectionsSheet(
                         },
                       ),
                     ),
-                    const SizedBox(width: 12),
+                    SizedBox(width: 12),
                     Expanded(
                       child: _QuickActionButton(
                         label: 'Deneme Ekle',
@@ -1079,7 +1081,7 @@ void _showQuickSelectionsSheet(
                     ),
                   ],
                 ),
-                const SizedBox(height: 20),
+                SizedBox(height: 20),
                 _QuickSectionTitle(title: 'Son Soru Kayıtları'),
                 if (recentQuestions.isEmpty)
                   _EmptyHint(text: 'Henüz soru kaydı yok.')
@@ -1090,14 +1092,14 @@ void _showQuickSelectionsSheet(
                           subtitle: '${entry.subject} • ${entry.total} soru',
                           trailing: _formatTime(entry.createdAt),
                           icon: Icons.school,
-                          accent: AppColors.primary,
+                          accent: AppColors.of(context).primary,
                           onTap: () {
                             Navigator.of(sheetContext).pop();
                             _openQuestionFromEntry(context, entry, topics);
                           },
                         ),
                       ),
-                const SizedBox(height: 18),
+                SizedBox(height: 18),
                 _QuickSectionTitle(title: 'Son Denemeler'),
                 if (recentExams.isEmpty)
                   _EmptyHint(text: 'Henüz deneme kaydı yok.')
@@ -1109,7 +1111,7 @@ void _showQuickSelectionsSheet(
                               '${exam.totalNet.toStringAsFixed(1)} net • ${exam.minutes} dk',
                           trailing: _formatTime(exam.createdAt),
                           icon: Icons.assignment,
-                          accent: AppColors.primaryLight,
+                          accent: AppColors.of(context).primaryLight,
                           onTap: () {
                             Navigator.of(sheetContext).pop();
                             _openExamFromEntry(context, exam);
@@ -1149,8 +1151,8 @@ class _QuickActionButton extends StatelessWidget {
         ),
         child: Column(
           children: [
-            Icon(icon, color: AppColors.primary),
-            const SizedBox(height: 6),
+            Icon(icon, color: AppColors.of(context).primary),
+            SizedBox(height: 6),
             Text(
               label,
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
@@ -1280,7 +1282,7 @@ void _showTodayDetailSheet(BuildContext context, _TodayItem item) {
         builder: (context, controller) {
           return Container(
             decoration: BoxDecoration(
-              color: AppColors.surface,
+              color: AppColors.of(context).surface,
               borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
               border: Border.all(color: Colors.white.withOpacity(0.08)),
             ),
@@ -1298,7 +1300,7 @@ void _showTodayDetailSheet(BuildContext context, _TodayItem item) {
                     ),
                   ),
                 ),
-                const SizedBox(height: 14),
+                SizedBox(height: 14),
                 Text(
                   item.title,
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
@@ -1306,14 +1308,14 @@ void _showTodayDetailSheet(BuildContext context, _TodayItem item) {
                         fontWeight: FontWeight.w700,
                       ),
                 ),
-                const SizedBox(height: 6),
+                SizedBox(height: 6),
                 Text(
                   '${item.subtitle} • ${item.timeLabel}',
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
                         color: Colors.white54,
                       ),
                 ),
-                const SizedBox(height: 16),
+                SizedBox(height: 16),
                 if (item.type == _TodayItemType.question &&
                     item.questionEntry != null)
                   _QuestionDetailBlock(
@@ -1367,16 +1369,16 @@ class _QuestionDetailBlock extends StatelessWidget {
             _DetailStat(label: 'Süre', value: '${entry.minutes} dk'),
           ],
         ),
-        const SizedBox(height: 16),
+        SizedBox(height: 16),
         Row(
           children: [
             Expanded(
               child: OutlinedButton(
                 onPressed: onOpenTopic,
-                child: const Text('Konu Analizi'),
+                child: Text('Konu Analizi'),
               ),
             ),
-            const SizedBox(width: 12),
+            SizedBox(width: 12),
             Expanded(
               child: ElevatedButton(
                 onPressed: () {
@@ -1392,7 +1394,7 @@ class _QuestionDetailBlock extends StatelessWidget {
                     ),
                   );
                 },
-                child: const Text('Soru Ekle'),
+                child: Text('Soru Ekle'),
               ),
             ),
           ],
@@ -1423,7 +1425,7 @@ class _ExamDetailBlock extends StatelessWidget {
             _DetailStat(label: 'Süre', value: '${exam.minutes} dk'),
           ],
         ),
-        const SizedBox(height: 16),
+        SizedBox(height: 16),
         SizedBox(
           width: double.infinity,
           child: ElevatedButton(
@@ -1432,7 +1434,7 @@ class _ExamDetailBlock extends StatelessWidget {
                 MaterialPageRoute(builder: (_) => const AnalysisScreen()),
               );
             },
-            child: const Text('Analize Git'),
+            child: Text('Analize Git'),
           ),
         ),
       ],
@@ -1464,7 +1466,7 @@ class _DetailStat extends StatelessWidget {
                   color: Colors.white54,
                 ),
           ),
-          const SizedBox(height: 4),
+          SizedBox(height: 4),
           Text(
             value,
             style: Theme.of(context).textTheme.titleMedium?.copyWith(
