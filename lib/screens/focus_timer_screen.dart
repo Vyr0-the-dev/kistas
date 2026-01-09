@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../theme/app_colors.dart';
+import '../widgets/ambient_background.dart';
 
 class FocusTimerScreen extends StatelessWidget {
   const FocusTimerScreen({
@@ -23,8 +24,9 @@ class FocusTimerScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.of(context).background,
-      body: SafeArea(
-        child: Stack(
+      body: AmbientBackground(
+        child: SafeArea(
+          child: Stack(
           children: [
             Positioned(
               top: 8,
@@ -96,6 +98,7 @@ class FocusTimerScreen extends StatelessWidget {
             ),
           ],
         ),
+      ),
       ),
     );
   }

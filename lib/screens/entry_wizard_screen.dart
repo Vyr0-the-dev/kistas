@@ -7,6 +7,7 @@ import '../models/question_entry.dart';
 import '../models/topic_summary.dart';
 import '../services/app_repository.dart';
 import '../theme/app_colors.dart';
+import '../widgets/ambient_background.dart';
 import '../widgets/app_bottom_nav.dart';
 import '../widgets/in_app_notice.dart';
 import 'analysis_screen.dart';
@@ -102,9 +103,10 @@ class _EntryWizardScreenState extends State<EntryWizardScreen> {
 
     return Scaffold(
       backgroundColor: AppColors.of(context).background,
-      body: SafeArea(
-        child: Column(
-          children: [
+      body: AmbientBackground(
+        child: SafeArea(
+          child: Column(
+            children: [
             _WizardHeader(
               title: widget.type == EntryType.question
                   ? 'Soru Kaydı'
@@ -227,6 +229,7 @@ class _EntryWizardScreenState extends State<EntryWizardScreen> {
             ),
           ],
         ),
+      ),
       ),
       bottomNavigationBar: AppBottomNav(
         activeIndex: 2,

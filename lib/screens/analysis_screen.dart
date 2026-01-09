@@ -738,8 +738,9 @@ class _Header extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
+    return GlassPanel(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+      radius: const BorderRadius.vertical(bottom: Radius.circular(24)),
       child: Row(
         children: [
           IconButton(

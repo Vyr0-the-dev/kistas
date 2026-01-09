@@ -250,8 +250,11 @@ class _Header extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
+    return GlassPanel(
+      padding: const EdgeInsets.only(bottom: 12),
+      radius: const BorderRadius.vertical(bottom: Radius.circular(24)),
+      child: Column(
+        children: [
         Padding(
           padding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
           child: Row(
@@ -369,6 +372,7 @@ class _Header extends StatelessWidget {
           ),
         ),
       ],
+    ),
     );
   }
 }

@@ -511,18 +511,9 @@ class _Header extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final now = DateTime.now();
-    return Container(
+    return GlassPanel(
       padding: const EdgeInsets.fromLTRB(20, 20, 20, 12),
-      decoration: BoxDecoration(
-        color: AppColors.of(context).background.withOpacity(0.92),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.35),
-            blurRadius: 20,
-            offset: const Offset(0, 10),
-          ),
-        ],
-      ),
+      radius: const BorderRadius.vertical(bottom: Radius.circular(24)),
       child: Column(
         children: [
           Row(

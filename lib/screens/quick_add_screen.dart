@@ -30,96 +30,93 @@ class QuickAddScreen extends StatelessWidget {
     final topics = repository.topics;
     return Scaffold(
       backgroundColor: AppColors.of(context).background,
-      body: SafeArea(
-        child: ValueListenableBuilder<List<QuestionEntry>>(
-          valueListenable: repository.questionEntries,
-          builder: (context, questionEntries, _) {
-            return ValueListenableBuilder<List<MockExam>>(
-              valueListenable: repository.mockExams,
-              builder: (context, mockExams, __) {
-                final recentEntry = questionEntries.isNotEmpty
-                    ? questionEntries.last
-                    : null;
-                final recentExam =
-                    mockExams.isNotEmpty ? mockExams.last : null;
-                final todayItems = _buildTodayItems(
-                  context,
-                  questionEntries,
-                  mockExams,
-                );
-
-                return Stack(
-                  children: [
-                    const _AmbientOrbs(),
-                    SingleChildScrollView(
-                      padding: const EdgeInsets.only(bottom: 120),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const _Header(),
-                          Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 18),
-                            child: _AiSmartAddButton(
-                              onTap: () => _openSmartAdd(context),
-                            ),
+      body: AmbientBackground(
+        child: SafeArea(
+          child: ValueListenableBuilder<List<QuestionEntry>>(
+            valueListenable: repository.questionEntries,
+            builder: (context, questionEntries, _) {
+              return ValueListenableBuilder<List<MockExam>>(
+                valueListenable: repository.mockExams,
+                builder: (context, mockExams, __) {
+                  final recentEntry = questionEntries.isNotEmpty
+                      ? questionEntries.last
+                      : null;
+                  final recentExam =
+                      mockExams.isNotEmpty ? mockExams.last : null;
+                  final todayItems = _buildTodayItems(
+                    context,
+                    questionEntries,
+                    mockExams,
+                  );
+  
+                  return SingleChildScrollView(
+                    padding: const EdgeInsets.only(bottom: 120),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const _Header(),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 18),
+                          child: _AiSmartAddButton(
+                            onTap: () => _openSmartAdd(context),
                           ),
-                          SizedBox(height: 14),
-                          _ActionCards(
-                            onQuestionAdd: () => _openEntry(
-                              context,
-                              EntryType.question,
-                            ),
-                            onExamAdd: () => _openEntry(
-                              context,
-                              EntryType.mockExam,
-                            ),
-                          ),
-                          SizedBox(height: 18),
-                      _SectionHeader(
-                        title: 'Hızlı Seçimler',
-                        actionLabel: 'Tümü',
-                        onAction: () => _showQuickSelectionsSheet(
-                          context,
-                          questionEntries,
-                          mockExams,
-                          topics,
                         ),
-                      ),
-                          SizedBox(height: 8),
-                          _SuggestionsRow(
-                            recentEntry: recentEntry,
-                            recentExam: recentExam,
-                            onQuestionTap: (entry) =>
-                                _openQuestionFromEntry(context, entry, topics),
-                            onExamTap: (exam) => _openExamFromEntry(
-                              context,
-                              exam,
-                            ),
+                        SizedBox(height: 14),
+                        _ActionCards(
+                          onQuestionAdd: () => _openEntry(
+                            context,
+                            EntryType.question,
                           ),
-                          SizedBox(height: 20),
-                          Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 20),
-                            child: Text(
-                              'Bugün',
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .titleMedium
-                                  ?.copyWith(
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                            ),
+                          onExamAdd: () => _openEntry(
+                            context,
+                            EntryType.mockExam,
                           ),
-                          SizedBox(height: 8),
-                          _TodayList(items: todayItems),
-                        ],
-                      ),
+                        ),
+                        SizedBox(height: 18),
+                        _SectionHeader(
+                          title: 'Hızlı Seçimler',
+                          actionLabel: 'Tümü',
+                          onAction: () => _showQuickSelectionsSheet(
+                            context,
+                            questionEntries,
+                            mockExams,
+                            topics,
+                          ),
+                        ),
+                        SizedBox(height: 8),
+                        _SuggestionsRow(
+                          recentEntry: recentEntry,
+                          recentExam: recentExam,
+                          onQuestionTap: (entry) =>
+                              _openQuestionFromEntry(context, entry, topics),
+                          onExamTap: (exam) => _openExamFromEntry(
+                            context,
+                            exam,
+                          ),
+                        ),
+                        SizedBox(height: 20),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 20),
+                          child: Text(
+                            'Bugün',
+                            style: Theme.of(context)
+                                .textTheme
+                                .titleMedium
+                                ?.copyWith(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                          ),
+                        ),
+                        SizedBox(height: 8),
+                        _TodayList(items: todayItems),
+                      ],
                     ),
-                  ],
-                );
-              },
-            );
-          },
+                  );
+                },
+              );
+            },
+          ),
         ),
       ),
       bottomNavigationBar: _BottomNav(
@@ -854,53 +851,6 @@ class _BottomNav extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return AppBottomNav(activeIndex: activeIndex, onSelect: onSelect);
-  }
-}
-
-class _AmbientOrbs extends StatelessWidget {
-  const _AmbientOrbs();
-
-  @override
-  Widget build(BuildContext context) {
-    return IgnorePointer(
-      child: Stack(
-        children: [
-          Positioned(
-            top: 40,
-            right: -30,
-            child: _Orb(color: AppColors.of(context).primaryLight, size: 96),
-          ),
-          Positioned(
-            bottom: 140,
-            left: -20,
-            child: _Orb(color: AppColors.of(context).primary, size: 110),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _Orb extends StatelessWidget {
-  const _Orb({required this.color, required this.size});
-
-  final Color color;
-  final double size;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: size,
-      height: size,
-      decoration: BoxDecoration(
-        color: color.withOpacity(0.18),
-        shape: BoxShape.circle,
-      ),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 60, sigmaY: 60),
-        child: SizedBox.shrink(),
-      ),
-    );
   }
 }
 
