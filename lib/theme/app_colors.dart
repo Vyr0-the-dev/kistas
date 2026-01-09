@@ -42,17 +42,97 @@ class AppColors {
     glassBorder: Color(0x1FFB923C),
   );
 
-  // 4. Forest (Green/Dark Green) - Doğa
+  // 4. Forest (Green/Dark Green) - Neon Orman
   static const forest = AppPalette(
-    background: Color(0xFF051C10), 
-    backgroundAlt: Color(0xFF010F06),
-    surface: Color(0xFF0D3321),
-    surfaceLight: Color(0xFF164D33),
-    primary: Color(0xFF4ADE80), // Emerald 400
-    primaryLight: Color(0xFF86EFAC), // Emerald 300
+    background: Color(0xFF020A05), // Very Dark Green Black
+    backgroundAlt: Color(0xFF000000),
+    surface: Color(0xFF0A1F12), // Deep Green Surface
+    surfaceLight: Color(0xFF143320),
+    primary: Color(0xFF39EF7B), // Neon Green
+    primaryLight: Color(0xFF86EFAC), // Lighter Green
     primaryDark: Color(0xFF22C55E), // Emerald 500
-    glass: Color(0x1A0D3321),
-    glassBorder: Color(0x1F4ADE80),
+    glass: Color(0x1A0A1F12),
+    glassBorder: Color(0x1F39EF7B),
+    onPrimary: Color(0xFF000000), // Black text on Neon Green
+  );
+
+  // 5. Royal (Purple/Violet) - Asil
+  static const royal = AppPalette(
+    background: Color(0xFF0B0515), // Deep Purple Black
+    backgroundAlt: Color(0xFF05020A),
+    surface: Color(0xFF1A102E), // Deep Violet
+    surfaceLight: Color(0xFF2D1B4E),
+    primary: Color(0xFFA855F7), // Purple 500
+    primaryLight: Color(0xFFC084FC), // Purple 400
+    primaryDark: Color(0xFF9333EA), // Purple 600
+    glass: Color(0x1A1A102E),
+    glassBorder: Color(0x1FA855F7),
+  );
+
+  // 6. Sunset (Rose/Pink) - Günbatımı
+  static const sunset = AppPalette(
+    background: Color(0xFF120306), // Deep Rose Black
+    backgroundAlt: Color(0xFF0A0103),
+    surface: Color(0xFF240A12), // Deep Rose
+    surfaceLight: Color(0xFF3D121F),
+    primary: Color(0xFFFB7185), // Rose 400
+    primaryLight: Color(0xFFFDA4AF), // Rose 300
+    primaryDark: Color(0xFFF43F5E), // Rose 500
+    glass: Color(0x1A240A12),
+    glassBorder: Color(0x1FFB7185),
+  );
+
+  // 7. Glacier (Cyan/Ice) - Buzul
+  static const glacier = AppPalette(
+    background: Color(0xFF041016), // Dark Cyan Black
+    backgroundAlt: Color(0xFF010608),
+    surface: Color(0xFF0B222C), // Dark Cyan Surface
+    surfaceLight: Color(0xFF153847),
+    primary: Color(0xFF22D3EE), // Cyan 400
+    primaryLight: Color(0xFF67E8F9), // Cyan 300
+    primaryDark: Color(0xFF06B6D4), // Cyan 500
+    glass: Color(0x1A0B222C),
+    glassBorder: Color(0x1F22D3EE),
+  );
+
+  // 8. Crimson (Red/Dark Red) - Lal
+  static const crimson = AppPalette(
+    background: Color(0xFF170505), // Dark Red Black
+    backgroundAlt: Color(0xFF0A0101),
+    surface: Color(0xFF2D0B0B), // Dark Red Surface
+    surfaceLight: Color(0xFF4A1212),
+    primary: Color(0xFFEF4444), // Red 500
+    primaryLight: Color(0xFFF87171), // Red 400
+    primaryDark: Color(0xFFDC2626), // Red 600
+    glass: Color(0x1A2D0B0B),
+    glassBorder: Color(0x1FEF4444),
+  );
+
+  // 9. Amber (Yellow/Gold) - Kehribar
+  static const amber = AppPalette(
+    background: Color(0xFF160E02), // Dark Amber Black
+    backgroundAlt: Color(0xFF080500),
+    surface: Color(0xFF2B1C05), // Dark Amber Surface
+    surfaceLight: Color(0xFF452D0A),
+    primary: Color(0xFFFBBF24), // Amber 400
+    primaryLight: Color(0xFFFCD34D), // Amber 300
+    primaryDark: Color(0xFFF59E0B), // Amber 500
+    glass: Color(0x1A2B1C05),
+    glassBorder: Color(0x1FFBBF24),
+  );
+
+  // 10. Graphite (Grey/Silver) - Grafit (Monokrom)
+  static const graphite = AppPalette(
+    background: Color(0xFF0A0A0A), // Near Black
+    backgroundAlt: Color(0xFF000000),
+    surface: Color(0xFF171717), // Neutral 900
+    surfaceLight: Color(0xFF262626), // Neutral 800
+    primary: Color(0xFFE5E5E5), // Neutral 200
+    primaryLight: Color(0xFFFFFFFF), // White
+    primaryDark: Color(0xFFA3A3A3), // Neutral 400
+    glass: Color(0x1A171717),
+    glassBorder: Color(0x1FE5E5E5),
+    onPrimary: Color(0xFF000000),
   );
 
   // Common Text & Status Colors
@@ -67,6 +147,12 @@ class AppColors {
     'ocean': ocean,
     'volcanic': volcanic,
     'forest': forest,
+    'royal': royal,
+    'sunset': sunset,
+    'glacier': glacier,
+    'crimson': crimson,
+    'amber': amber,
+    'graphite': graphite,
   };
 
   // Helper to access colors from context
@@ -86,6 +172,7 @@ class AppPalette {
     required this.primaryDark,
     required this.glass,
     required this.glassBorder,
+    this.onPrimary = Colors.white,
   });
 
   final Color background;
@@ -97,6 +184,7 @@ class AppPalette {
   final Color primaryDark;
   final Color glass;
   final Color glassBorder;
+  final Color onPrimary;
 }
 
 @immutable

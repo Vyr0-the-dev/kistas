@@ -43,11 +43,16 @@ class RoadToAtcApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return AppRepositoryScope(
       repository: repository,
-      child: MaterialApp(
-        debugShowCheckedModeBanner: false,
-        title: 'Road to ATC',
-        theme: buildAppTheme('midnight'),
-        home: const HomeScreen(),
+      child: ValueListenableBuilder<String>(
+        valueListenable: repository.themeKey,
+        builder: (context, themeKey, _) {
+          return MaterialApp(
+            debugShowCheckedModeBanner: false,
+            title: 'Road to ATC',
+            theme: buildAppTheme(themeKey),
+            home: const HomeScreen(),
+          );
+        },
       ),
     );
   }

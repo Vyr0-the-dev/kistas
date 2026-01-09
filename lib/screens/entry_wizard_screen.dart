@@ -374,7 +374,7 @@ class _WizardHeader extends StatelessWidget {
               final popped = await Navigator.of(context).maybePop();
               if (!popped && context.mounted) {
                 Navigator.of(context).pushReplacement(
-                  MaterialPageRoute(builder: (_) => const HomeScreen()),
+                  MaterialPageRoute(builder: (_) => HomeScreen()),
                 );
               }
             },
@@ -1028,27 +1028,27 @@ void _navigateFromNav(BuildContext context, int index) {
   switch (index) {
     case 0:
       Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => const HomeScreen()),
+        MaterialPageRoute(builder: (_) => HomeScreen()),
       );
       return;
     case 1:
       Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => const TopicSummariesScreen()),
+        MaterialPageRoute(builder: (_) => TopicSummariesScreen()),
       );
       return;
     case 2:
       Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => const QuickAddScreen()),
+        MaterialPageRoute(builder: (_) => QuickAddScreen()),
       );
       return;
     case 3:
       Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => const AnalysisScreen()),
+        MaterialPageRoute(builder: (_) => AnalysisScreen()),
       );
       return;
     case 4:
       Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => const ProfileScreen()),
+        MaterialPageRoute(builder: (_) => ProfileScreen()),
       );
       return;
   }

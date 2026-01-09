@@ -17,7 +17,7 @@ ThemeData buildAppTheme(String themeKey) {
       secondary: palette.primaryDark,
       surface: palette.surface,
       background: palette.background,
-      onPrimary: Colors.white,
+      onPrimary: palette.onPrimary,
       onSecondary: Colors.white,
       onSurface: AppColors.textPrimary,
       onBackground: AppColors.textPrimary,
@@ -101,7 +101,7 @@ ThemeData buildAppTheme(String themeKey) {
     elevatedButtonTheme: ElevatedButtonThemeData(
       style: ElevatedButton.styleFrom(
         backgroundColor: palette.primary,
-        foregroundColor: Colors.white,
+        foregroundColor: palette.onPrimary,
         elevation: 0,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 24),

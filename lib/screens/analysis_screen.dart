@@ -312,24 +312,24 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
     switch (index) {
       case 0:
         Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (_) => const HomeScreen()),
+          MaterialPageRoute(builder: (_) => HomeScreen()),
         );
         return;
       case 1:
         Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (_) => const TopicSummariesScreen()),
+          MaterialPageRoute(builder: (_) => TopicSummariesScreen()),
         );
         return;
       case 2:
         Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (_) => const QuickAddScreen()),
+          MaterialPageRoute(builder: (_) => QuickAddScreen()),
         );
         return;
       case 3:
         return;
       case 4:
         Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (_) => const ProfileScreen()),
+          MaterialPageRoute(builder: (_) => ProfileScreen()),
         );
         return;
     }
@@ -906,7 +906,7 @@ class _RangeChip extends StatelessWidget {
             label,
             textAlign: TextAlign.center,
             style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                  color: active ? Colors.white : Colors.white54,
+                  color: active ? Theme.of(context).colorScheme.onPrimary : Colors.white54,
                   fontWeight: FontWeight.w600,
                 ),
           ),

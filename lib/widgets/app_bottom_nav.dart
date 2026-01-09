@@ -145,7 +145,7 @@ class _CenterAction extends StatelessWidget {
                   ),
                 ],
               ),
-              child: Icon(Icons.add, color: Colors.white, size: 24),
+              child: Icon(Icons.add, color: Theme.of(context).colorScheme.onPrimary, size: 24),
             ),
           ),
           SizedBox(height: 4),

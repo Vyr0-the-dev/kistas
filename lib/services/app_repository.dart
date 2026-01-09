@@ -27,6 +27,7 @@ const _reminderLastShownKey = 'reminder_last_shown';
 const _weeklyPlanEnabledKey = 'weekly_plan_enabled';
 const _weeklyPlanTimeKey = 'weekly_plan_time';
 const _weeklyPlanWeekdayKey = 'weekly_plan_weekday';
+const _themeKey = 'theme_key';
 
 class AppRepository {
   AppRepository._(this._prefs)
@@ -36,6 +37,7 @@ class AppRepository {
         aiRequestCountToday = ValueNotifier<int>(0),
         geminiApiKey = ValueNotifier<String>(''),
         geminiModel = ValueNotifier<String>(''),
+        themeKey = ValueNotifier<String>('midnight'),
         aiGoalCadence = ValueNotifier<String>('daily'),
         aiNotificationsEnabled = ValueNotifier<bool>(false),
         aiGoalTargets = ValueNotifier<Map<String, int>>({}),
@@ -59,6 +61,7 @@ class AppRepository {
   final ValueNotifier<int> aiRequestCountToday;
   final ValueNotifier<String> geminiApiKey;
   final ValueNotifier<String> geminiModel;
+  final ValueNotifier<String> themeKey;
   final ValueNotifier<String> aiGoalCadence;
   final ValueNotifier<bool> aiNotificationsEnabled;
   final ValueNotifier<Map<String, int>> aiGoalTargets;
@@ -125,6 +128,11 @@ class AppRepository {
     debugPrint('AppRepository: Model güncelleniyor: $value');
     geminiModel.value = value;
     await _prefs.setString(_geminiModel, value);
+  }
+
+  Future<void> setTheme(String key) async {
+    themeKey.value = key;
+    await _prefs.setString(_themeKey, key);
   }
 
   Future<void> setAiGoalCadence(String cadence) async {
@@ -410,6 +418,7 @@ class AppRepository {
     mockExams.value = _decodeMockExams(_prefs.getString(_mockExamsKey));
     geminiApiKey.value = _prefs.getString(_geminiApiKey) ?? '';
     geminiModel.value = _prefs.getString(_geminiModel) ?? '';
+    themeKey.value = _prefs.getString(_themeKey) ?? 'midnight';
     
     debugPrint('AppRepository: Yüklendi. API Key var mı: ${geminiApiKey.value.isNotEmpty}, Model: ${geminiModel.value}');
 

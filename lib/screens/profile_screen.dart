@@ -94,6 +94,91 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   _ReminderSection(repository: repository),
                   const Divider(color: Colors.white12, height: 24),
                   ValueListenableBuilder<String>(
+                    valueListenable: repository.themeKey,
+                    builder: (context, themeKey, _) {
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Tema',
+                            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                          ),
+                          SizedBox(height: 12),
+                          Wrap(
+                            spacing: 16,
+                            runSpacing: 16,
+                            children: [
+                              _ThemeOption(
+                                color: AppColors.midnight.primary,
+                                label: 'Midnight',
+                                isSelected: themeKey == 'midnight',
+                                onTap: () => repository.setTheme('midnight'),
+                              ),
+                              _ThemeOption(
+                                color: AppColors.ocean.primary,
+                                label: 'Okyanus',
+                                isSelected: themeKey == 'ocean',
+                                onTap: () => repository.setTheme('ocean'),
+                              ),
+                              _ThemeOption(
+                                color: AppColors.volcanic.primary,
+                                label: 'Volkanik',
+                                isSelected: themeKey == 'volcanic',
+                                onTap: () => repository.setTheme('volcanic'),
+                              ),
+                              _ThemeOption(
+                                color: AppColors.forest.primary,
+                                label: 'Orman',
+                                isSelected: themeKey == 'forest',
+                                onTap: () => repository.setTheme('forest'),
+                              ),
+                              _ThemeOption(
+                                color: AppColors.royal.primary,
+                                label: 'Asil',
+                                isSelected: themeKey == 'royal',
+                                onTap: () => repository.setTheme('royal'),
+                              ),
+                              _ThemeOption(
+                                color: AppColors.sunset.primary,
+                                label: 'Sunset',
+                                isSelected: themeKey == 'sunset',
+                                onTap: () => repository.setTheme('sunset'),
+                              ),
+                              _ThemeOption(
+                                color: AppColors.glacier.primary,
+                                label: 'Buzul',
+                                isSelected: themeKey == 'glacier',
+                                onTap: () => repository.setTheme('glacier'),
+                              ),
+                              _ThemeOption(
+                                color: AppColors.crimson.primary,
+                                label: 'Lal',
+                                isSelected: themeKey == 'crimson',
+                                onTap: () => repository.setTheme('crimson'),
+                              ),
+                              _ThemeOption(
+                                color: AppColors.amber.primary,
+                                label: 'Kehribar',
+                                isSelected: themeKey == 'amber',
+                                onTap: () => repository.setTheme('amber'),
+                              ),
+                              _ThemeOption(
+                                color: AppColors.graphite.primary,
+                                label: 'Grafit',
+                                isSelected: themeKey == 'graphite',
+                                onTap: () => repository.setTheme('graphite'),
+                              ),
+                            ],
+                          ),
+                        ],
+                      );
+                    },
+                  ),
+                  const Divider(color: Colors.white12, height: 24),
+                  ValueListenableBuilder<String>(
                     valueListenable: repository.geminiApiKey,
                     builder: (context, key, _) {
                       return Column(
@@ -247,6 +332,62 @@ class _ProfileAction extends StatelessWidget {
             ),
       ),
       trailing: Icon(Icons.chevron_right, color: Colors.white54),
+    );
+  }
+}
+
+class _ThemeOption extends StatelessWidget {
+  const _ThemeOption({
+    required this.color,
+    required this.label,
+    required this.isSelected,
+    required this.onTap,
+  });
+
+  final Color color;
+  final String label;
+  final bool isSelected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Column(
+        children: [
+          Container(
+            width: 48,
+            height: 48,
+            decoration: BoxDecoration(
+              color: color,
+              shape: BoxShape.circle,
+              border: isSelected
+                  ? Border.all(color: Colors.white, width: 3)
+                  : Border.all(color: Colors.white12, width: 1),
+              boxShadow: isSelected
+                  ? [
+                      BoxShadow(
+                        color: color.withOpacity(0.5),
+                        blurRadius: 12,
+                        spreadRadius: 2,
+                      )
+                    ]
+                  : [],
+            ),
+            child: isSelected
+                ? Icon(Icons.check, color: Colors.white, size: 28)
+                : null,
+          ),
+          SizedBox(height: 8),
+          Text(
+            label,
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                  color: isSelected ? Colors.white : AppColors.of(context).textSecondary,
+                  fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -1764,22 +1905,22 @@ void _navigateFromNav(BuildContext context, int index) {
   switch (index) {
     case 0:
       Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => const HomeScreen()),
+        MaterialPageRoute(builder: (_) => HomeScreen()),
       );
       return;
     case 1:
       Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => const TopicSummariesScreen()),
+        MaterialPageRoute(builder: (_) => TopicSummariesScreen()),
       );
       return;
     case 2:
       Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => const QuickAddScreen()),
+        MaterialPageRoute(builder: (_) => QuickAddScreen()),
       );
       return;
     case 3:
       Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => const AnalysisScreen()),
+        MaterialPageRoute(builder: (_) => AnalysisScreen()),
       );
       return;
     case 4:

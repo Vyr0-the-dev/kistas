@@ -6,6 +6,8 @@ import '../widgets/app_bottom_nav.dart';
 import 'analysis_screen.dart';
 import 'entry_wizard_screen.dart';
 import 'home_screen.dart';
+import 'profile_screen.dart';
+import 'quick_add_screen.dart';
 import 'topic_detail_screen.dart';
 
 class TopicSummariesScreen extends StatefulWidget {
@@ -130,26 +132,24 @@ class _TopicSummariesScreenState extends State<TopicSummariesScreen> {
     switch (index) {
       case 0:
         Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (_) => const HomeScreen()),
+          MaterialPageRoute(builder: (_) => HomeScreen()),
         );
         return;
       case 1:
         return;
       case 2:
         Navigator.of(context).pushReplacement(
-          MaterialPageRoute(
-            builder: (_) => const EntryWizardScreen(type: EntryType.question),
-          ),
+          MaterialPageRoute(builder: (_) => QuickAddScreen()),
         );
         return;
       case 3:
         Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (_) => const AnalysisScreen()),
+          MaterialPageRoute(builder: (_) => AnalysisScreen()),
         );
         return;
       case 4:
         Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (_) => const HomeScreen()),
+          MaterialPageRoute(builder: (_) => ProfileScreen()),
         );
         return;
     }
@@ -396,7 +396,7 @@ class _ChipButton extends StatelessWidget {
           child: Text(
             label,
             style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                  color: active ? Colors.white : AppColors.of(context).textSecondary,
+                  color: active ? Theme.of(context).colorScheme.onPrimary : AppColors.of(context).textSecondary,
                   fontWeight: FontWeight.w600,
                 ),
           ),

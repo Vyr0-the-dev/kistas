@@ -141,24 +141,24 @@ class QuickAddScreen extends StatelessWidget {
     switch (index) {
       case 0:
         Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (_) => const HomeScreen()),
+          MaterialPageRoute(builder: (_) => HomeScreen()),
         );
         return;
       case 1:
         Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (_) => const TopicSummariesScreen()),
+          MaterialPageRoute(builder: (_) => TopicSummariesScreen()),
         );
         return;
       case 2:
         return;
       case 3:
         Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (_) => const AnalysisScreen()),
+          MaterialPageRoute(builder: (_) => AnalysisScreen()),
         );
         return;
       case 4:
         Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (_) => const HomeScreen()),
+          MaterialPageRoute(builder: (_) => HomeScreen()),
         );
         return;
     }
@@ -200,10 +200,10 @@ class _AiSmartAddButton extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.2),
+                color: Theme.of(context).colorScheme.onPrimary.withOpacity(0.2),
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: Icon(Icons.auto_awesome, color: Colors.white),
+              child: Icon(Icons.auto_awesome, color: Theme.of(context).colorScheme.onPrimary),
             ),
             SizedBox(width: 14),
             Expanded(
@@ -213,7 +213,7 @@ class _AiSmartAddButton extends StatelessWidget {
                   Text(
                     'AI Hızlı Ekle',
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          color: Colors.white,
+                          color: Theme.of(context).colorScheme.onPrimary,
                           fontWeight: FontWeight.w800,
                         ),
                   ),
@@ -221,14 +221,14 @@ class _AiSmartAddButton extends StatelessWidget {
                   Text(
                     '"Bugün matematikten 30 soru çözdüm..."',
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: Colors.white70,
+                          color: Theme.of(context).colorScheme.onPrimary.withOpacity(0.7),
                           fontStyle: FontStyle.italic,
                         ),
                   ),
                 ],
               ),
             ),
-            Icon(Icons.chevron_right, color: Colors.white70),
+            Icon(Icons.chevron_right, color: Theme.of(context).colorScheme.onPrimary.withOpacity(0.7)),
           ],
         ),
       ),
@@ -618,7 +618,7 @@ class _SuggestionsRow extends StatelessWidget {
     }
 
     return SizedBox(
-      height: 92,
+      height: 104,
       child: ListView.separated(
         padding: const EdgeInsets.symmetric(horizontal: 20),
         scrollDirection: Axis.horizontal,
@@ -712,10 +712,10 @@ class _SuggestionCard extends StatelessWidget {
               width: 32,
               height: 32,
               decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.05),
+                color: AppColors.of(context).primary,
                 borderRadius: BorderRadius.circular(10),
               ),
-              child: Icon(Icons.add, color: Colors.white70, size: 18),
+              child: Icon(Icons.add, color: Theme.of(context).colorScheme.onPrimary, size: 18),
             ),
           ],
         ),
@@ -1431,7 +1431,7 @@ class _ExamDetailBlock extends StatelessWidget {
           child: ElevatedButton(
             onPressed: () {
               Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => const AnalysisScreen()),
+                MaterialPageRoute(builder: (_) => AnalysisScreen()),
               );
             },
             child: Text('Analize Git'),

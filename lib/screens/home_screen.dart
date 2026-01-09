@@ -260,22 +260,22 @@ class _HomeScreenState extends State<HomeScreen> {
         return;
       case 1:
         Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (_) => const TopicSummariesScreen()),
+          MaterialPageRoute(builder: (_) => TopicSummariesScreen()),
         );
         return;
       case 2:
         Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (_) => const QuickAddScreen()),
+          MaterialPageRoute(builder: (_) => QuickAddScreen()),
         );
         return;
       case 3:
         Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (_) => const AnalysisScreen()),
+          MaterialPageRoute(builder: (_) => AnalysisScreen()),
         );
         return;
       case 4:
         Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (_) => const ProfileScreen()),
+          MaterialPageRoute(builder: (_) => ProfileScreen()),
         );
         return;
     }
@@ -747,7 +747,7 @@ class _FocusCard extends StatelessWidget {
                       onPressed: onQuickAdd,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppColors.of(context).primary,
-                        foregroundColor: Colors.white,
+                        foregroundColor: Theme.of(context).colorScheme.onPrimary,
                         elevation: 0,
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(16),
