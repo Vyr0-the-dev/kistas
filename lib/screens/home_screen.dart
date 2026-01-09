@@ -1458,58 +1458,65 @@ class _PerformanceRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Expanded(
-          flex: 5,
-          child: _RingCard(
-            solved: todayTotal,
-            dailyGoal: dailyGoal,
+    return IntrinsicHeight(
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Expanded(
+            flex: 5,
+            child: _RingCard(
+              solved: todayTotal,
+              dailyGoal: dailyGoal,
+            ),
           ),
-        ),
-        SizedBox(width: 12),
-        Expanded(
-          flex: 7,
-          child: Column(
-            children: [
-              _StatCard(
-                label: 'Ortalama Net',
-                value: avgNet == null ? '—' : avgNet!.toStringAsFixed(1),
-                trailing: avgNet == null
-                    ? null
-                    : _TrendChip(
-                        delta: avgNet! >= 0 ? '+${avgNet!.toStringAsFixed(1)}' :
-                            avgNet!.toStringAsFixed(1),
-                        positive: avgNet! >= 0,
+          SizedBox(width: 12),
+          Expanded(
+            flex: 7,
+            child: Column(
+              children: [
+                Expanded(
+                  child: _StatCard(
+                    label: 'Ortalama Net',
+                    value: avgNet == null ? '—' : avgNet!.toStringAsFixed(1),
+                    trailing: avgNet == null
+                        ? null
+                        : _TrendChip(
+                            delta: avgNet! >= 0 ? '+${avgNet!.toStringAsFixed(1)}' :
+                                avgNet!.toStringAsFixed(1),
+                            positive: avgNet! >= 0,
+                          ),
+                  ),
+                ),
+                SizedBox(height: 10),
+                Expanded(
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: _MiniStatCard(
+                          label: 'Doğruluk',
+                          value: accuracy == null
+                              ? '—'
+                              : '%${(accuracy! * 100).round()}',
+                          valueColor: AppColors.of(context).primary,
+                        ),
                       ),
-              ),
-              SizedBox(height: 10),
-              Row(
-                children: [
-                  Expanded(
-                    child: _MiniStatCard(
-                      label: 'Doğruluk',
-                      value: accuracy == null
-                          ? '—'
-                          : '%${(accuracy! * 100).round()}',
-                      valueColor: AppColors.of(context).primary,
-                    ),
+                      SizedBox(width: 10),
+                      Expanded(
+                        child: _MiniStatCard(
+                          label: 'Toplam',
+                          value: totalQuestions == 0
+                              ? '—'
+                              : totalQuestions.toString(),
+                        ),
+                      ),
+                    ],
                   ),
-                  SizedBox(width: 10),
-                  Expanded(
-                    child: _MiniStatCard(
-                      label: 'Toplam',
-                      value: totalQuestions == 0
-                          ? '—'
-                          : totalQuestions.toString(),
-                    ),
-                  ),
-                ],
-              ),
-            ],
+                ),
+              ],
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }
@@ -1591,6 +1598,7 @@ class _StatCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
+      width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
         color: AppColors.of(context).surface,
@@ -1600,23 +1608,26 @@ class _StatCard extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                label,
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: AppColors.of(context).textSecondary,
-                    ),
-              ),
-              SizedBox(height: 4),
-              Text(
-                value,
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w700,
-                    ),
-              ),
-            ],
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  label,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: AppColors.of(context).textSecondary,
+                      ),
+                ),
+                SizedBox(height: 4),
+                Text(
+                  value,
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
+                ),
+              ],
+            ),
           ),
           if (trailing != null) trailing!,
         ],
@@ -1675,6 +1686,8 @@ class _MiniStatCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
+      width: double.infinity,
+      height: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
         color: AppColors.of(context).surface,
@@ -1683,6 +1696,7 @@ class _MiniStatCard extends StatelessWidget {
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Text(
             label,
@@ -1905,7 +1919,7 @@ class _KpssCountdownCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'KPSS 2026',
+                  'KPSS 2026 GK-GY',
                   style: Theme.of(context).textTheme.labelSmall?.copyWith(
                         color: AppColors.of(context).textSecondary,
                         fontWeight: FontWeight.w700,
@@ -1925,8 +1939,8 @@ class _KpssCountdownCard extends StatelessWidget {
           ),
           if (!isPassed)
             _MiniProgressIndicator(
-              total: 365, // Assume a year cycle for visualization
-              remaining: days,
+              total: 365,
+              remaining: 365 - days,
               color: AppColors.of(context).primary,
             ),
         ],
@@ -2570,7 +2584,7 @@ Veriler:
   try {
     final client = GeminiClient();
     final model = repository.geminiModel.value.isEmpty
-        ? 'gemini-1.5-flash'
+        ? 'gemini-1.5-flash-latest'
         : repository.geminiModel.value;
     final result = await client.generateText(
       apiKey: apiKey,
@@ -2658,7 +2672,7 @@ Kullanıcı ihtiyacı: ${userNeed.trim()}
   try {
     final client = GeminiClient();
     final model = repository.geminiModel.value.isEmpty
-        ? 'gemini-1.5-flash'
+        ? 'gemini-1.5-flash-latest'
         : repository.geminiModel.value;
     final result = await client.generateText(
       apiKey: apiKey,
@@ -2726,7 +2740,7 @@ Not: dailyGoal 20-300 aralığında olsun.
   try {
     final client = GeminiClient();
     final model = repository.geminiModel.value.isEmpty
-        ? 'gemini-1.5-flash'
+        ? 'gemini-1.5-flash-latest'
         : repository.geminiModel.value;
     final result = await client.generateText(
       apiKey: apiKey,

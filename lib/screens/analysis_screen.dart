@@ -374,7 +374,7 @@ Seçili kadans: ${_cadenceLabel(cadence)}
   try {
     final client = GeminiClient();
     final model = repository.geminiModel.value.isEmpty
-        ? 'gemini-1.5-flash'
+        ? 'gemini-1.5-flash-latest'
         : repository.geminiModel.value;
     
     debugPrint('AnalizScreen: Kullanılacak Model: $model');
@@ -474,7 +474,7 @@ KPSS P3 soru analizi yap. Hatalı eğilimleri ve hız/performans darboğazını 
   try {
     final client = GeminiClient();
     final model = repository.geminiModel.value.isEmpty
-        ? 'gemini-1.5-flash'
+        ? 'gemini-1.5-flash-latest'
         : repository.geminiModel.value;
     
     debugPrint('AnalizScreen: Kullanılacak Model: $model');
@@ -558,7 +558,7 @@ Bülteni Markdown formatında, paylaşılmaya uygun şık bir şekilde yaz.
   try {
     final client = GeminiClient();
     final model = repository.geminiModel.value.isEmpty
-        ? 'gemini-1.5-flash'
+        ? 'gemini-1.5-flash-latest'
         : repository.geminiModel.value;
 
     final result = await client.generateText(

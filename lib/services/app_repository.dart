@@ -42,7 +42,7 @@ class AppRepository {
         geminiApiKey = ValueNotifier<String>(''),
         geminiModel = ValueNotifier<String>(''),
         themeKey = ValueNotifier<String>('midnight'),
-        examDate = ValueNotifier<DateTime>(DateTime(2026, 7, 19)),
+        examDate = ValueNotifier<DateTime>(DateTime(2026, 9, 6)),
         aiGoalCadence = ValueNotifier<String>('daily'),
         aiNotificationsEnabled = ValueNotifier<bool>(false),
         aiGoalTargets = ValueNotifier<Map<String, int>>({}),
@@ -443,7 +443,7 @@ class AppRepository {
     themeKey.value = _prefs.getString(_themeKey) ?? 'midnight';
     final examDateRaw = _prefs.getString(_examDateKey);
     if (examDateRaw != null) {
-      examDate.value = DateTime.tryParse(examDateRaw) ?? DateTime(2026, 7, 19);
+      examDate.value = DateTime.tryParse(examDateRaw) ?? DateTime(2026, 9, 6);
     }
     
     debugPrint('AppRepository: Yüklendi. API Key var mı: ${geminiApiKey.value.isNotEmpty}, Model: ${geminiModel.value}');

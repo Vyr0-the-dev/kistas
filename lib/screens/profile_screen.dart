@@ -1236,7 +1236,7 @@ Gerçekçi ol, mevcut performansın %10-20 üzerine çıkmayı hedefle.
   try {
     final client = GeminiClient();
     final model = repository.geminiModel.value.isEmpty
-        ? 'gemini-1.5-flash'
+        ? 'gemini-1.5-flash-latest'
         : repository.geminiModel.value;
     final result = await client.generateText(
       apiKey: apiKey,

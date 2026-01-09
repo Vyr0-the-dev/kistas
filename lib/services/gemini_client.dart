@@ -47,7 +47,7 @@ class GeminiClient {
   Future<String> generateText({
     required String apiKey,
     required String prompt,
-    String model = 'gemini-1.5-flash',
+    String model = 'gemini-1.5-flash-latest',
   }) async {
     debugPrint('GeminiClient: generateText çağrıldı. Model: $model');
     final uri = Uri.parse(

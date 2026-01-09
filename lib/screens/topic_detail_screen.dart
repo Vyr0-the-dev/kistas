@@ -922,7 +922,7 @@ class _ActionButtons extends StatelessWidget {
             if (cards.isNotEmpty)
               ElevatedButton.icon(
                 onPressed: () => _openFlashcards(context, cards, topic.title),
-                icon: Icon(Icons.Style),
+                icon: Icon(Icons.style),
                 label: Text('Bilgi Kartlarını Çalış (${cards.length})'),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.of(context).success.withOpacity(0.8),
@@ -1008,7 +1008,7 @@ KPSS P3 "${topic.title}" (${topic.subject}) konusu için özel çalışma rehber
   try {
     final client = GeminiClient();
     final model = repository.geminiModel.value.isEmpty
-        ? 'gemini-1.5-flash'
+        ? 'gemini-1.5-flash-latest'
         : repository.geminiModel.value;
 
     final result = await client.generateText(
@@ -1081,7 +1081,7 @@ Sorular kısa, öz ve sınavda çıkabilecek kritik bilgiler olsun.
   try {
     final client = GeminiClient();
     final model = repository.geminiModel.value.isEmpty
-        ? 'gemini-1.5-flash'
+        ? 'gemini-1.5-flash-latest'
         : repository.geminiModel.value;
 
     final result = await client.generateText(

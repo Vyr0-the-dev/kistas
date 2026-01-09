@@ -291,7 +291,7 @@ Future<void> _openSmartAdd(BuildContext context) async {
   try {
     final client = GeminiClient();
     final model = repository.geminiModel.value.isEmpty
-        ? 'gemini-1.5-flash'
+        ? 'gemini-1.5-flash-latest'
         : repository.geminiModel.value;
 
     final prompt = '''
