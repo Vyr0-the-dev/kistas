@@ -17,8 +17,7 @@
         "ms-azuretools.vscode-docker",
         "publisher.gemini-cli-companion",
         "ms-python.python",
-        "ms-python.vscode-pylance"
-      ]
+        "ms-python.vscode-pylance"      ]
     }
   }
 }

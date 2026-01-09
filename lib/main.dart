@@ -1,22 +1,54 @@
 import 'package:flutter/material.dart';
 
 import 'screens/home_screen.dart';
+import 'services/app_repository.dart';
+import 'services/notification_service.dart';
 import 'theme/app_theme.dart';
 
-void main() {
-  runApp(const P3RotaApp());
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  final repository = await AppRepository.init();
+  await NotificationService.init();
+  if (repository.reminderEnabled.value) {
+    await NotificationService.scheduleDailyReminder(
+      repository.reminderTime.value,
+    );
+  }
+  if (repository.weeklyPlanEnabled.value) {
+    await NotificationService.scheduleWeeklyPlanWithBody(
+      time: repository.weeklyPlanTime.value,
+      weekday: repository.weeklyPlanWeekday.value,
+      body: _buildWeeklyPlanBody(repository),
+    );
+  }
+  runApp(RoadToAtcApp(repository: repository));
 }
 
-class P3RotaApp extends StatelessWidget {
-  const P3RotaApp({super.key});
+String _buildWeeklyPlanBody(AppRepository repository) {
+  final program = repository.aiProgramLast.value;
+  if (program == null || program.trim().isEmpty) {
+    return 'Bu hafta için çalışma planını güncelle.';
+  }
+  final trimmed = program.trim();
+  final firstLine = trimmed.split('\n').first;
+  return firstLine.length > 120 ? '${firstLine.substring(0, 120)}…' : firstLine;
+}
+
+class RoadToAtcApp extends StatelessWidget {
+  const RoadToAtcApp({super.key, required this.repository});
+
+  final AppRepository repository;
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'P3 Rota',
-      debugShowCheckedModeBanner: false,
-      theme: buildAppTheme(),
-      home: const HomeScreen(),
+    return AppRepositoryScope(
+      repository: repository,
+      child: MaterialApp(
+        debugShowCheckedModeBanner: false,
+        title: 'Road to ATC',
+        theme: buildAppTheme(),
+        home: const HomeScreen(),
+      ),
     );
   }
 }

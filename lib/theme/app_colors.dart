@@ -1,12 +1,17 @@
 import 'package:flutter/material.dart';
 
 class AppColors {
-  static const ink = Color(0xFF1B1B1B);
-  static const deepTeal = Color(0xFF0D3B3E);
-  static const coral = Color(0xFFF26B5B);
-  static const mustard = Color(0xFFE9B949);
-  static const sand = Color(0xFFF4EFEA);
-  static const mist = Color(0xFFE6F0EE);
-  static const card = Color(0xFFFFF7EE);
-  static const line = Color(0xFFD6C8B8);
+  static const background = Color(0xFF0F1116);
+  static const backgroundAlt = Color(0xFF101622);
+  static const surface = Color(0xFF171B22);
+  static const surfaceLight = Color(0xFF222734);
+  static const primary = Color(0xFF5E19E6);
+  static const primaryLight = Color(0xFF8A5AE8);
+  static const primaryDark = Color(0xFF4210B4);
+  static const textPrimary = Color(0xFFFFFFFF);
+  static const textSecondary = Color(0xFF9DB0B9);
+  static const success = Color(0xFF0BDA6F);
+  static const warning = Color(0xFFF59E0B);
+  static const danger = Color(0xFFEF4444);
+  static const glass = Color(0x1FFFFFFF);
 }
