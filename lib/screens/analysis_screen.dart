@@ -295,6 +295,19 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
                       SliverToBoxAdapter(
                         child: Padding(
                           padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+                          child: _AiExamStrategistCard(
+                            onAnalyze: () => _requestAiStrategy(
+                              context,
+                              repository,
+                              mockExams,
+                            ),
+                          ),
+                        ),
+                      ),
+                    if (hasActiveData && activeMode == AnalysisMode.exams)
+                      SliverToBoxAdapter(
+                        child: Padding(
+                          padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
                           child: _ExamBranchCard(
                             stats: _buildExamBranchStats(mockExams),
                           ),
@@ -2691,6 +2704,116 @@ Map<String, int> _buildWrongTagCounts(List<QuestionEntry> entries) {
   return {
     for (final entry in sorted.take(4)) entry.key: entry.value,
   };
+}
+
+Future<void> _requestAiStrategy(
+  BuildContext context,
+  AppRepository repository,
+  List<MockExam> exams,
+) async {
+  final apiKey = repository.geminiApiKey.value;
+  if (apiKey.isEmpty) {
+    _showSnack(context, 'Gemini anahtarını profilden ekle.');
+    return;
+  }
+
+  // Gather stats for AI
+  final lastExams = exams.take(5).toList();
+  String statsText = lastExams.map((e) {
+    return "- ${e.title}: ${e.totalNet} net, ${e.minutes} dk. Branşlar: ${e.subjectNets}";
+  }).join('\n');
+
+  final prompt = '''
+Sen bir KPSS Sınav Stratejistisin. Kullanıcının son deneme verileri şunlar:
+$statsText
+
+Bu verilere dayanarak kullanıcıya şu 3 konuda profesyonel taktik ver:
+1) ZAMAN YÖNETİMİ: Mevcut süre kullanımına göre hangi branşa kaç dakika ayırmalı? (Örn: "Türkçe'yi 45'ten 40'a çekmelisin").
+2) ÇÖZÜM SIRALAMASI: Net ve hız performansına göre en ideal branş sıralaması ne olmalı?
+3) KRİTİK UYARI: En çok net kaybettiği veya süre harcadığı branş için 1 stratejik öneri.
+
+Markdown formatında, net, otoriter ama destekleyici bir dille yaz.
+''';
+
+  final closeLoading = _showLoadingDialog(context, 'Strateji oluşturuluyor...');
+  try {
+    final client = GeminiClient();
+    final model = repository.geminiModel.value.isEmpty
+        ? 'gemini-1.5-flash-latest'
+        : repository.geminiModel.value;
+
+    final result = await client.generateText(
+      apiKey: apiKey,
+      prompt: prompt,
+      model: model,
+    );
+    await repository.incrementAiRequestCount();
+    
+    closeLoading();
+
+    if (!context.mounted) return;
+    await _showResultDialog(context, 'AI Sınav Stratejisi', result);
+  } catch (_) {
+    closeLoading();
+    if (!context.mounted) return;
+    _showSnack(context, 'Strateji alınamadı.');
+  }
+}
+
+class _AiExamStrategistCard extends StatelessWidget {
+  const _AiExamStrategistCard({required this.analyze});
+  final VoidCallback onAnalyze;
+
+  @override
+  Widget build(BuildContext context) {
+    return GlassPanel(
+      padding: const EdgeInsets.all(20),
+      radius: BorderRadius.circular(24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.blueAccent.withOpacity(0.15),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(Icons.psychology, color: Colors.blueAccent),
+              ),
+              const SizedBox(width: 12),
+              Text(
+                'AI Sınav Stratejisti',
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w700,
+                    ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          const Text(
+            'Denemelerindeki branş bazlı süre ve net dağılımını analiz ederek sınav anı için sana özel taktikler üretir.',
+            style: TextStyle(color: Colors.white54, fontSize: 13, height: 1.4),
+          ),
+          const SizedBox(height: 16),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: onAnalyze,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.blueAccent.withOpacity(0.8),
+                foregroundColor: Colors.white,
+              ),
+              icon: const Icon(Icons.auto_awesome),
+              label: const Text('Strateji Oluştur'),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 List<_ExamBranchStat> _buildExamBranchStats(List<MockExam> exams) {

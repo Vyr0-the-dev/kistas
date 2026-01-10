@@ -96,6 +96,16 @@ class _HomeScreenState extends State<HomeScreen> {
                           SliverToBoxAdapter(
                             child: Padding(
                               padding: const EdgeInsets.fromLTRB(20, 12, 20, 4),
+                              child: _QuickGlanceWidget(
+                                repository: repository,
+                                todayTotal: todayTotal,
+                                dailyGoal: dailyGoal,
+                              ),
+                            ),
+                          ),
+                          SliverToBoxAdapter(
+                            child: Padding(
+                              padding: const EdgeInsets.fromLTRB(20, 12, 20, 4),
                               child: ValueListenableBuilder<DateTime>(
                                 valueListenable: repository.examDate,
                                 builder: (context, examDate, _) {
@@ -505,6 +515,146 @@ void _showFocusTimerSheet(BuildContext context) {
           },
         );
       },
+    );
+  }
+}
+
+class _QuickGlanceWidget extends StatelessWidget {
+  const _QuickGlanceWidget({
+    required this.repository,
+    required this.todayTotal,
+    required this.dailyGoal,
+  });
+
+  final AppRepository repository;
+  final int todayTotal;
+  final int dailyGoal;
+
+  @override
+  Widget build(BuildContext context) {
+    final examDate = repository.examDate.value;
+    final daysLeft = examDate.difference(DateTime.now()).inDays;
+    final progress = (todayTotal / max(dailyGoal, 1)).clamp(0.0, 1.0);
+
+    return Row(
+      children: [
+        // Countdown Widget
+        Expanded(
+          child: Container(
+            height: 140,
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  AppColors.of(context).primary,
+                  AppColors.of(context).primaryDark,
+                ],
+              ),
+              borderRadius: BorderRadius.circular(28),
+              boxShadow: [
+                BoxShadow(
+                  color: AppColors.of(context).primary.withOpacity(0.3),
+                  blurRadius: 15,
+                  offset: const Offset(0, 8),
+                ),
+              ],
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Icon(Icons.timer_outlined, color: Colors.white70, size: 20),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      daysLeft.toString(),
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 32,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    const Text(
+                      'Gün Kaldı',
+                      style: TextStyle(
+                        color: Colors.white70,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(width: 12),
+        // Progress Widget
+        Expanded(
+          child: Container(
+            height: 140,
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: AppColors.of(context).surface,
+              borderRadius: BorderRadius.circular(28),
+              border: Border.all(color: Colors.white.withOpacity(0.05)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Icon(Icons.bolt, color: Colors.orangeAccent, size: 20),
+                    Text(
+                      '%${(progress * 100).round()}',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w800,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                ),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      todayTotal.toString(),
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 32,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    Text(
+                      '/$dailyGoal Soru',
+                      style: TextStyle(
+                        color: AppColors.of(context).textSecondary,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(4),
+                  child: LinearProgressIndicator(
+                    value: progress,
+                    minHeight: 4,
+                    backgroundColor: Colors.white10,
+                    valueColor: const AlwaysStoppedAnimation<Color>(Colors.orangeAccent),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
