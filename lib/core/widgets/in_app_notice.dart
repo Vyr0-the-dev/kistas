@@ -9,9 +9,6 @@ class InAppNotice {
 
   static void show(BuildContext context, String message) {
     final overlay = Overlay.of(context, rootOverlay: true);
-    if (overlay == null) {
-      return;
-    }
     _activeEntry?.remove();
     late final OverlayEntry entry;
     entry = OverlayEntry(

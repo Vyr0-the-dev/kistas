@@ -43,7 +43,7 @@ class AppRepository {
         aiRequestCountToday = ValueNotifier<int>(0),
         geminiApiKey = ValueNotifier<String>(''),
         geminiModel = ValueNotifier<String>(''),
-        themeKey = ValueNotifier<String>('midnight'),
+        themeKey = ValueNotifier<String>('graphite'),
         examDate = ValueNotifier<DateTime>(DateTime(2026, 9, 6)),
         aiGoalCadence = ValueNotifier<String>('daily'),
         aiNotificationsEnabled = ValueNotifier<bool>(false),
@@ -499,7 +499,7 @@ class AppRepository {
     customTopics.value = _decodeCustomTopics(_prefs.getString(_customTopicsKey));
     geminiApiKey.value = _prefs.getString(_geminiApiKey) ?? '';
     geminiModel.value = _prefs.getString(_geminiModel) ?? '';
-    themeKey.value = _prefs.getString(_themeKey) ?? 'midnight';
+    themeKey.value = _prefs.getString(_themeKey) ?? 'graphite';
     final examDateRaw = _prefs.getString(_examDateKey);
     if (examDateRaw != null) {
       examDate.value = DateTime.tryParse(examDateRaw) ?? DateTime(2026, 9, 6);

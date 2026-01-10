@@ -3,26 +3,26 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 
-import '../models/app_notification.dart';
-import '../models/flashcard.dart';
-import '../models/question_entry.dart';
-import '../models/topic_summary.dart';
-import '../services/app_repository.dart';
-import '../services/gemini_client.dart';
-import '../services/notification_service.dart';
-import '../theme/app_colors.dart';
-import '../widgets/ai_loading_dialog.dart';
-import '../widgets/ai_response_dialog.dart';
-import '../widgets/ambient_background.dart';
-import '../widgets/app_bottom_nav.dart';
-import '../widgets/glass_panel.dart';
-import '../widgets/in_app_notice.dart';
-import '../widgets/progress_ring.dart';
-import 'analysis_screen.dart';
+import '../../../core/models/app_notification.dart';
+import '../../../core/models/flashcard.dart';
+import '../../../core/models/question_entry.dart';
+import '../../../core/models/topic_summary.dart';
+import '../../../core/repositories/app_repository.dart';
+import '../../../core/services/gemini_client.dart';
+import '../../../core/services/notification_service.dart';
+import '../../../core/theme/app_colors.dart';
+import '../../../core/widgets/ai_loading_dialog.dart';
+import '../../../core/widgets/ai_response_dialog.dart';
+import '../../../core/widgets/ambient_background.dart';
+import '../../../core/widgets/app_bottom_nav.dart';
+import '../../../core/widgets/glass_panel.dart';
+import '../../../core/widgets/in_app_notice.dart';
+import '../../../core/widgets/progress_ring.dart';
+import '../../analysis/screens/analysis_screen.dart';
 import 'entry_wizard_screen.dart';
 import 'flashcard_study_screen.dart';
-import 'home_screen.dart';
-import 'profile_screen.dart';
+import '../../dashboard/screens/home_screen.dart';
+import '../../settings/screens/profile_screen.dart';
 import 'quick_add_screen.dart';
 import 'topic_summaries_screen.dart';
 
@@ -152,7 +152,6 @@ class _Hero extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final lastStudied = progress.lastStudied;
-    final score = (progress.accuracy * 100).round();
     final mastery = _calculateMastery(progress);
     final label = lastStudied == null
         ? 'Henüz çalışma yok'
@@ -1933,13 +1932,7 @@ Future<void> Function() _showLoadingDialog(BuildContext context, String title) {
   };
 }
 
-Future<void> _showResultDialog(
-  BuildContext context,
-  String title,
-  String content,
-) {
-  return AiResponseDialog.show(context, title, content);
-}
+
 
 int _daysAgo(DateTime date) {
   final now = DateTime.now();

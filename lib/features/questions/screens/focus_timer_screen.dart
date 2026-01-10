@@ -2,9 +2,9 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-import '../theme/app_colors.dart';
-import '../widgets/ambient_background.dart';
-import '../widgets/glass_panel.dart';
+import '../../../core/theme/app_colors.dart';
+import '../../../core/widgets/ambient_background.dart';
+import '../../../core/widgets/glass_panel.dart';
 
 class FocusTimerScreen extends StatelessWidget {
   const FocusTimerScreen({

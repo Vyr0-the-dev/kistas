@@ -2,17 +2,17 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 
-import '../models/mock_exam.dart';
-import '../models/question_entry.dart';
-import '../models/topic_summary.dart';
-import '../services/app_repository.dart';
-import '../theme/app_colors.dart';
-import '../widgets/ambient_background.dart';
-import '../widgets/app_bottom_nav.dart';
-import '../widgets/in_app_notice.dart';
-import 'analysis_screen.dart';
-import 'home_screen.dart';
-import 'profile_screen.dart';
+import '../../../core/models/mock_exam.dart';
+import '../../../core/models/question_entry.dart';
+import '../../../core/models/topic_summary.dart';
+import '../../../core/repositories/app_repository.dart';
+import '../../../core/theme/app_colors.dart';
+import '../../../core/widgets/ambient_background.dart';
+import '../../../core/widgets/app_bottom_nav.dart';
+import '../../../core/widgets/in_app_notice.dart';
+import '../../analysis/screens/analysis_screen.dart';
+import '../../dashboard/screens/home_screen.dart';
+import '../../settings/screens/profile_screen.dart';
 import 'topic_summaries_screen.dart';
 
 enum EntryType { question, mockExam }

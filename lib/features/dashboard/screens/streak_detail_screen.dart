@@ -1,11 +1,11 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
-import '../models/question_entry.dart';
-import '../models/mock_exam.dart';
-import '../services/app_repository.dart';
-import '../theme/app_colors.dart';
-import '../widgets/ambient_background.dart';
-import '../widgets/glass_panel.dart';
+import '../../../core/models/question_entry.dart';
+import '../../../core/models/mock_exam.dart';
+import '../../../core/repositories/app_repository.dart';
+import '../../../core/theme/app_colors.dart';
+import '../../../core/widgets/ambient_background.dart';
+import '../../../core/widgets/glass_panel.dart';
 
 class StreakDetailScreen extends StatelessWidget {
   const StreakDetailScreen({super.key});
@@ -377,8 +377,6 @@ _StreakData _calculateStreakData(List<QuestionEntry> questions, List<MockExam> e
   }
   
   if (dates.isEmpty) return _StreakData(currentStreak: 0, bestStreak: 0, totalActiveDays: 0);
-
-  final sortedDates = dates.toList()..sort((a, b) => b.compareTo(a));
   
   int current = 0;
   DateTime checkDate = DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day);

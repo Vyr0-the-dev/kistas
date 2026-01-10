@@ -1,24 +1,21 @@
 import 'dart:convert';
-import 'dart:ui';
 
 import 'package:flutter/material.dart';
 
-import '../models/app_notification.dart';
-import '../models/mock_exam.dart';
-import '../models/question_entry.dart';
-import '../models/topic_summary.dart';
-import '../services/app_repository.dart';
-import '../services/gemini_client.dart';
-import '../services/notification_service.dart';
-import '../theme/app_colors.dart';
-import '../widgets/ai_loading_dialog.dart';
-import '../widgets/ambient_background.dart';
-import '../widgets/app_bottom_nav.dart';
-import '../widgets/glass_panel.dart';
-import '../widgets/in_app_notice.dart';
-import 'analysis_screen.dart';
+import '../../../core/models/mock_exam.dart';
+import '../../../core/models/question_entry.dart';
+import '../../../core/models/topic_summary.dart';
+import '../../../core/repositories/app_repository.dart';
+import '../../../core/services/gemini_client.dart';
+import '../../../core/theme/app_colors.dart';
+import '../../../core/widgets/ai_loading_dialog.dart';
+import '../../../core/widgets/ambient_background.dart';
+import '../../../core/widgets/app_bottom_nav.dart';
+import '../../../core/widgets/glass_panel.dart';
+import '../../../core/widgets/in_app_notice.dart';
+import '../../analysis/screens/analysis_screen.dart';
 import 'entry_wizard_screen.dart';
-import 'home_screen.dart';
+import '../../dashboard/screens/home_screen.dart';
 import 'topic_detail_screen.dart';
 import 'topic_summaries_screen.dart';
 
@@ -29,100 +26,91 @@ class QuickAddScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final repository = AppRepositoryScope.of(context);
     final topics = repository.topics;
-    return Scaffold(
-      backgroundColor: AppColors.of(context).background,
-      body: AmbientBackground(
-        child: SafeArea(
-          child: ValueListenableBuilder<List<QuestionEntry>>(
-            valueListenable: repository.questionEntries,
-            builder: (context, questionEntries, _) {
-              return ValueListenableBuilder<List<MockExam>>(
-                valueListenable: repository.mockExams,
-                builder: (context, mockExams, __) {
-                  final recentEntry = questionEntries.isNotEmpty
-                      ? questionEntries.last
-                      : null;
-                  final recentExam =
-                      mockExams.isNotEmpty ? mockExams.last : null;
-                  final todayItems = _buildTodayItems(
-                    context,
-                    questionEntries,
-                    mockExams,
-                  );
-  
-                  return SingleChildScrollView(
-                    padding: const EdgeInsets.only(bottom: 120),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const _Header(),
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 18),
-                          child: _AiSmartAddButton(
-                            onTap: () => _openSmartAdd(context),
-                          ),
-                        ),
-                        SizedBox(height: 14),
-                        _ActionCards(
-                          onQuestionAdd: () => _openEntry(
-                            context,
-                            EntryType.question,
-                          ),
-                          onExamAdd: () => _openEntry(
-                            context,
-                            EntryType.mockExam,
-                          ),
-                        ),
-                        SizedBox(height: 18),
-                        _SectionHeader(
-                          title: 'Hızlı Seçimler',
-                          actionLabel: 'Tümü',
-                          onAction: () => _showQuickSelectionsSheet(
-                            context,
-                            questionEntries,
-                            mockExams,
-                            topics,
-                          ),
-                        ),
-                        SizedBox(height: 8),
-                        _SuggestionsRow(
-                          recentEntry: recentEntry,
-                          recentExam: recentExam,
-                          onQuestionTap: (entry) =>
-                              _openQuestionFromEntry(context, entry, topics),
-                          onExamTap: (exam) => _openExamFromEntry(
-                            context,
-                            exam,
-                          ),
-                        ),
-                        SizedBox(height: 20),
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 20),
-                          child: Text(
-                            'Bugün',
-                            style: Theme.of(context)
-                                .textTheme
-                                .titleMedium
-                                ?.copyWith(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                          ),
-                        ),
-                        SizedBox(height: 8),
-                        _TodayList(items: todayItems),
-                      ],
+    return SafeArea(
+      child: ValueListenableBuilder<List<QuestionEntry>>(
+        valueListenable: repository.questionEntries,
+        builder: (context, questionEntries, _) {
+          return ValueListenableBuilder<List<MockExam>>(
+            valueListenable: repository.mockExams,
+            builder: (context, mockExams, __) {
+              final recentEntry = questionEntries.isNotEmpty
+                  ? questionEntries.last
+                  : null;
+              final recentExam =
+                  mockExams.isNotEmpty ? mockExams.last : null;
+              final todayItems = _buildTodayItems(
+                context,
+                questionEntries,
+                mockExams,
+              );
+
+              return SingleChildScrollView(
+                padding: const EdgeInsets.only(bottom: 120),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const _Header(),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 18),
+                      child: _AiSmartAddButton(
+                        onTap: () => _openSmartAdd(context),
+                      ),
                     ),
-                  );
-                },
+                    SizedBox(height: 14),
+                    _ActionCards(
+                      onQuestionAdd: () => _openEntry(
+                        context,
+                        EntryType.question,
+                      ),
+                      onExamAdd: () => _openEntry(
+                        context,
+                        EntryType.mockExam,
+                      ),
+                    ),
+                    SizedBox(height: 18),
+                    _SectionHeader(
+                      title: 'Hızlı Seçimler',
+                      actionLabel: 'Tümü',
+                      onAction: () => _showQuickSelectionsSheet(
+                        context,
+                        questionEntries,
+                        mockExams,
+                        topics,
+                      ),
+                    ),
+                    SizedBox(height: 8),
+                    _SuggestionsRow(
+                      recentEntry: recentEntry,
+                      recentExam: recentExam,
+                      onQuestionTap: (entry) =>
+                          _openQuestionFromEntry(context, entry, topics),
+                      onExamTap: (exam) => _openExamFromEntry(
+                        context,
+                        exam,
+                      ),
+                    ),
+                    SizedBox(height: 20),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      child: Text(
+                        'Bugün',
+                        style: Theme.of(context)
+                            .textTheme
+                            .titleMedium
+                            ?.copyWith(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w700,
+                            ),
+                      ),
+                    ),
+                    SizedBox(height: 8),
+                    _TodayList(items: todayItems),
+                  ],
+                ),
               );
             },
-          ),
-        ),
-      ),
-      bottomNavigationBar: _BottomNav(
-        activeIndex: 2,
-        onSelect: (index) => _navigateFromNav(context, index),
+          );
+        },
       ),
     );
   }
@@ -133,33 +121,6 @@ class QuickAddScreen extends StatelessWidget {
         builder: (context) => EntryWizardScreen(type: type),
       ),
     );
-  }
-
-  void _navigateFromNav(BuildContext context, int index) {
-    switch (index) {
-      case 0:
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (_) => HomeScreen()),
-        );
-        return;
-      case 1:
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (_) => TopicSummariesScreen()),
-        );
-        return;
-      case 2:
-        return;
-      case 3:
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (_) => AnalysisScreen()),
-        );
-        return;
-      case 4:
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (_) => HomeScreen()),
-        );
-        return;
-    }
   }
 }
 
@@ -840,18 +801,6 @@ class _TodayTile extends StatelessWidget {
         ),
       ),
     );
-  }
-}
-
-class _BottomNav extends StatelessWidget {
-  const _BottomNav({required this.activeIndex, required this.onSelect});
-
-  final int activeIndex;
-  final ValueChanged<int> onSelect;
-
-  @override
-  Widget build(BuildContext context) {
-    return AppBottomNav(activeIndex: activeIndex, onSelect: onSelect);
   }
 }
 

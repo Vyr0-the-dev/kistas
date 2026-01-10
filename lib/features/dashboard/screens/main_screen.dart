@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 
-import '../theme/app_colors.dart';
-import '../widgets/ambient_background.dart';
-import '../widgets/app_bottom_nav.dart';
-import 'analysis_screen.dart';
+import '../../../core/theme/app_colors.dart';
+import '../../../core/widgets/ambient_background.dart';
+import '../../../core/widgets/app_bottom_nav.dart';
+import '../../analysis/screens/analysis_screen.dart';
 import 'home_screen.dart';
-import 'profile_screen.dart';
-import 'quick_add_screen.dart';
-import 'topic_summaries_screen.dart';
+import '../../settings/screens/profile_screen.dart';
+import '../../questions/screens/quick_add_screen.dart';
+import '../../questions/screens/topic_summaries_screen.dart';
 
 class MainScreen extends StatefulWidget {
   const MainScreen({super.key});

@@ -1,11 +1,11 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
-import '../models/flashcard.dart';
-import '../services/app_repository.dart';
-import '../theme/app_colors.dart';
-import '../widgets/ambient_background.dart';
-import '../widgets/glass_panel.dart';
+import '../../../core/models/flashcard.dart';
+import '../../../core/repositories/app_repository.dart';
+import '../../../core/theme/app_colors.dart';
+import '../../../core/widgets/ambient_background.dart';
+import '../../../core/widgets/glass_panel.dart';
 
 // Helper to render basic math symbols as unicode for better visibility
 String _sanitizeMath(String text) {

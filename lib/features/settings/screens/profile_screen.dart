@@ -6,23 +6,23 @@ import 'package:flutter/material.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 
-import '../models/app_notification.dart';
-import '../models/mock_exam.dart';
-import '../models/question_entry.dart';
-import '../services/app_repository.dart';
-import '../services/gemini_client.dart';
-import '../services/notification_service.dart';
-import '../theme/app_colors.dart';
-import '../widgets/ai_loading_dialog.dart';
-import '../widgets/ai_response_dialog.dart';
-import '../widgets/ambient_background.dart';
-import '../widgets/app_bottom_nav.dart';
-import '../widgets/glass_panel.dart';
-import '../widgets/in_app_notice.dart';
-import 'analysis_screen.dart';
-import 'home_screen.dart';
-import 'quick_add_screen.dart';
-import 'topic_summaries_screen.dart';
+import '../../../core/models/app_notification.dart';
+import '../../../core/models/mock_exam.dart';
+import '../../../core/models/question_entry.dart';
+import '../../../core/repositories/app_repository.dart';
+import '../../../core/services/gemini_client.dart';
+import '../../../core/services/notification_service.dart';
+import '../../../core/theme/app_colors.dart';
+import '../../../core/widgets/ai_loading_dialog.dart';
+import '../../../core/widgets/ai_response_dialog.dart';
+import '../../../core/widgets/ambient_background.dart';
+import '../../../core/widgets/app_bottom_nav.dart';
+import '../../../core/widgets/glass_panel.dart';
+import '../../../core/widgets/in_app_notice.dart';
+import '../../analysis/screens/analysis_screen.dart';
+import '../../dashboard/screens/home_screen.dart';
+import '../../questions/screens/quick_add_screen.dart';
+import '../../questions/screens/topic_summaries_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -52,261 +52,255 @@ class _ProfileScreenState extends State<ProfileScreen> {
     if (_apiKeyController.text.isEmpty && repository.geminiApiKey.value.isNotEmpty) {
       _apiKeyController.text = repository.geminiApiKey.value;
     }
-    return Scaffold(
-      backgroundColor: AppColors.of(context).background,
-      body: AmbientBackground(
-        child: SafeArea(
-          child: ListView(
-            padding: const EdgeInsets.fromLTRB(20, 24, 20, 140),
-            children: [
-              Center(
-                child: Column(
-                  children: [
-                    Container(
-                      width: 80,
-                      height: 80,
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.05),
-                        borderRadius: BorderRadius.circular(24),
-                        border: Border.all(color: Colors.white.withOpacity(0.05)),
+    return SafeArea(
+      child: ListView(
+        padding: const EdgeInsets.fromLTRB(20, 24, 20, 140),
+        children: [
+          Center(
+            child: Column(
+              children: [
+                Container(
+                  width: 80,
+                  height: 80,
+                  decoration: BoxDecoration(
+                    color: AppColors.of(context).primary.withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(24),
+                    border: Border.all(color: AppColors.of(context).primary.withOpacity(0.5)),
+                  ),
+                  child: Icon(
+                    Icons.bolt,
+                    size: 40,
+                    color: AppColors.of(context).primary,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  'KISTAS',
+                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: 2,
                       ),
-                      child: Image.asset('assets/images/logo.png'),
-                    ),
-                    const SizedBox(height: 16),
-                    Text(
-                      'KISTAS',
-                      style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w900,
-                            letterSpacing: 2,
-                          ),
-                    ),
-                    Text(
-                      'v1.0.0',
-                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                            color: Colors.white38,
-                          ),
-                    ),
-                  ],
                 ),
-              ),
-              const SizedBox(height: 32),
-              Text(
-                'Ayarlar',
-                style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w700,
-                    ),
-              ),
-              SizedBox(height: 20),
-
-              _SectionHeader(title: 'Kişisel Hedefler', icon: Icons.person_outline),
-              GlassPanel(
-                child: Column(
-                  children: [
-                    ValueListenableBuilder<int>(
-                      valueListenable: repository.dailyGoal,
-                      builder: (context, goal, _) {
-                        return _GoalRow(
-                          value: goal,
-                          onDecrease: () => repository.setDailyGoal(goal - 5),
-                          onIncrease: () => repository.setDailyGoal(goal + 5),
-                        );
-                      },
-                    ),
-                    const Divider(color: Colors.white10, height: 24),
-                    ValueListenableBuilder<DateTime>(
-                      valueListenable: repository.examDate,
-                      builder: (context, examDate, _) {
-                        return _ExamDateRow(
-                          value: examDate,
-                          onTap: () async {
-                            final picked = await showDatePicker(
-                              context: context,
-                              initialDate: examDate,
-                              firstDate: DateTime.now(),
-                              lastDate: DateTime(2030),
-                            );
-                            if (picked != null) {
-                              await repository.setExamDate(picked);
-                            }
-                          },
-                        );
-                      },
-                    ),
-                  ],
+                Text(
+                  'v1.0.0',
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                        color: Colors.white38,
+                      ),
                 ),
-              ),
-              SizedBox(height: 24),
-
-              _SectionHeader(title: 'AI Asistanı (Gemini)', icon: Icons.auto_awesome_outlined),
-              GlassPanel(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    ValueListenableBuilder<String>(
-                      valueListenable: repository.geminiApiKey,
-                      builder: (context, key, _) {
-                        return Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'API Yapılandırması',
-                              style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.white54),
-                            ),
-                            SizedBox(height: 8),
-                            TextField(
-                              controller: _apiKeyController,
-                              obscureText: true,
-                              decoration: InputDecoration(
-                                hintText: 'Gemini API Anahtarı (AIza...)',
-                              ),
-                            ),
-                            SizedBox(height: 12),
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: OutlinedButton(
-                                    onPressed: () async {
-                                      final apiKey = _apiKeyController.text.trim();
-                                      if (apiKey.isEmpty) {
-                                        _showSnack(context, 'API anahtarı boş olamaz.');
-                                        return;
-                                      }
-                                      await repository.setGeminiApiKey(apiKey);
-                                      if (!context.mounted) return;
-                                      await _fetchAndSelectModel(context, repository, apiKey);
-                                    },
-                                    child: Text('Kaydet'),
-                                  ),
-                                ),
-                                SizedBox(width: 8),
-                                Expanded(
-                                  child: ElevatedButton(
-                                    onPressed: () => _fetchAndSelectModel(
-                                      context,
-                                      repository,
-                                      _apiKeyController.text,
-                                    ),
-                                    child: Text('Model Seç'),
-                                  ),
-                                ),
-                              ],
-                            ),
-                            ValueListenableBuilder<String>(
-                              valueListenable: repository.geminiModel,
-                              builder: (context, model, _) {
-                                if (model.isEmpty) return SizedBox.shrink();
-                                return Padding(
-                                  padding: const EdgeInsets.only(top: 12),
-                                  child: _ModelInfoCard(model: model),
-                                );
-                              },
-                            ),
-                          ],
-                        );
-                      },
-                    ),
-                    const Divider(color: Colors.white10, height: 32),
-                    _AiUsageTracker(repository: repository),
-                    const Divider(color: Colors.white10, height: 32),
-                    _AiGoalSection(repository: repository),
-                  ],
+              ],
+            ),
+          ),
+          const SizedBox(height: 32),
+          Text(
+            'Ayarlar',
+            style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w700,
                 ),
-              ),
-              SizedBox(height: 24),
+          ),
+          SizedBox(height: 20),
 
-              _SectionHeader(title: 'Bildirimler', icon: Icons.notifications_none_outlined),
-              GlassPanel(
-                child: _ReminderSection(repository: repository),
-              ),
-              SizedBox(height: 24),
+          _SectionHeader(title: 'Kişisel Hedefler', icon: Icons.person_outline),
+          GlassPanel(
+            child: Column(
+              children: [
+                ValueListenableBuilder<int>(
+                  valueListenable: repository.dailyGoal,
+                  builder: (context, goal, _) {
+                    return _GoalRow(
+                      value: goal,
+                      onDecrease: () => repository.setDailyGoal(goal - 5),
+                      onIncrease: () => repository.setDailyGoal(goal + 5),
+                    );
+                  },
+                ),
+                const Divider(color: Colors.white10, height: 24),
+                ValueListenableBuilder<DateTime>(
+                  valueListenable: repository.examDate,
+                  builder: (context, examDate, _) {
+                    return _ExamDateRow(
+                      value: examDate,
+                      onTap: () async {
+                        final picked = await showDatePicker(
+                          context: context,
+                          initialDate: examDate,
+                          firstDate: DateTime.now(),
+                          lastDate: DateTime(2030),
+                        );
+                        if (picked != null) {
+                          await repository.setExamDate(picked);
+                        }
+                      },
+                    );
+                  },
+                ),
+              ],
+            ),
+          ),
+          SizedBox(height: 24),
 
-              _SectionHeader(title: 'Görünüm', icon: Icons.palette_outlined),
-              GlassPanel(
-                child: ValueListenableBuilder<String>(
-                  valueListenable: repository.themeKey,
-                  builder: (context, themeKey, _) {
+          _SectionHeader(title: 'AI Asistanı (Gemini)', icon: Icons.auto_awesome_outlined),
+          GlassPanel(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                ValueListenableBuilder<String>(
+                  valueListenable: repository.geminiApiKey,
+                  builder: (context, key, _) {
                     return Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Renk Teması',
+                          'API Yapılandırması',
                           style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.white54),
                         ),
-                        SizedBox(height: 16),
-                        Column(
+                        SizedBox(height: 8),
+                        TextField(
+                          controller: _apiKeyController,
+                          obscureText: true,
+                          decoration: InputDecoration(
+                            hintText: 'Gemini API Anahtarı (AIza...)',
+                          ),
+                        ),
+                        SizedBox(height: 12),
+                        Row(
                           children: [
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                              children: ['midnight', 'ocean', 'volcanic', 'forest', 'royal'].map((key) {
-                                final config = _getThemeColor(key);
-                                return _ThemeOption(
-                                  color: config.primary,
-                                  label: config.label,
-                                  isSelected: themeKey == key,
-                                  onTap: () => repository.setTheme(key),
-                                );
-                              }).toList(),
+                            Expanded(
+                              child: OutlinedButton(
+                                onPressed: () async {
+                                  final apiKey = _apiKeyController.text.trim();
+                                  if (apiKey.isEmpty) {
+                                    _showSnack(context, 'API anahtarı boş olamaz.');
+                                    return;
+                                  }
+                                  await repository.setGeminiApiKey(apiKey);
+                                  if (!context.mounted) return;
+                                  await _fetchAndSelectModel(context, repository, apiKey);
+                                },
+                                child: Text('Kaydet'),
+                              ),
                             ),
-                            const SizedBox(height: 16),
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                              children: ['sunset', 'glacier', 'crimson', 'amber', 'graphite'].map((key) {
-                                final config = _getThemeColor(key);
-                                return _ThemeOption(
-                                  color: config.primary,
-                                  label: config.label,
-                                  isSelected: themeKey == key,
-                                  onTap: () => repository.setTheme(key),
-                                );
-                              }).toList(),
+                            SizedBox(width: 8),
+                            Expanded(
+                              child: ElevatedButton(
+                                onPressed: () => _fetchAndSelectModel(
+                                  context,
+                                  repository,
+                                  _apiKeyController.text,
+                                ),
+                                child: Text('Model Seç'),
+                              ),
                             ),
                           ],
+                        ),
+                        ValueListenableBuilder<String>(
+                          valueListenable: repository.geminiModel,
+                          builder: (context, model, _) {
+                            if (model.isEmpty) return SizedBox.shrink();
+                            return Padding(
+                              padding: const EdgeInsets.only(top: 12),
+                              child: _ModelInfoCard(model: model),
+                            );
+                          },
                         ),
                       ],
                     );
                   },
                 ),
-              ),
-              SizedBox(height: 24),
+                const Divider(color: Colors.white10, height: 32),
+                _AiUsageTracker(repository: repository),
+                const Divider(color: Colors.white10, height: 32),
+                _AiGoalSection(repository: repository),
+              ],
+            ),
+          ),
+          SizedBox(height: 24),
 
-              _SectionHeader(title: 'Veri Yönetimi', icon: Icons.storage_outlined),
-              GlassPanel(
-                child: Column(
+          _SectionHeader(title: 'Bildirimler', icon: Icons.notifications_none_outlined),
+          GlassPanel(
+            child: _ReminderSection(repository: repository),
+          ),
+          SizedBox(height: 24),
+
+          _SectionHeader(title: 'Görünüm', icon: Icons.palette_outlined),
+          GlassPanel(
+            child: ValueListenableBuilder<String>(
+              valueListenable: repository.themeKey,
+              builder: (context, themeKey, _) {
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _ProfileAction(
-                      title: 'Yedekleme Oluştur',
-                      subtitle: 'JSON olarak dışa aktar',
-                      icon: Icons.cloud_upload_outlined,
-                      onTap: () => _exportBackup(context, repository),
+                    Text(
+                      'Renk Teması',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.white54),
                     ),
-                    const Divider(color: Colors.white10, height: 16),
-                    _ProfileAction(
-                      title: 'Yedek Yükle',
-                      subtitle: 'Dosyadan geri yükle',
-                      icon: Icons.cloud_download_outlined,
-                      onTap: () => _importBackup(context, repository),
-                    ),
-                    const Divider(color: Colors.white10, height: 16),
-                    _ProfileAction(
-                      title: 'Verileri Sıfırla',
-                      subtitle: 'Tüm kayıtları kalıcı olarak sil',
-                      icon: Icons.delete_forever_outlined,
-                      iconColor: AppColors.of(context).danger,
-                      onTap: () => _confirmReset(context, repository),
+                    SizedBox(height: 16),
+                    Column(
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                          children: ['midnight', 'ocean', 'volcanic', 'forest', 'royal'].map((key) {
+                            final config = _getThemeColor(key);
+                            return _ThemeOption(
+                              color: config.primary,
+                              label: config.label,
+                              isSelected: themeKey == key,
+                              onTap: () => repository.setTheme(key),
+                            );
+                          }).toList(),
+                        ),
+                        const SizedBox(height: 16),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                          children: ['sunset', 'glacier', 'crimson', 'amber', 'graphite'].map((key) {
+                            final config = _getThemeColor(key);
+                            return _ThemeOption(
+                              color: config.primary,
+                              label: config.label,
+                              isSelected: themeKey == key,
+                              onTap: () => repository.setTheme(key),
+                            );
+                          }).toList(),
+                        ),
+                      ],
                     ),
                   ],
-                ),
-              ),
-            ],
+                );
+              },
+            ),
           ),
-        ),
-      ),
-      bottomNavigationBar: AppBottomNav(
-        activeIndex: 4,
-        onSelect: (index) => _navigateFromNav(context, index),
+          SizedBox(height: 24),
+
+          _SectionHeader(title: 'Veri Yönetimi', icon: Icons.storage_outlined),
+          GlassPanel(
+            child: Column(
+              children: [
+                _ProfileAction(
+                  title: 'Yedekleme Oluştur',
+                  subtitle: 'JSON olarak dışa aktar',
+                  icon: Icons.cloud_upload_outlined,
+                  onTap: () => _exportBackup(context, repository),
+                ),
+                const Divider(color: Colors.white10, height: 16),
+                _ProfileAction(
+                  title: 'Yedek Yükle',
+                  subtitle: 'Dosyadan geri yükle',
+                  icon: Icons.cloud_download_outlined,
+                  onTap: () => _importBackup(context, repository),
+                ),
+                const Divider(color: Colors.white10, height: 16),
+                _ProfileAction(
+                  title: 'Verileri Sıfırla',
+                  subtitle: 'Tüm kayıtları kalıcı olarak sil',
+                  icon: Icons.delete_forever_outlined,
+                  iconColor: AppColors.of(context).danger,
+                  onTap: () => _confirmReset(context, repository),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }

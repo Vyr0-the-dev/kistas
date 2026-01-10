@@ -1,16 +1,15 @@
 import 'package:flutter/material.dart';
 
-import '../services/app_repository.dart';
-import '../theme/app_colors.dart';
-import '../widgets/ambient_background.dart';
-import '../widgets/app_bottom_nav.dart';
-import '../widgets/glass_panel.dart';
-import 'analysis_screen.dart';
-import 'entry_wizard_screen.dart';
-import 'home_screen.dart';
-import 'profile_screen.dart';
+import '../../../core/repositories/app_repository.dart';
+import '../../../core/theme/app_colors.dart';
+import '../../../core/widgets/ambient_background.dart';
+import '../../../core/widgets/app_bottom_nav.dart';
+import '../../../core/widgets/glass_panel.dart';
+import '../../analysis/screens/analysis_screen.dart';
+import '../../dashboard/screens/home_screen.dart';
+import '../../settings/screens/profile_screen.dart';
 import 'quick_add_screen.dart';
-import 'roadmap_screen.dart';
+import '../../dashboard/screens/roadmap_screen.dart';
 import 'topic_detail_screen.dart';
 
 class TopicSummariesScreen extends StatefulWidget {
@@ -37,65 +36,58 @@ class _TopicSummariesScreenState extends State<TopicSummariesScreen> {
   Widget build(BuildContext context) {
     final repository = AppRepositoryScope.of(context);
 
-    return Scaffold(
-      backgroundColor: AppColors.of(context).background,
-      body: AmbientBackground(
-        child: ValueListenableBuilder(
-          valueListenable: repository.questionEntries,
-          builder: (context, _, __) {
-            final progress = repository.buildTopicProgress();
-            final filtered = _applyFilters(progress);
-            return Column(
-              children: [
-                _Header(
-                  controller: _searchController,
-                  onFilterChanged: (value) => setState(() {
-                    _activeFilter = value;
-                  }),
-                  activeFilter: _activeFilter,
-                  weakOnly: _weakOnly,
-                  staleOnly: _staleOnly,
-                  onToggleWeak: () => setState(() {
-                    _weakOnly = !_weakOnly;
-                  }),
-                  onToggleStale: () => setState(() {
-                    _staleOnly = !_staleOnly;
-                  }),
-                  onOpenSort: () => _openSortSheet(context),
-                ),
-                Expanded(
-                  child: ListView.builder(
-                    padding: const EdgeInsets.fromLTRB(20, 16, 20, 120),
-                    itemCount: filtered.length,
-                    itemBuilder: (context, index) {
-                      final item = filtered[index];
-                      return Padding(
-                        padding: const EdgeInsets.only(bottom: 14),
-                        child: _TopicCard(
-                          progress: item,
-                          onTap: () {
-                            Navigator.of(context).push(
-                              MaterialPageRoute(
-                                builder: (_) => TopicDetailScreen(
-                                  topic: item.topic,
-                                ),
-                              ),
-                            );
-                          },
-                        ),
-                      );
-                    },
-                  ),
-                ),
-              ],
-            );
-          },
-        ),
-      ),
-      bottomNavigationBar: _BottomNav(
-        activeIndex: 1,
-        onSelect: (index) => _navigateFromNav(context, index),
-      ),
+    // MainScreen zaten Scaffold, AmbientBackground ve SafeArea sağladığı için
+    // burada doğrudan içeriği döndürüyoruz.
+    return ValueListenableBuilder(
+      valueListenable: repository.questionEntries,
+      builder: (context, _, __) {
+        final progress = repository.buildTopicProgress();
+        final filtered = _applyFilters(progress);
+        return Column(
+          children: [
+            _Header(
+              controller: _searchController,
+              onFilterChanged: (value) => setState(() {
+                _activeFilter = value;
+              }),
+              activeFilter: _activeFilter,
+              weakOnly: _weakOnly,
+              staleOnly: _staleOnly,
+              onToggleWeak: () => setState(() {
+                _weakOnly = !_weakOnly;
+              }),
+              onToggleStale: () => setState(() {
+                _staleOnly = !_staleOnly;
+              }),
+              onOpenSort: () => _openSortSheet(context),
+            ),
+            Expanded(
+              child: ListView.builder(
+                padding: const EdgeInsets.fromLTRB(20, 16, 20, 120),
+                itemCount: filtered.length,
+                itemBuilder: (context, index) {
+                  final item = filtered[index];
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 14),
+                    child: _TopicCard(
+                      progress: item,
+                      onTap: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => TopicDetailScreen(
+                              topic: item.topic,
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  );
+                },
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 
@@ -129,33 +121,6 @@ class _TopicSummariesScreenState extends State<TopicSummariesScreen> {
     }
     filtered.sort((a, b) => _sortByActive(a, b, _activeSort));
     return filtered;
-  }
-
-  void _navigateFromNav(BuildContext context, int index) {
-    switch (index) {
-      case 0:
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (_) => HomeScreen()),
-        );
-        return;
-      case 1:
-        return;
-      case 2:
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (_) => QuickAddScreen()),
-        );
-        return;
-      case 3:
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (_) => AnalysisScreen()),
-        );
-        return;
-      case 4:
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (_) => ProfileScreen()),
-        );
-        return;
-    }
   }
 
   void _openSortSheet(BuildContext context) {
@@ -681,18 +646,6 @@ enum TopicSort {
   accuracyHigh,
   totalQuestions,
   alphabetical,
-}
-
-class _BottomNav extends StatelessWidget {
-  const _BottomNav({required this.activeIndex, required this.onSelect});
-
-  final int activeIndex;
-  final ValueChanged<int> onSelect;
-
-  @override
-  Widget build(BuildContext context) {
-    return AppBottomNav(activeIndex: activeIndex, onSelect: onSelect);
-  }
 }
 
 class _SortOption extends StatelessWidget {

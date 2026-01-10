@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
-import '../services/app_repository.dart';
-import '../theme/app_colors.dart';
-import '../widgets/ambient_background.dart';
-import '../widgets/glass_panel.dart';
-import 'topic_detail_screen.dart';
+import '../../../core/repositories/app_repository.dart';
+import '../../../core/theme/app_colors.dart';
+import '../../../core/widgets/ambient_background.dart';
+import '../../../core/widgets/glass_panel.dart';
+import '../../questions/screens/topic_detail_screen.dart';
 
 class RoadmapScreen extends StatelessWidget {
   const RoadmapScreen({super.key});

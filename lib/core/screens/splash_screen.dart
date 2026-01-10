@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
-import '../theme/app_colors.dart';
-import 'home_screen.dart';
+import '../../features/dashboard/screens/main_screen.dart';
 
 class SplashScreen extends StatefulWidget {
   final Widget? onInitializationComplete;
@@ -21,7 +20,7 @@ class _SplashScreenState extends State<SplashScreen> {
     await Future.delayed(const Duration(milliseconds: 2000));
     if (mounted) {
       Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => widget.onInitializationComplete ?? const HomeScreen()),
+        MaterialPageRoute(builder: (_) => widget.onInitializationComplete ?? const MainScreen()),
       );
     }
   }

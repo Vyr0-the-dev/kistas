@@ -9,7 +9,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:kistas/main.dart';
-import 'package:kistas/services/app_repository.dart';
+import 'package:kistas/core/repositories/app_repository.dart';
 
 void main() {
   testWidgets('Uygulama ana ekranı açılıyor', (WidgetTester tester) async {

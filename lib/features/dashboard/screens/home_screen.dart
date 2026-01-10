@@ -4,27 +4,27 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 
-import '../models/app_notification.dart';
-import '../models/mock_exam.dart';
-import '../models/question_entry.dart';
-import '../services/app_repository.dart';
-import '../services/gemini_client.dart';
-import '../services/notification_service.dart';
-import '../theme/app_colors.dart';
-import '../widgets/ai_loading_dialog.dart';
-import '../widgets/ai_response_dialog.dart';
-import '../widgets/ambient_background.dart';
-import '../widgets/app_bottom_nav.dart';
-import '../widgets/glass_panel.dart';
-import '../widgets/in_app_notice.dart';
-import '../widgets/progress_ring.dart';
-import 'analysis_screen.dart';
-import 'entry_wizard_screen.dart';
-import 'focus_timer_screen.dart';
-import 'profile_screen.dart';
-import 'quick_add_screen.dart';
+import '../../../core/models/app_notification.dart';
+import '../../../core/models/mock_exam.dart';
+import '../../../core/models/question_entry.dart';
+import '../../../core/repositories/app_repository.dart';
+import '../../../core/services/gemini_client.dart';
+import '../../../core/services/notification_service.dart';
+import '../../../core/theme/app_colors.dart';
+import '../../../core/widgets/ai_loading_dialog.dart';
+import '../../../core/widgets/ai_response_dialog.dart';
+import '../../../core/widgets/ambient_background.dart';
+import '../../../core/widgets/app_bottom_nav.dart';
+import '../../../core/widgets/glass_panel.dart';
+import '../../../core/widgets/in_app_notice.dart';
+import '../../../core/widgets/progress_ring.dart';
+import '../../analysis/screens/analysis_screen.dart';
+import '../../questions/screens/entry_wizard_screen.dart';
+import '../../questions/screens/focus_timer_screen.dart';
+import '../../settings/screens/profile_screen.dart';
+import '../../questions/screens/quick_add_screen.dart';
 import 'streak_detail_screen.dart';
-import 'topic_summaries_screen.dart';
+import '../../questions/screens/topic_summaries_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -46,226 +46,209 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     final repository = AppRepositoryScope.of(context);
 
-    return Scaffold(
-      backgroundColor: AppColors.of(context).background,
-      body: AmbientBackground(
-        child: SafeArea(
-          child: ValueListenableBuilder<List<QuestionEntry>>(
-            valueListenable: repository.questionEntries,
-            builder: (context, questionEntries, _) {
-              return ValueListenableBuilder<List<MockExam>>(
-                valueListenable: repository.mockExams,
-                builder: (context, mockExams, __) {
-                  return ValueListenableBuilder<int>(
-                    valueListenable: repository.dailyGoal,
-                    builder: (context, dailyGoal, ___) {
-                      final avgNet = _averageNet(mockExams);
-                      final activity = _buildActivity(context, questionEntries, mockExams);
-                      final focusTopic =
-                          _pickFocusTopic(repository, questionEntries);
-                      final isEmpty =
-                          questionEntries.isEmpty && mockExams.isEmpty;
-                      final todayTotal = _countTodayQuestions(questionEntries);
-  
-                      final now = DateTime.now();
-                      final reminderKey =
-                          '${now.year}-${now.month}-${now.day}-$todayTotal-$dailyGoal';
-                      if (_lastReminderCheckKey != reminderKey) {
-                        _lastReminderCheckKey = reminderKey;
-                        WidgetsBinding.instance.addPostFrameCallback((_) {
-                          _maybeTriggerReminder(
-                            repository,
-                            todayTotal,
-                            dailyGoal,
-                          );
-                        });
-                      }
-  
-                      return CustomScrollView(
-                        slivers: [
-                          SliverToBoxAdapter(
-                            child: _Header(
-                              selectedRange: _selectedRange,
-                              onRangeChanged: (value) {
-                                setState(() => _selectedRange = value);
-                              },
-                              onNotificationsTap: () =>
-                                  _showNotificationsSheet(context, repository),
-                            ),
-                          ),
-                          SliverToBoxAdapter(
-                            child: Padding(
-                              padding: const EdgeInsets.fromLTRB(20, 12, 20, 4),
-                              child: _QuickGlanceWidget(
-                                repository: repository,
-                                todayTotal: todayTotal,
-                                dailyGoal: dailyGoal,
-                              ),
-                            ),
-                          ),
-                          SliverToBoxAdapter(
-                            child: Padding(
-                              padding: const EdgeInsets.fromLTRB(20, 12, 20, 4),
-                              child: ValueListenableBuilder<DateTime>(
-                                valueListenable: repository.examDate,
-                                builder: (context, examDate, _) {
-                                  return _KpssCountdownCard(examDate: examDate);
-                                },
-                              ),
-                            ),
-                          ),
-                          if (isEmpty)
-                            SliverToBoxAdapter(
-                              child: Padding(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 20,
-                                  vertical: 12,
-                                ),
-                                child: _EmptyStateHero(
-                                  onQuickAdd: () => _openEntry(context),
-                                ),
-                              ),
-                            ),
+    // MainScreen zaten Scaffold ve AmbientBackground sağladığı için
+    // burada sadece içeriği döndürüyoruz.
+    return SafeArea(
+      child: ValueListenableBuilder<List<QuestionEntry>>(
+        valueListenable: repository.questionEntries,
+        builder: (context, questionEntries, _) {
+          return ValueListenableBuilder<List<MockExam>>(
+            valueListenable: repository.mockExams,
+            builder: (context, mockExams, __) {
+              return ValueListenableBuilder<int>(
+                valueListenable: repository.dailyGoal,
+                builder: (context, dailyGoal, ___) {
+                  final avgNet = _averageNet(mockExams);
+                  final activity = _buildActivity(context, questionEntries, mockExams);
+                  final focusTopic =
+                      _pickFocusTopic(repository, questionEntries);
+                  final isEmpty =
+                      questionEntries.isEmpty && mockExams.isEmpty;
+                  final todayTotal = _countTodayQuestions(questionEntries);
+
+                  final now = DateTime.now();
+                  final reminderKey =
+                      '${now.year}-${now.month}-${now.day}-$todayTotal-$dailyGoal';
+                  if (_lastReminderCheckKey != reminderKey) {
+                    _lastReminderCheckKey = reminderKey;
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      _maybeTriggerReminder(
+                        repository,
+                        todayTotal,
+                        dailyGoal,
+                      );
+                    });
+                  }
+
+                  return CustomScrollView(
+                    slivers: [
+                      SliverToBoxAdapter(
+                        child: _Header(
+                          selectedRange: _selectedRange,
+                          onRangeChanged: (value) {
+                            setState(() => _selectedRange = value);
+                          },
+                          onNotificationsTap: () =>
+                              _showNotificationsSheet(context, repository),
+                        ),
+                      ),
                       SliverToBoxAdapter(
                         child: Padding(
-                              padding:
-                                  const EdgeInsets.symmetric(horizontal: 20),
-                              child: _FocusCard(
-                                focusTopic: focusTopic,
-                                hasData: questionEntries.isNotEmpty,
-                                todayTotal: todayTotal,
-                                dailyGoal: dailyGoal,
-                                onAiSuggestion: () => _requestAiSuggestion(
-                                  context,
-                                  repository,
-                                  questionEntries,
-                                  focusTopic,
-                                  todayTotal,
-                                  dailyGoal,
-                                  avgNet,
-                                ),
-                                onQuickAdd: () => _openEntry(context),
+                          padding: const EdgeInsets.fromLTRB(20, 12, 20, 4),
+                          child: ValueListenableBuilder<DateTime>(
+                            valueListenable: repository.examDate,
+                            builder: (context, examDate, _) {
+                              return _KpssCountdownCard(examDate: examDate);
+                            },
+                          ),
+                        ),
+                      ),
+                      if (isEmpty)
+                        SliverToBoxAdapter(
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 20,
+                              vertical: 12,
+                            ),
+                            child: _EmptyStateHero(
+                              onQuickAdd: () => _openEntry(context),
+                            ),
+                          ),
+                        ),
+                      SliverToBoxAdapter(
+                        child: Padding(
+                          padding:
+                              const EdgeInsets.symmetric(horizontal: 20),
+                          child: _FocusCard(
+                            focusTopic: focusTopic,
+                            hasData: questionEntries.isNotEmpty,
+                            todayTotal: todayTotal,
+                            dailyGoal: dailyGoal,
+                            onAiSuggestion: () => _requestAiSuggestion(
+                              context,
+                              repository,
+                              questionEntries,
+                              focusTopic,
+                              todayTotal,
+                              dailyGoal,
+                              avgNet,
+                            ),
+                            onQuickAdd: () => _openEntry(context),
+                          ),
+                        ),
+                      ),
+                      SliverToBoxAdapter(
+                        child: Padding(
+                          padding: const EdgeInsets.fromLTRB(20, 8, 20, 4),
+                          child: _AiGoalPanel(
+                            repository: repository,
+                            onOpenProfile: () => Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (_) => const ProfileScreen(),
                               ),
                             ),
                           ),
-                          SliverToBoxAdapter(
-                            child: Padding(
-                              padding: const EdgeInsets.fromLTRB(20, 8, 20, 4),
-                              child: _AiGoalPanel(
-                                repository: repository,
-                                onOpenProfile: () => Navigator.of(context).push(
-                                  MaterialPageRoute(
-                                    builder: (_) => const ProfileScreen(),
-                                  ),
-                                ),
-                              ),
+                        ),
+                      ),
+                      SliverToBoxAdapter(
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 20,
+                            vertical: 16,
+                          ),
+                          child: _PerformanceRow(
+                            todayTotal: todayTotal,
+                            dailyGoal: dailyGoal,
+                            avgNet: avgNet,
+                            accuracy: _overallAccuracy(questionEntries),
+                            totalQuestions: _totalQuestions(questionEntries),
+                          ),
+                        ),
+                      ),
+                      SliverToBoxAdapter(
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 20,
+                            vertical: 6,
+                          ),
+                          child: _StreakCard(
+                            streak: _calculateStreak(
+                              questionEntries,
+                              mockExams,
                             ),
                           ),
-                          SliverToBoxAdapter(
-                            child: Padding(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 20,
-                                vertical: 16,
-                              ),
-                              child: _PerformanceRow(
-                                todayTotal: todayTotal,
-                                dailyGoal: dailyGoal,
-                                avgNet: avgNet,
-                                accuracy: _overallAccuracy(questionEntries),
-                                totalQuestions: _totalQuestions(questionEntries),
-                              ),
+                        ),
+                      ),
+                      SliverToBoxAdapter(
+                        child: Padding(
+                          padding: const EdgeInsets.fromLTRB(20, 8, 20, 4),
+                          child: _DailyTasksCard(
+                            tasks: _buildDailyTasks(
+                              questionEntries,
+                              focusTopic,
+                              todayTotal,
+                              dailyGoal,
                             ),
                           ),
-                          SliverToBoxAdapter(
-                            child: Padding(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 20,
-                                vertical: 6,
-                              ),
-                              child: _StreakCard(
-                                streak: _calculateStreak(
-                                  questionEntries,
-                                  mockExams,
-                                ),
-                              ),
+                        ),
+                      ),
+                      SliverToBoxAdapter(
+                        child: Padding(
+                          padding: const EdgeInsets.fromLTRB(20, 8, 20, 4),
+                          child: _FocusTimerCard(
+                            remainingSeconds: _focusRemaining,
+                            running: _focusRunning,
+                            onStart: () {
+                              _startFocusTimer();
+                              _openFocusTimerScreen();
+                            },
+                            onPause: _pauseFocusTimer,
+                            onReset: _resetFocusTimer,
+                            onOpen: () => _showFocusTimerSheet(context),
+                          ),
+                        ),
+                      ),
+                      SliverToBoxAdapter(
+                        child: Padding(
+                          padding: const EdgeInsets.fromLTRB(20, 8, 20, 4),
+                          child: _AiCheckInCard(
+                            onStart: () => _requestAiCheckIn(
+                              context,
+                              repository,
                             ),
                           ),
-                          SliverToBoxAdapter(
-                            child: Padding(
-                              padding: const EdgeInsets.fromLTRB(20, 8, 20, 4),
-                              child: _DailyTasksCard(
-                                tasks: _buildDailyTasks(
-                                  questionEntries,
-                                  focusTopic,
-                                  todayTotal,
-                                  dailyGoal,
-                                ),
-                              ),
+                        ),
+                      ),
+                      SliverToBoxAdapter(
+                        child: Padding(
+                          padding:
+                              const EdgeInsets.symmetric(horizontal: 20),
+                          child: _ActivitySection(
+                            activity: activity,
+                            onShowAll: () => _showActivitySheet(
+                              context,
+                              questionEntries,
+                              mockExams,
                             ),
                           ),
-                          SliverToBoxAdapter(
-                            child: Padding(
-                              padding: const EdgeInsets.fromLTRB(20, 8, 20, 4),
-                              child: _FocusTimerCard(
-                                remainingSeconds: _focusRemaining,
-                                running: _focusRunning,
-                                onStart: () {
-                                  _startFocusTimer();
-                                  _openFocusTimerScreen();
-                                },
-                                onPause: _pauseFocusTimer,
-                                onReset: _resetFocusTimer,
-                                onOpen: () => _showFocusTimerSheet(context),
-                              ),
-                            ),
+                        ),
+                      ),
+                      SliverToBoxAdapter(
+                        child: Padding(
+                          padding: const EdgeInsets.fromLTRB(20, 12, 20, 4),
+                          child: _ReviewScheduleCard(
+                            schedule: _buildReviewSchedule(repository),
                           ),
-                          SliverToBoxAdapter(
-                            child: Padding(
-                              padding: const EdgeInsets.fromLTRB(20, 8, 20, 4),
-                              child: _AiCheckInCard(
-                                onStart: () => _requestAiCheckIn(
-                                  context,
-                                  repository,
-                                ),
-                              ),
-                            ),
-                          ),
-                          SliverToBoxAdapter(
-                            child: Padding(
-                              padding:
-                                  const EdgeInsets.symmetric(horizontal: 20),
-                              child: _ActivitySection(
-                                activity: activity,
-                                onShowAll: () => _showActivitySheet(
-                                  context,
-                                  questionEntries,
-                                  mockExams,
-                                ),
-                              ),
-                            ),
-                          ),
-                          SliverToBoxAdapter(
-                            child: Padding(
-                              padding: const EdgeInsets.fromLTRB(20, 12, 20, 4),
-                              child: _ReviewScheduleCard(
-                                schedule: _buildReviewSchedule(repository),
-                              ),
-                            ),
-                          ),
-                          const SliverToBoxAdapter(child: SizedBox(height: 140)),
-                        ],
-                      );
-                    },
+                        ),
+                      ),
+                      const SliverToBoxAdapter(child: SizedBox(height: 140)),
+                    ],
                   );
                 },
               );
             },
-          ),
-        ),
-      ),
-      bottomNavigationBar: _BottomNav(
-        activeIndex: 0,
-        onSelect: (index) => _navigateFromNav(context, index),
+          );
+        },
       ),
     );
   }
@@ -280,35 +263,8 @@ void _openEntry(BuildContext context) {
     );
   }
 
-void _navigateFromNav(BuildContext context, int index) {
-    switch (index) {
-      case 0:
-        return;
-      case 1:
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (_) => TopicSummariesScreen()),
-        );
-        return;
-      case 2:
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (_) => QuickAddScreen()),
-        );
-        return;
-      case 3:
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (_) => AnalysisScreen()),
-        );
-        return;
-      case 4:
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (_) => ProfileScreen()),
-        );
-        return;
-    }
-  }
-
   @override
-void dispose() {
+  void dispose() {
     _focusTimer?.cancel();
     _focusRemainingNotifier.dispose();
     _focusRunningNotifier.dispose();
@@ -1004,34 +960,7 @@ class _EmptyStateHero extends StatelessWidget {
   }
 }
 
-class _MiniAvatar extends StatelessWidget {
-  const _MiniAvatar({this.label = '', this.color});
 
-  final String label;
-  final Color? color;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 24,
-      height: 24,
-      margin: const EdgeInsets.only(right: 4),
-      decoration: BoxDecoration(
-        color: color ?? AppColors.of(context).surfaceLight,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: AppColors.of(context).surface),
-      ),
-      alignment: Alignment.center,
-      child: Text(
-        label,
-        style: Theme.of(context).textTheme.labelSmall?.copyWith(
-              color: color == null ? AppColors.of(context).textSecondary : Colors.white,
-              fontWeight: FontWeight.w600,
-            ),
-      ),
-    );
-  }
-}
 
 class _AiGoalPanel extends StatelessWidget {
   const _AiGoalPanel({
@@ -2417,17 +2346,6 @@ String _cadenceLabel(String cadence) {
       return 'Aylık';
     default:
       return 'Günlük';
-  }
-}
-
-int? _pickCadenceValue(Map<String, int> targets, String cadence) {
-  switch (cadence) {
-    case 'weekly':
-      return targets['weekly'];
-    case 'monthly':
-      return targets['monthly'];
-    default:
-      return targets['daily'];
   }
 }
 

@@ -7,23 +7,23 @@ import 'package:flutter/rendering.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 
-import '../models/app_notification.dart';
-import '../models/mock_exam.dart';
-import '../models/question_entry.dart';
-import '../services/app_repository.dart';
-import '../services/gemini_client.dart';
-import '../theme/app_colors.dart';
-import '../widgets/ai_loading_dialog.dart';
-import '../widgets/ai_response_dialog.dart';
-import '../widgets/ambient_background.dart';
-import '../widgets/app_bottom_nav.dart';
-import '../widgets/glass_panel.dart';
-import 'entry_wizard_screen.dart';
-import 'quick_add_screen.dart';
-import 'home_screen.dart';
-import 'profile_screen.dart';
-import 'topic_detail_screen.dart';
-import 'topic_summaries_screen.dart';
+import '../../../core/models/app_notification.dart';
+import '../../../core/models/mock_exam.dart';
+import '../../../core/models/question_entry.dart';
+import '../../../core/repositories/app_repository.dart';
+import '../../../core/services/gemini_client.dart';
+import '../../../core/theme/app_colors.dart';
+import '../../../core/widgets/ai_loading_dialog.dart';
+import '../../../core/widgets/ai_response_dialog.dart';
+import '../../../core/widgets/ambient_background.dart';
+import '../../../core/widgets/app_bottom_nav.dart';
+import '../../../core/widgets/glass_panel.dart';
+import '../../questions/screens/entry_wizard_screen.dart';
+import '../../questions/screens/quick_add_screen.dart';
+import '../../dashboard/screens/home_screen.dart';
+import '../../settings/screens/profile_screen.dart';
+import '../../questions/screens/topic_detail_screen.dart';
+import '../../questions/screens/topic_summaries_screen.dart';
 
 class AnalysisScreen extends StatefulWidget {
   const AnalysisScreen({super.key});
@@ -41,327 +41,291 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
   @override
   Widget build(BuildContext context) {
     final repository = AppRepositoryScope.of(context);
-    return Scaffold(
-      backgroundColor: AppColors.of(context).background,
-      body: AmbientBackground(
-        child: SafeArea(
-          child: ValueListenableBuilder<List<QuestionEntry>>(
-            valueListenable: repository.questionEntries,
-            builder: (context, questionEntries, _) {
-              return ValueListenableBuilder<List<MockExam>>(
-                valueListenable: repository.mockExams,
-                builder: (context, mockExams, __) {
-                  final hasQuestions = questionEntries.isNotEmpty;
-                  final hasExams = mockExams.isNotEmpty;
-  
-                  final dateRange = _getDateRange(_rangeFilter, _customRange);
-                  final questionFiltered = _filterQuestions(
-                    questionEntries,
-                    dateRange.start,
-                    dateRange.end,
-                  );
-                  final examsFiltered = _filterExams(
-                    mockExams,
-                    dateRange.start,
-                    dateRange.end,
-                  );
-  
-                  if (!hasQuestions && !hasExams) {
-                    return _EmptyState(
-                      onAddExam: () => _openEntry(context, EntryType.mockExam),
-                      onAddQuestion: () =>
-                          _openEntry(context, EntryType.question),
-                    );
-                  }
+    return SafeArea(
+      child: ValueListenableBuilder<List<QuestionEntry>>(
+        valueListenable: repository.questionEntries,
+        builder: (context, questionEntries, _) {
+          return ValueListenableBuilder<List<MockExam>>(
+            valueListenable: repository.mockExams,
+            builder: (context, mockExams, __) {
+              final hasQuestions = questionEntries.isNotEmpty;
+              final hasExams = mockExams.isNotEmpty;
 
-                final activeMode = _mode;
-                final hasActiveData = activeMode == AnalysisMode.exams
-                    ? examsFiltered.isNotEmpty
-                    : questionFiltered.isNotEmpty;
-                final metrics = activeMode == AnalysisMode.exams
-                    ? _ExamMetrics.from(
-                        examsFiltered,
-                        dateRange.start,
-                        dateRange.end,
-                      )
-                    : _QuestionMetrics.from(
-                        questionFiltered,
-                        dateRange.start,
-                        dateRange.end,
-                      );
-                final weakTopics = repository.weakestTopics();
+              final dateRange = _getDateRange(_rangeFilter, _customRange);
+              final questionFiltered = _filterQuestions(
+                questionEntries,
+                dateRange.start,
+                dateRange.end,
+              );
+              final examsFiltered = _filterExams(
+                mockExams,
+                dateRange.start,
+                dateRange.end,
+              );
 
-                final weeklySummary =
-                    _buildWeeklySummary(questionEntries, mockExams);
-                final weeklyTargets = _buildWeeklyTargets(
-                  questionEntries,
-                  repository.dailyGoal.value,
+              if (!hasQuestions && !hasExams) {
+                return _EmptyState(
+                  onAddExam: () => _openEntry(context, EntryType.mockExam),
+                  onAddQuestion: () =>
+                      _openEntry(context, EntryType.question),
                 );
+              }
 
-                return CustomScrollView(
-                  slivers: [
-                    SliverToBoxAdapter(
-                      child: _Header(
-                        onShare: () => _shareWeeklyReportImage(
-                          context,
-                          _weeklyReportKey,
-                          weeklySummary,
-                        ),
+              final activeMode = _mode;
+              final hasActiveData = activeMode == AnalysisMode.exams
+                  ? examsFiltered.isNotEmpty
+                  : questionFiltered.isNotEmpty;
+              final metrics = activeMode == AnalysisMode.exams
+                  ? _ExamMetrics.from(
+                      examsFiltered,
+                      dateRange.start,
+                      dateRange.end,
+                    )
+                  : _QuestionMetrics.from(
+                      questionFiltered,
+                      dateRange.start,
+                      dateRange.end,
+                    );
+              final weakTopics = repository.weakestTopics();
+
+              final weeklySummary =
+                  _buildWeeklySummary(questionEntries, mockExams);
+              final weeklyTargets = _buildWeeklyTargets(
+                questionEntries,
+                repository.dailyGoal.value,
+              );
+
+              return CustomScrollView(
+                slivers: [
+                  SliverToBoxAdapter(
+                    child: _Header(
+                      onShare: () => _shareWeeklyReportImage(
+                        context,
+                        _weeklyReportKey,
+                        weeklySummary,
                       ),
                     ),
-                    SliverToBoxAdapter(
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 20),
-                        child: _ModeSelector(
-                          mode: activeMode,
-                          examsEnabled: true,
-                          questionsEnabled: true,
-                          onChanged: (mode) => setState(() => _mode = mode),
-                        ),
+                  ),
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      child: _ModeSelector(
+                        mode: activeMode,
+                        examsEnabled: true,
+                        questionsEnabled: true,
+                        onChanged: (mode) => setState(() => _mode = mode),
                       ),
                     ),
-                    SliverToBoxAdapter(
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 20,
-                          vertical: 12,
-                        ),
-                        child: _RangeSelector(
-                          selected: _rangeFilter,
-                          onSelect: (value) async {
-                            if (value == _RangeFilter.custom) {
-                              final range = await showDateRangePicker(
-                                context: context,
-                                firstDate: DateTime(DateTime.now().year - 1),
-                                lastDate: DateTime(DateTime.now().year + 1),
-                              );
-                              if (!context.mounted) {
-                                return;
-                              }
-                              if (range == null) {
-                                return;
-                              }
-                              setState(() {
-                                _customRange = range;
-                                _rangeFilter = _RangeFilter.custom;
-                              });
+                  ),
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 20,
+                        vertical: 12,
+                      ),
+                      child: _RangeSelector(
+                        selected: _rangeFilter,
+                        onSelect: (value) async {
+                          if (value == _RangeFilter.custom) {
+                            final range = await showDateRangePicker(
+                              context: context,
+                              firstDate: DateTime(DateTime.now().year - 1),
+                              lastDate: DateTime(DateTime.now().year + 1),
+                            );
+                            if (!context.mounted) {
+                              return;
+                            }
+                            if (range == null) {
                               return;
                             }
                             setState(() {
-                              _customRange = null;
-                              _rangeFilter = value;
+                              _customRange = range;
+                              _rangeFilter = _RangeFilter.custom;
                             });
-                          },
-                        ),
+                            return;
+                          }
+                          setState(() {
+                            _customRange = null;
+                            _rangeFilter = value;
+                          });
+                        },
                       ),
                     ),
+                  ),
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      child: hasActiveData
+                          ? _TrendCard(metrics: metrics)
+                          : _ModeEmptyState(
+                              mode: activeMode,
+                              onAddExam: () =>
+                                  _openEntry(context, EntryType.mockExam),
+                              onAddQuestion: () =>
+                                  _openEntry(context, EntryType.question),
+                            ),
+                    ),
+                  ),
+                  if (hasActiveData)
                     SliverToBoxAdapter(
                       child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 20),
-                        child: hasActiveData
-                            ? _TrendCard(metrics: metrics)
-                            : _ModeEmptyState(
-                                mode: activeMode,
-                                onAddExam: () =>
-                                    _openEntry(context, EntryType.mockExam),
-                                onAddQuestion: () =>
-                                    _openEntry(context, EntryType.question),
-                              ),
-                      ),
-                    ),
-                    if (hasActiveData)
-                      SliverToBoxAdapter(
-                        child: Padding(
-                          padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
-                          child: Row(
-                            children: [
-                              Expanded(
-                                child: _MetricCard(
-                                  title: metrics.leftTitle,
-                                  value: metrics.leftValue,
-                                  subtitle: metrics.leftSubtitle,
-                                  accent: metrics.leftAccent(context),
-                                  footer: _MiniSparkline(
-                                    values: metrics.trend,
-                                    color: metrics.leftAccent(context),
-                                  ),
+                        padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: _MetricCard(
+                                title: metrics.leftTitle,
+                                value: metrics.leftValue,
+                                subtitle: metrics.leftSubtitle,
+                                accent: metrics.leftAccent(context),
+                                footer: _MiniSparkline(
+                                  values: metrics.trend,
+                                  color: metrics.leftAccent(context),
                                 ),
                               ),
-                              SizedBox(width: 12),
-                              Expanded(
-                                child: _MetricCard(
-                                  title: metrics.rightTitle,
-                                  value: metrics.rightValue,
-                                  subtitle: metrics.rightSubtitle,
-                                  accent: metrics.rightAccent(context),
-                                  footer: _MiniBars(
-                                    values: metrics.trend,
-                                    color: metrics.rightAccent(context),
-                                  ),
+                            ),
+                            SizedBox(width: 12),
+                            Expanded(
+                              child: _MetricCard(
+                                title: metrics.rightTitle,
+                                value: metrics.rightValue,
+                                subtitle: metrics.rightSubtitle,
+                                accent: metrics.rightAccent(context),
+                                footer: _MiniBars(
+                                  values: metrics.trend,
+                                  color: metrics.rightAccent(context),
                                 ),
                               ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    if (hasActiveData && activeMode == AnalysisMode.exams)
-                      SliverToBoxAdapter(
-                        child: Padding(
-                          padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
-                          child: _ExamCompareCard(
-                            exams: _recentExams(examsFiltered, limit: 10),
-                          ),
-                        ),
-                      ),
-                    SliverToBoxAdapter(
-                      child: Padding(
-                        padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
-                        child: RepaintBoundary(
-                          key: _weeklyReportKey,
-                          child: _WeeklyReportCard(
-                            summary: weeklySummary,
-                            onShare: () => _shareWeeklyReportImage(
-                              context,
-                              _weeklyReportKey,
-                              weeklySummary,
                             ),
-                            onNewsletter: () => _requestAiNewsletter(
-                              context,
-                              repository,
-                              weeklySummary,
-                            ),
-                          ),
+                          ],
                         ),
                       ),
                     ),
+                  if (hasActiveData && activeMode == AnalysisMode.exams)
                     SliverToBoxAdapter(
                       child: Padding(
                         padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
-                        child: _WeeklyTargetCard(items: weeklyTargets),
+                        child: _ExamCompareCard(
+                          exams: _recentExams(examsFiltered, limit: 10),
+                        ),
                       ),
                     ),
-                    SliverToBoxAdapter(
-                      child: Padding(
-                        padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
-                        child: _WeakTopicsCard(
-                          topics: weakTopics,
-                          onAiSummary: () => _requestAiSummary(
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+                      child: RepaintBoundary(
+                        key: _weeklyReportKey,
+                        child: _WeeklyReportCard(
+                          summary: weeklySummary,
+                          onShare: () => _shareWeeklyReportImage(
+                            context,
+                            _weeklyReportKey,
+                            weeklySummary,
+                          ),
+                          onNewsletter: () => _requestAiNewsletter(
                             context,
                             repository,
-                            activeMode,
-                            metrics,
+                            weeklySummary,
                           ),
-                          onStudy: (topic) {
-                            Navigator.of(context).push(
-                              MaterialPageRoute(
-                                builder: (_) => TopicDetailScreen(
-                                  topic: topic.topic,
-                                ),
-                              ),
-                            );
-                          },
                         ),
                       ),
                     ),
-                    if (hasActiveData && activeMode == AnalysisMode.questions)
-                      SliverToBoxAdapter(
-                        child: Padding(
-                          padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
-                          child: _AiQuestionHunterCard(
-                            onPredict: () => _requestAiExamPrediction(
-                              context,
-                              repository,
-                              weakTopics,
+                  ),
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+                      child: _WeeklyTargetCard(items: weeklyTargets),
+                    ),
+                  ),
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+                      child: _WeakTopicsCard(
+                        topics: weakTopics,
+                        onAiSummary: () => _requestAiSummary(
+                          context,
+                          repository,
+                          activeMode,
+                          metrics,
+                        ),
+                        onStudy: (topic) {
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) => TopicDetailScreen(
+                                topic: topic.topic,
+                              ),
                             ),
+                          );
+                        },
+                      ),
+                    ),
+                  ),
+                  if (hasActiveData && activeMode == AnalysisMode.questions)
+                    SliverToBoxAdapter(
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+                        child: _AiQuestionHunterCard(
+                          onPredict: () => _requestAiExamPrediction(
+                            context,
+                            repository,
+                            weakTopics,
                           ),
                         ),
                       ),
-                    if (hasActiveData && activeMode == AnalysisMode.questions)
-                      SliverToBoxAdapter(
-                        child: Padding(
-                          padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
-                          child: _QuestionInsightCard(
-                            tags: _buildWrongTagCounts(questionEntries),
-                            onAnalyze: () => _requestAiQuestionAnalysis(
-                              context,
-                              repository,
-                              metrics as _QuestionMetrics,
-                              weakTopics,
-                            ),
+                    ),
+                  if (hasActiveData && activeMode == AnalysisMode.questions)
+                    SliverToBoxAdapter(
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+                        child: _QuestionInsightCard(
+                          tags: _buildWrongTagCounts(questionEntries),
+                          onAnalyze: () => _requestAiQuestionAnalysis(
+                            context,
+                            repository,
+                            metrics as _QuestionMetrics,
+                            weakTopics,
                           ),
                         ),
                       ),
-                    if (hasActiveData && activeMode == AnalysisMode.exams)
-                      SliverToBoxAdapter(
-                        child: Padding(
-                          padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
-                          child: _AiExamStrategistCard(
-                            onAnalyze: () => _requestAiStrategy(
-                              context,
-                              repository,
-                              mockExams,
-                            ),
+                    ),
+                  if (hasActiveData && activeMode == AnalysisMode.exams)
+                    SliverToBoxAdapter(
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+                        child: _AiExamStrategistCard(
+                          onAnalyze: () => _requestAiStrategy(
+                            context,
+                            repository,
+                            mockExams,
                           ),
                         ),
                       ),
-                    if (hasActiveData && activeMode == AnalysisMode.exams)
-                      SliverToBoxAdapter(
-                        child: Padding(
-                          padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
-                          child: _ExamBranchCard(
-                            stats: _buildExamBranchStats(mockExams),
-                          ),
+                    ),
+                  if (hasActiveData && activeMode == AnalysisMode.exams)
+                    SliverToBoxAdapter(
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+                        child: _ExamBranchCard(
+                          stats: _buildExamBranchStats(mockExams),
                         ),
                       ),
-                    const SliverToBoxAdapter(child: SizedBox(height: 120)),
-                  ],
-                );
-              },
-            );
-          },
-        ),
+                    ),
+                  const SliverToBoxAdapter(child: SizedBox(height: 120)),
+                ],
+              );
+            },
+          );
+        },
       ),
-    ),
-    bottomNavigationBar: AppBottomNav(
-      activeIndex: 3,
-      onSelect: (index) => _navigateFromNav(context, index),
-    ),
-  );
-}
+    );
+  }
 
-void _openEntry(BuildContext context, EntryType type) {
+  void _openEntry(BuildContext context, EntryType type) {
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (context) => EntryWizardScreen(type: type),
       ),
     );
-  }
-
-void _navigateFromNav(BuildContext context, int index) {
-    switch (index) {
-      case 0:
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (_) => HomeScreen()),
-        );
-        return;
-      case 1:
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (_) => TopicSummariesScreen()),
-        );
-        return;
-      case 2:
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (_) => QuickAddScreen()),
-        );
-        return;
-      case 3:
-        return;
-      case 4:
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (_) => ProfileScreen()),
-        );
-        return;
-    }
   }
 }
 
@@ -2143,49 +2107,7 @@ class _SubjectBar {
   final String label;
 }
 
-class _TimeDistributionCard extends StatelessWidget {
-  const _TimeDistributionCard({required this.data});
 
-  final List<_SubjectBar> data;
-
-  @override
-  Widget build(BuildContext context) {
-    return GlassPanel(
-      padding: const EdgeInsets.all(20),
-      radius: BorderRadius.circular(24),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Ders Süre Dağılımı',
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w700,
-                ),
-          ),
-          SizedBox(height: 12),
-          if (data.isEmpty)
-            Text(
-              'Henüz süre verisi yok.',
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: Colors.white54,
-                  ),
-            )
-          else
-            Column(
-              children: data
-                  .map((item) => _BarRow(
-                        label: item.subject,
-                        valueLabel: item.label,
-                        ratio: item.value,
-                      ))
-                  .toList(),
-            ),
-        ],
-      ),
-    );
-  }
-}
 
 class _ExamBranchStat {
   const _ExamBranchStat({
@@ -2669,28 +2591,7 @@ String _formatAverageMinutes(double minutes) {
   return '${minutes.toStringAsFixed(2)} dk';
 }
 
-List<_SubjectBar> _buildSubjectMinutes(List<QuestionEntry> entries) {
-  final totals = <String, int>{};
-  for (final entry in entries) {
-    totals.update(entry.subject, (value) => value + entry.minutes,
-        ifAbsent: () => entry.minutes);
-  }
-  if (totals.isEmpty) {
-    return [];
-  }
-  final maxValue = totals.values.reduce(max);
-  final items = totals.entries.toList()
-    ..sort((a, b) => b.value.compareTo(a.value));
-  return items
-      .map(
-        (item) => _SubjectBar(
-          subject: item.key,
-          value: maxValue == 0 ? 0 : item.value / maxValue,
-          label: '${item.value} dk',
-        ),
-      )
-      .toList();
-}
+
 
 Map<String, int> _buildWrongTagCounts(List<QuestionEntry> entries) {
   final counts = <String, int>{};
@@ -2761,7 +2662,7 @@ Markdown formatında, net, otoriter ama destekleyici bir dille yaz.
 }
 
 class _AiExamStrategistCard extends StatelessWidget {
-  const _AiExamStrategistCard({required this.analyze});
+  const _AiExamStrategistCard({required this.onAnalyze});
   final VoidCallback onAnalyze;
 
   @override
