@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 
 import 'screens/home_screen.dart';
 import 'services/app_repository.dart';
@@ -50,6 +51,15 @@ class KistasApp extends StatelessWidget {
             debugShowCheckedModeBanner: false,
             title: 'Kıstas',
             theme: buildAppTheme(themeKey),
+            localizationsDelegates: const [
+              GlobalMaterialLocalizations.delegate,
+              GlobalWidgetsLocalizations.delegate,
+              GlobalCupertinoLocalizations.delegate,
+            ],
+            supportedLocales: const [
+              Locale('tr', 'TR'),
+            ],
+            locale: const Locale('tr', 'TR'),
             home: const HomeScreen(),
           );
         },

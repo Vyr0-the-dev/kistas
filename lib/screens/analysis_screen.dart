@@ -79,7 +79,11 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
                     ? examsFiltered.isNotEmpty
                     : questionFiltered.isNotEmpty;
                 final metrics = activeMode == AnalysisMode.exams
-                    ? _ExamMetrics.from(examsFiltered)
+                    ? _ExamMetrics.from(
+                        examsFiltered,
+                        dateRange.start,
+                        dateRange.end,
+                      )
                     : _QuestionMetrics.from(
                         questionFiltered,
                         dateRange.start,
@@ -205,7 +209,7 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
                         child: Padding(
                           padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
                           child: _ExamCompareCard(
-                            exams: _recentExams(mockExams),
+                            exams: _recentExams(examsFiltered, limit: 10),
                           ),
                         ),
                       ),
@@ -842,6 +846,7 @@ DateTimeRange _getDateRange(_RangeFilter filter, DateTimeRange? customRange) {
   switch (filter) {
     case _RangeFilter.days7:
       start = today.subtract(Duration(days: today.weekday - 1));
+      end = start.add(const Duration(days: 7));
       break;
     case _RangeFilter.days30:
       start = today.subtract(const Duration(days: 29));
@@ -1826,12 +1831,12 @@ class _ExamCompareCard extends StatelessWidget {
             ),
             SizedBox(height: 12),
             Column(
-              children: exams
+              children: exams.reversed
                   .map(
                     (exam) => _BarRow(
                       label: exam.title,
                       valueLabel:
-                          '${exam.totalNet.toStringAsFixed(1)} net • ${exam.minutes} dk',
+                          '${exam.dateLabel} • ${exam.totalNet.toStringAsFixed(1)} net • ${exam.minutes} dk',
                       ratio: (exam.totalNet / 120).clamp(0.0, 1.0),
                     ),
                   )
@@ -1856,37 +1861,79 @@ class _LineChartPainter extends CustomPainter {
   final Color primaryLightColor;
 
   @override
-void paint(Canvas canvas, Size size) {
-    if (values.length < 2) {
-      return;
-    }
+  void paint(Canvas canvas, Size size) {
+    if (values.isEmpty) return;
+
     final maxValue = values.reduce(max);
     final minValue = values.reduce(min);
-    final range = max(1.0, maxValue - minValue);
-    final paintLine = Paint()
-      ..color = primaryLightColor
-      ..strokeWidth = 3
-      ..style = PaintingStyle.stroke;
-    final paintDot = Paint()
-      ..color = primaryColor
-      ..style = PaintingStyle.fill;
+    final range = max(5.0, maxValue - minValue);
+    final chartMin = minValue - (range * 0.1);
+    final chartMax = maxValue + (range * 0.1);
+    final chartRange = chartMax - chartMin;
+
+    // Draw horizontal grid lines
+    final gridPaint = Paint()
+      ..color = Colors.white.withOpacity(0.05)
+      ..strokeWidth = 1;
+    for (var i = 0; i <= 4; i++) {
+      final y = size.height * (i / 4);
+      canvas.drawLine(Offset(0, y), Offset(size.width, y), gridPaint);
+    }
+
     final path = Path();
+    final fillPath = Path();
+    final double stepX = values.length > 1 ? size.width / (values.length - 1) : size.width / 2;
+
     for (var i = 0; i < values.length; i++) {
-      final x = size.width * (i / (values.length - 1));
-      final normalized = (values[i] - minValue) / range;
-      final y = size.height - (normalized * size.height);
+      final x = values.length > 1 ? i * stepX : size.width / 2;
+      final y = size.height - ((values[i] - chartMin) / chartRange * size.height);
+
       if (i == 0) {
         path.moveTo(x, y);
+        fillPath.moveTo(x, size.height);
+        fillPath.lineTo(x, y);
       } else {
         path.lineTo(x, y);
+        fillPath.lineTo(x, y);
       }
     }
-    canvas.drawPath(path, paintLine);
-    // last point dot
-    final lastX = size.width;
-    final lastNormalized = (values.last - minValue) / range;
-    final lastY = size.height - (lastNormalized * size.height);
-    canvas.drawCircle(Offset(lastX, lastY), 5, paintDot);
+
+    if (values.length > 1) {
+      fillPath.lineTo(size.width, size.height);
+      fillPath.close();
+
+      final fillPaint = Paint()
+        ..shader = LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            primaryLightColor.withOpacity(0.2),
+            primaryLightColor.withOpacity(0.0),
+          ],
+        ).createShader(Rect.fromLTWH(0, 0, size.width, size.height));
+      canvas.drawPath(fillPath, fillPaint);
+
+      final linePaint = Paint()
+        ..color = primaryLightColor
+        ..strokeWidth = 3
+        ..style = PaintingStyle.stroke
+        ..strokeCap = StrokeCap.round;
+      canvas.drawPath(path, linePaint);
+    }
+
+    // Draw dots for each point
+    final dotPaint = Paint()..color = Colors.white;
+    final dotOutlinePaint = Paint()
+      ..color = primaryColor
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2;
+
+    for (var i = 0; i < values.length; i++) {
+      final x = values.length > 1 ? i * stepX : size.width / 2;
+      final y = size.height - ((values[i] - chartMin) / chartRange * size.height);
+      canvas.drawCircle(Offset(x, y), 4, dotPaint);
+      canvas.drawCircle(Offset(x, y), 6, dotOutlinePaint);
+    }
   }
 
   @override
@@ -2358,10 +2405,12 @@ class _ExamMetrics implements _AnalysisMetrics {
     required this.trend,
     required this.delta,
     required this.axisLabels,
+    required this.lastNet,
   });
 
   final double averageNet;
   final double averageMinutes;
+  final double lastNet;
   @override
   final List<double> trend;
   @override
@@ -2369,9 +2418,14 @@ class _ExamMetrics implements _AnalysisMetrics {
   @override
   final List<String> axisLabels;
 
-  static _ExamMetrics from(List<MockExam> exams) {
+  static _ExamMetrics from(
+    List<MockExam> exams,
+    DateTime start,
+    DateTime end,
+  ) {
     final sorted = [...exams]..sort((a, b) => a.createdAt.compareTo(b.createdAt));
-    final points = sorted.map((e) => e.totalNet).toList();
+    final lastNet = sorted.isEmpty ? 0.0 : sorted.last.totalNet;
+    
     final averageNet = exams.isEmpty
         ? 0.0
         : exams.fold<double>(0, (sum, e) => sum + e.totalNet) / exams.length;
@@ -2380,30 +2434,48 @@ class _ExamMetrics implements _AnalysisMetrics {
         : exams.fold<int>(0, (sum, e) => sum + e.minutes).toDouble() /
             exams.length;
 
-List<String> labels = [];
-    if (sorted.isNotEmpty) {
-      if (sorted.length <= 4) {
-        labels = sorted.map((e) => '${e.createdAt.day}.${e.createdAt.month}').toList();
-      } else {
-        final first = sorted.first.createdAt;
-        final last = sorted.last.createdAt;
-        final mid1 = sorted[sorted.length ~/ 3].createdAt;
-        final mid2 = sorted[2 * sorted.length ~/ 3].createdAt;
-        labels = [
-          '${first.day}.${first.month}',
-          '${mid1.day}.${mid1.month}',
-          '${mid2.day}.${mid2.month}',
-          '${last.day}.${last.month}',
-        ];
+    final daysDifference = end.difference(start).inDays;
+    final trend = <double>[];
+    
+    // Build daily trend: use average net of exams on that day, or carry over last known net
+    double lastKnownNet = 0.0;
+    // Find initial lastKnownNet from exams before 'start' if any
+    final examsBefore = sorted.where((e) => e.createdAt.isBefore(start)).toList();
+    if (examsBefore.isNotEmpty) {
+      lastKnownNet = examsBefore.last.totalNet;
+    }
+
+    for (var i = 0; i < daysDifference; i++) {
+      final day = start.add(Duration(days: i));
+      final dayExams = sorted.where((e) => _isSameDay(e.createdAt, day)).toList();
+      
+      if (dayExams.isNotEmpty) {
+        lastKnownNet = dayExams.fold<double>(0, (sum, e) => sum + e.totalNet) / dayExams.length;
       }
+      trend.add(lastKnownNet);
+    }
+
+    List<String> labels;
+    if (daysDifference <= 8) {
+      labels = List.generate(daysDifference, (i) {
+        final d = start.add(Duration(days: i));
+        return _getWeekdayLabel(d.weekday);
+      });
+    } else {
+      labels = [
+        '${start.day}.${start.month}',
+        '${start.add(Duration(days: daysDifference ~/ 2)).day}.${start.add(Duration(days: daysDifference ~/ 2)).month}',
+        '${end.subtract(const Duration(days: 1)).day}.${end.subtract(const Duration(days: 1)).month}',
+      ];
     }
 
     return _ExamMetrics(
       averageNet: averageNet,
       averageMinutes: averageMinutes,
-      trend: points,
-      delta: _calculateDelta(points),
+      trend: trend,
+      delta: _calculateDelta(trend),
       axisLabels: labels,
+      lastNet: lastNet,
     );
   }
 
@@ -2411,7 +2483,7 @@ List<String> labels = [];
   String get title => 'Genel Net Gidişatı';
 
   @override
-  String get value => trend.isEmpty ? '0' : trend.last.toStringAsFixed(1);
+  String get value => lastNet.toStringAsFixed(1);
 
   @override
   String get unit => 'Net';
@@ -2426,7 +2498,7 @@ List<String> labels = [];
   String get leftValue => averageNet == 0 ? '—' : averageNet.toStringAsFixed(1);
 
   @override
-  String get leftSubtitle => 'Deneme ortalaması';
+  String get leftSubtitle => 'Seçili aralık';
 
   @override
   Color leftAccent(BuildContext context) => AppColors.of(context).primaryLight;
@@ -2438,7 +2510,7 @@ List<String> labels = [];
   String get rightValue => averageMinutes == 0 ? '—' : '${averageMinutes.toStringAsFixed(0)} dk';
 
   @override
-  String get rightSubtitle => 'Deneme süresi';
+  String get rightSubtitle => 'Deneme başına';
 
   @override
   Color rightAccent(BuildContext context) => AppColors.of(context).warning;
@@ -2675,6 +2747,7 @@ List<_ExamBranchStat> _buildExamBranchStats(List<MockExam> exams) {
 }
 
 List<MockExam> _recentExams(List<MockExam> exams, {int limit = 5}) {
-  final sorted = [...exams]..sort((a, b) => b.createdAt.compareTo(a.createdAt));
-  return sorted.take(limit).toList();
+  final sorted = [...exams]..sort((a, b) => a.createdAt.compareTo(b.createdAt));
+  if (sorted.length <= limit) return sorted;
+  return sorted.sublist(sorted.length - limit);
 }
