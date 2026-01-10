@@ -1,4 +1,4 @@
-# Road to ATC - Agent Kuralları
+# Kıstas - Agent Kuralları
 
 ## Amac
 Bu repo sadece Android odaklı Flutter uygulamasıdır. Amaç, KPSS P3 (ATC) adaylarına

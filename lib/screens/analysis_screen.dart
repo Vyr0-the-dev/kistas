@@ -877,7 +877,7 @@ Future<void> _shareWeeklyReportImage(
   final boundary =
       key.currentContext?.findRenderObject() as RenderRepaintBoundary?;
   if (boundary == null) {
-    await Share.share(summary, subject: 'Road to ATC - Haftalık Rapor');
+    await Share.share(summary, subject: 'Kıstas - Haftalık Rapor');
     return;
   }
   if (boundary.debugNeedsPaint) {
@@ -886,7 +886,7 @@ Future<void> _shareWeeklyReportImage(
   final image = await boundary.toImage(pixelRatio: 3);
   final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
   if (byteData == null) {
-    await Share.share(summary, subject: 'Road to ATC - Haftalık Rapor');
+    await Share.share(summary, subject: 'Kıstas - Haftalık Rapor');
     return;
   }
   final bytes = byteData.buffer.asUint8List();
@@ -900,7 +900,7 @@ Future<void> _shareWeeklyReportImage(
   }
   await Share.shareXFiles(
     [XFile(file.path)],
-    text: 'Road to ATC haftalık rapor',
+    text: 'Kıstas haftalık rapor',
   );
 }
 

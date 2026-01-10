@@ -8,14 +8,14 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'package:road_to_atc/main.dart';
-import 'package:road_to_atc/services/app_repository.dart';
+import 'package:kistas/main.dart';
+import 'package:kistas/services/app_repository.dart';
 
 void main() {
   testWidgets('Uygulama ana ekranı açılıyor', (WidgetTester tester) async {
     SharedPreferences.setMockInitialValues({});
     final repository = await AppRepository.init();
-    await tester.pumpWidget(RoadToAtcApp(repository: repository));
+    await tester.pumpWidget(KistasApp(repository: repository));
     await tester.pumpAndSettle();
 
     expect(find.textContaining('Merhaba'), findsOneWidget);

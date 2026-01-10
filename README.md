@@ -1,4 +1,4 @@
-# Road to ATC
+# Kıstas
 
 Mobil odaklı KPSSP3 çalışma ve soru takip uygulaması.
 

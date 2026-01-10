@@ -1520,10 +1520,10 @@ Future<void> _exportBackup(
   final data = repository.exportData();
   final dir = await getTemporaryDirectory();
   final fileName =
-      'road_to_atc_backup_${DateTime.now().millisecondsSinceEpoch}.json';
+      'kistas_backup_${DateTime.now().millisecondsSinceEpoch}.json';
   final file = File('${dir.path}/$fileName');
   await file.writeAsString(data);
-  await Share.shareXFiles([XFile(file.path)], text: 'Road to ATC yedeği');
+  await Share.shareXFiles([XFile(file.path)], text: 'Kıstas yedeği');
 }
 
 

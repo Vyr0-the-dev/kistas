@@ -21,7 +21,7 @@ Future<void> main() async {
       body: _buildWeeklyPlanBody(repository),
     );
   }
-  runApp(RoadToAtcApp(repository: repository));
+  runApp(KistasApp(repository: repository));
 }
 
 String _buildWeeklyPlanBody(AppRepository repository) {
@@ -34,8 +34,8 @@ String _buildWeeklyPlanBody(AppRepository repository) {
   return firstLine.length > 120 ? '${firstLine.substring(0, 120)}…' : firstLine;
 }
 
-class RoadToAtcApp extends StatelessWidget {
-  const RoadToAtcApp({super.key, required this.repository});
+class KistasApp extends StatelessWidget {
+  const KistasApp({super.key, required this.repository});
 
   final AppRepository repository;
 
@@ -48,7 +48,7 @@ class RoadToAtcApp extends StatelessWidget {
         builder: (context, themeKey, _) {
           return MaterialApp(
             debugShowCheckedModeBanner: false,
-            title: 'Road to ATC',
+            title: 'Kıstas',
             theme: buildAppTheme(themeKey),
             home: const HomeScreen(),
           );
