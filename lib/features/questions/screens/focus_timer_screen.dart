@@ -69,28 +69,35 @@ class FocusTimerScreen extends StatelessWidget {
                       },
                     ),
                     SizedBox(height: 24),
-                    ValueListenableBuilder<bool>(
-                      valueListenable: running,
-                      builder: (context, isRunning, _) {
-                        return Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            ElevatedButton(
-                              onPressed: isRunning ? onPause : onResume,
-                              style: ElevatedButton.styleFrom(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 24,
-                                  vertical: 12,
+                    ValueListenableBuilder<int>(
+                      valueListenable: remainingSeconds,
+                      builder: (context, seconds, _) {
+                        return ValueListenableBuilder<bool>(
+                          valueListenable: running,
+                          builder: (context, isRunning, _) {
+                            return Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                if (seconds > 0) ...[
+                                  ElevatedButton(
+                                    onPressed: isRunning ? onPause : onResume,
+                                    style: ElevatedButton.styleFrom(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 24,
+                                        vertical: 12,
+                                      ),
+                                    ),
+                                    child: Text(isRunning ? 'Duraklat' : 'Devam Et'),
+                                  ),
+                                  const SizedBox(width: 12),
+                                ],
+                                TextButton(
+                                  onPressed: onReset,
+                                  child: const Text('Sıfırla'),
                                 ),
-                              ),
-                              child: Text(isRunning ? 'Duraklat' : 'Devam Et'),
-                            ),
-                            SizedBox(width: 12),
-                            TextButton(
-                              onPressed: onReset,
-                              child: Text('Sıfırla'),
-                            ),
-                          ],
+                              ],
+                            );
+                          },
                         );
                       },
                     ),

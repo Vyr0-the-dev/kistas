@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:math';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../../core/models/app_notification.dart';
 import '../../../core/models/mock_exam.dart';
@@ -41,6 +42,7 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _focusRunning = false;
   final ValueNotifier<int> _focusRemainingNotifier = ValueNotifier(25 * 60);
   final ValueNotifier<bool> _focusRunningNotifier = ValueNotifier(false);
+  static const _platform = MethodChannel('com.example.app/alarm');
 
   @override
   Widget build(BuildContext context) {
@@ -268,19 +270,25 @@ void _openEntry(BuildContext context) {
     _focusTimer?.cancel();
     _focusRemainingNotifier.dispose();
     _focusRunningNotifier.dispose();
+    _platform.invokeMethod('stop');
     super.dispose();
   }
 
-void _startFocusTimer() {
+  void _startFocusTimer() {
     if (_focusRunning) {
       return;
     }
     setState(() => _focusRunning = true);
     _focusRunningNotifier.value = true;
+    if (_focusRemaining > 5) {
+      NotificationService.scheduleFocusEnd(_focusRemaining);
+    }
     _focusTimer?.cancel();
     _focusTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (_focusRemaining <= 1) {
         timer.cancel();
+        _platform.invokeMethod('play');
+        NotificationService.showReminderNow("Süre doldu! Harika iş çıkardın.");
         setState(() {
           _focusRunning = false;
           _focusRemaining = 0;
@@ -294,14 +302,18 @@ void _startFocusTimer() {
     });
   }
 
-void _pauseFocusTimer() {
+  void _pauseFocusTimer() {
     _focusTimer?.cancel();
+    NotificationService.cancelFocusEnd();
+    _platform.invokeMethod('stop');
     setState(() => _focusRunning = false);
     _focusRunningNotifier.value = false;
   }
 
-void _resetFocusTimer() {
+  void _resetFocusTimer() {
     _focusTimer?.cancel();
+    NotificationService.cancelFocusEnd();
+    _platform.invokeMethod('stop');
     setState(() {
       _focusRunning = false;
       _focusRemaining = 25 * 60;
@@ -310,8 +322,10 @@ void _resetFocusTimer() {
     _focusRemainingNotifier.value = _focusRemaining;
   }
 
-void _setFocusDuration(int minutes) {
+  void _setFocusDuration(int minutes) {
     _focusTimer?.cancel();
+    NotificationService.cancelFocusEnd();
+    _platform.invokeMethod('stop');
     setState(() {
       _focusRunning = false;
       _focusRemaining = minutes * 60;
@@ -319,7 +333,6 @@ void _setFocusDuration(int minutes) {
     _focusRunningNotifier.value = false;
     _focusRemainingNotifier.value = _focusRemaining;
   }
-
 void _openFocusTimerScreen() {
     Navigator.of(context).push(
       MaterialPageRoute(
@@ -335,7 +348,7 @@ void _openFocusTimerScreen() {
   }
 
 void _showFocusTimerSheet(BuildContext context) {
-    final currentMinutes = max(5, (_focusRemaining / 60).round());
+    final currentMinutes = max(1, (_focusRemaining / 60).round());
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -389,9 +402,9 @@ void _showFocusTimerSheet(BuildContext context) {
                       ),
                       child: Slider(
                         value: minutes.toDouble(),
-                        min: 5,
+                        min: 1,
                         max: 120,
-                        divisions: 23,
+                        divisions: 119,
                         label: '$minutes dk',
                         onChanged: (value) {
                           setSheetState(() {
@@ -1412,16 +1425,17 @@ class _FocusTimerCard extends StatelessWidget {
                 ],
               ),
             ),
-            if (!running)
-              IconButton(
-                onPressed: onStart,
-                icon: Icon(Icons.play_arrow, color: Colors.white),
-              )
-            else
-              IconButton(
-                onPressed: onPause,
-                icon: Icon(Icons.pause, color: Colors.white),
-              ),
+            if (remainingSeconds > 0)
+              if (!running)
+                IconButton(
+                  onPressed: onStart,
+                  icon: Icon(Icons.play_arrow, color: Colors.white),
+                )
+              else
+                IconButton(
+                  onPressed: onPause,
+                  icon: Icon(Icons.pause, color: Colors.white),
+                ),
             IconButton(
               onPressed: onReset,
               icon: Icon(Icons.replay, color: Colors.white54),

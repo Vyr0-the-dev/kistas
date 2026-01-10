@@ -65,8 +65,7 @@ class _SplashScreenState extends State<SplashScreen> {
                                             pageBuilder: (context, animation, secondaryAnimation) =>
                                                 widget.onInitializationComplete ?? const MainScreen(),
                                             transitionsBuilder: (context, animation, secondaryAnimation, child) {
-                                              // Daha akıcı bir eğri seçtik
-                                              final curve = Curves.easeInOutQuart;
+                                              const curve = Curves.easeOutExpo; // Daha dinamik bir eğri
                                               final curvedAnimation = CurvedAnimation(
                                                 parent: animation,
                                                 curve: curve,
@@ -75,13 +74,12 @@ class _SplashScreenState extends State<SplashScreen> {
                                               return FadeTransition(
                                                 opacity: curvedAnimation,
                                                 child: ScaleTransition(
-                                                  // %95'ten %100'e hafif bir büyüme efekti
-                                                  scale: Tween<double>(begin: 0.95, end: 1.0).animate(curvedAnimation),
+                                                  scale: Tween<double>(begin: 0.85, end: 1.0).animate(curvedAnimation), // Daha belirgin büyüme
                                                   child: child,
                                                 ),
                                               );
                                             },
-                                            transitionDuration: const Duration(milliseconds: 1000), // Süreyi biraz uzattık
+                                            transitionDuration: const Duration(milliseconds: 800), // Süreyi biraz uzattık
                                           ),
                                         );                    }
                   },
