@@ -203,21 +203,34 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.white54),
                         ),
                         SizedBox(height: 16),
-                        Wrap(
-                          spacing: 16,
-                          runSpacing: 16,
+                        Column(
                           children: [
-                            'midnight', 'ocean', 'volcanic', 'forest', 'royal', 
-                            'sunset', 'glacier', 'crimson', 'amber', 'graphite'
-                          ].map((key) {
-                            final config = _getThemeColor(key);
-                            return _ThemeOption(
-                              color: config.primary,
-                              label: config.label,
-                              isSelected: themeKey == key,
-                              onTap: () => repository.setTheme(key),
-                            );
-                          }).toList(),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                              children: ['midnight', 'ocean', 'volcanic', 'forest', 'royal'].map((key) {
+                                final config = _getThemeColor(key);
+                                return _ThemeOption(
+                                  color: config.primary,
+                                  label: config.label,
+                                  isSelected: themeKey == key,
+                                  onTap: () => repository.setTheme(key),
+                                );
+                              }).toList(),
+                            ),
+                            const SizedBox(height: 16),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                              children: ['sunset', 'glacier', 'crimson', 'amber', 'graphite'].map((key) {
+                                final config = _getThemeColor(key);
+                                return _ThemeOption(
+                                  color: config.primary,
+                                  label: config.label,
+                                  isSelected: themeKey == key,
+                                  onTap: () => repository.setTheme(key),
+                                );
+                              }).toList(),
+                            ),
+                          ],
                         ),
                       ],
                     );
@@ -378,42 +391,49 @@ class _ThemeOption extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Column(
-        children: [
-          Container(
-            width: 48,
-            height: 48,
-            decoration: BoxDecoration(
-              color: color,
-              shape: BoxShape.circle,
-              border: isSelected
-                  ? Border.all(color: Colors.white, width: 3)
-                  : Border.all(color: Colors.white12, width: 1),
-              boxShadow: isSelected
-                  ? [
-                      BoxShadow(
-                        color: color.withOpacity(0.5),
-                        blurRadius: 12,
-                        spreadRadius: 2,
-                      )
-                    ]
-                  : [],
+    return Flexible(
+      child: GestureDetector(
+        onTap: onTap,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                color: color,
+                shape: BoxShape.circle,
+                border: isSelected
+                    ? Border.all(color: Colors.white, width: 3)
+                    : Border.all(color: Colors.white12, width: 1),
+                boxShadow: isSelected
+                    ? [
+                        BoxShadow(
+                          color: color.withOpacity(0.5),
+                          blurRadius: 10,
+                          spreadRadius: 1,
+                        )
+                      ]
+                    : [],
+              ),
+              child: isSelected
+                  ? const Icon(Icons.check, color: Colors.white, size: 24)
+                  : null,
             ),
-            child: isSelected
-                ? Icon(Icons.check, color: Colors.white, size: 28)
-                : null,
-          ),
-          SizedBox(height: 8),
-          Text(
-            label,
-            style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                  color: isSelected ? Colors.white : AppColors.of(context).textSecondary,
-                  fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                ),
-          ),
-        ],
+            const SizedBox(height: 6),
+            Text(
+              label,
+              textAlign: TextAlign.center,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                    color: isSelected ? Colors.white : AppColors.of(context).textSecondary,
+                    fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                    fontSize: 9,
+                  ),
+            ),
+          ],
+        ),
       ),
     );
   }

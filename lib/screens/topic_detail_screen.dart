@@ -183,12 +183,14 @@ class _Hero extends StatelessWidget {
               SizedBox(height: 10),
               Row(
                 children: [
-                  Text(
-                    progress.topic.title,
-                    style: Theme.of(context).textTheme.displaySmall?.copyWith(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w700,
-                        ),
+                  Expanded(
+                    child: Text(
+                      progress.topic.title,
+                      style: Theme.of(context).textTheme.displaySmall?.copyWith(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w700,
+                          ),
+                    ),
                   ),
                   if (progress.topic.importance >= 4) ...[
                     SizedBox(width: 8),

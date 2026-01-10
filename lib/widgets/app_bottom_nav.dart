@@ -152,7 +152,7 @@ class _CenterAction extends StatelessWidget {
           Transform.translate(
             offset: const Offset(0, -6),
             child: Text(
-              'Hızlı Ekle',
+              'Ekle',
               style: Theme.of(context).textTheme.labelSmall?.copyWith(
                     color: active ? AppColors.of(context).primary : Colors.white54,
                     fontWeight: FontWeight.w700,

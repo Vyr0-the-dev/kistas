@@ -2259,15 +2259,32 @@ class _EmptyState extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Container(
-              width: 90,
-              height: 90,
+              width: 100,
+              height: 100,
               decoration: BoxDecoration(
                 color: Colors.white.withOpacity(0.05),
-                borderRadius: BorderRadius.circular(22),
+                borderRadius: BorderRadius.circular(30),
+                border: Border.all(color: Colors.white.withOpacity(0.05)),
               ),
-              child: Icon(Icons.analytics, color: Colors.white70, size: 40),
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  Icon(Icons.bar_chart, color: Colors.white30, size: 50),
+                  Transform.translate(
+                    offset: const Offset(12, 12),
+                    child: Container(
+                      padding: const EdgeInsets.all(4),
+                      decoration: BoxDecoration(
+                        color: AppColors.of(context).primary,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Icon(Icons.add, color: Colors.white, size: 16),
+                    ),
+                  ),
+                ],
+              ),
             ),
-            SizedBox(height: 16),
+            const SizedBox(height: 24),
             Text(
               'Henüz Veri Yok',
               style: Theme.of(context).textTheme.titleLarge?.copyWith(
@@ -2275,26 +2292,37 @@ class _EmptyState extends StatelessWidget {
                     fontWeight: FontWeight.w700,
                   ),
             ),
-            SizedBox(height: 8),
-            Text(
-              'Önce soru veya deneme ekleyerek analiz panelini aç.',
+            const SizedBox(height: 12),
+            const Text(
+              'Önce 3 deneme veya soru kaydı ekle — trendleri çıkarmak için buradan takip et.',
               textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: Colors.white54,
-                  ),
+              style: TextStyle(
+                color: Colors.white54,
+                fontSize: 14,
+                height: 1.5,
+              ),
             ),
-            SizedBox(height: 18),
+            const SizedBox(height: 32),
             Row(
-              mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                OutlinedButton(
-                  onPressed: onAddQuestion,
-                  child: Text('Soru Ekle'),
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: onAddQuestion,
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                    ),
+                    child: const Text('Soru Ekle'),
+                  ),
                 ),
-                SizedBox(width: 12),
-                ElevatedButton(
-                  onPressed: onAddExam,
-                  child: Text('Deneme Ekle'),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: ElevatedButton(
+                    onPressed: onAddExam,
+                    style: ElevatedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                    ),
+                    child: const Text('Deneme Ekle'),
+                  ),
                 ),
               ],
             ),
@@ -2498,24 +2526,22 @@ List<String> labels;
   String get leftValue => accuracy == 0 ? '—' : '%${(accuracy * 100).round()}';
 
   @override
-  String get leftSubtitle => 'Soru doğruluğu';
+  String get leftSubtitle => 'Genel başarı';
 
   @override
   Color leftAccent(BuildContext context) => AppColors.of(context).success;
 
   @override
-  String get rightTitle => 'Ortalama Süre';
+  String get rightTitle => 'Soru Temposu';
 
   @override
-  String get rightValue => avgMinutesPerQuestion == 0
-      ? '—'
-      : _formatAverageMinutes(avgMinutesPerQuestion);
+  String get rightValue => totalQuestions == 0 ? '—' : totalQuestions.toString();
 
   @override
-  String get rightSubtitle => 'Soru başına';
+  String get rightSubtitle => 'Toplam çözülen';
 
   @override
-  Color rightAccent(BuildContext context) => AppColors.of(context).warning;
+  Color rightAccent(BuildContext context) => AppColors.of(context).primaryLight;
 }
 
 List<double> _buildQuestionTrend(

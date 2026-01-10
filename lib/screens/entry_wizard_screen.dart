@@ -13,7 +13,6 @@ import '../widgets/in_app_notice.dart';
 import 'analysis_screen.dart';
 import 'home_screen.dart';
 import 'profile_screen.dart';
-import 'quick_add_screen.dart';
 import 'topic_summaries_screen.dart';
 
 enum EntryType { question, mockExam }
@@ -35,6 +34,7 @@ class EntryWizardScreen extends StatefulWidget {
 }
 
 class _EntryWizardScreenState extends State<EntryWizardScreen> {
+  int _currentStep = 0;
   int _correct = 0;
   int _wrong = 0;
   int _blank = 0;
@@ -65,12 +65,20 @@ class _EntryWizardScreenState extends State<EntryWizardScreen> {
     'Süre',
   ];
 
+  static const List<String> _examTypes = [
+    'Genel Deneme',
+    'Branş Denemesi',
+    'Türkiye Geneli',
+    'Çıkmış Sorular',
+  ];
+
   @override
   void initState() {
     super.initState();
     if (widget.preselectedTopic != null) {
       _selectedSubject = widget.preselectedTopic!.subject;
       _selectedTopic = widget.preselectedTopic!.title;
+      _currentStep = 2; // Start at results if topic is preselected
     }
     if (widget.initialData != null) {
       final data = widget.initialData!;
@@ -78,9 +86,6 @@ class _EntryWizardScreenState extends State<EntryWizardScreen> {
       _wrong = data['wrong'] as int? ?? 0;
       _blank = data['blank'] as int? ?? 0;
       _minutes = data['minutes'] as int? ?? 25;
-      
-      // If total is provided but others are 0, try to infer (though AI usually provides breakdown)
-      // This is a simple pass-through.
     }
   }
 
@@ -107,129 +112,35 @@ class _EntryWizardScreenState extends State<EntryWizardScreen> {
         child: SafeArea(
           child: Column(
             children: [
-            _WizardHeader(
-              title: widget.type == EntryType.question
-                  ? 'Soru Kaydı'
-                  : 'Deneme Kaydı',
-              onClear: _reset,
-            ),
-            Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(20, 12, 20, 40),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    if (widget.type == EntryType.question)
-                      _SectionTitle(index: 1, title: 'Ders seç'),
-                    if (widget.type == EntryType.question)
-                      _SubjectGrid(
-                        subjects: subjects,
-                        selected: _selectedSubject,
-                        onSelect: (value) =>
-                            setState(() => _selectedSubject = value),
-                      ),
-                    if (widget.type == EntryType.mockExam)
-                      _ExamMetaSection(
-                        controller: _titleController,
-                        selectedDate: _selectedDate,
-                        onPickDate: _pickDate,
-                      ),
-                    SizedBox(height: 20),
-                    _SectionTitle(index: 2, title: 'Konu belirle'),
-                    _TopicSelector(
-                      topics: topics,
-                      selected: _selectedTopic,
-                      onSelect: (value) =>
-                          setState(() => _selectedTopic = value),
-                    ),
-                    if (widget.type == EntryType.question) ...[
-                      SizedBox(height: 16),
-                      _SourceField(controller: _bookController),
-                    ],
-                    SizedBox(height: 20),
-                    _SectionTitle(index: 3, title: 'Sonuçlar'),
-                    _ResultPicker(
-                      correct: _correct,
-                      wrong: _wrong,
-                      blank: _blank,
-                      onChanged: _updateResults,
-                    ),
-                    SizedBox(height: 16),
-                    _DurationPicker(
-                      minutes: _minutes,
-                      onChanged: (value) => setState(() => _minutes = value),
-                    ),
-                    if (widget.type == EntryType.question) ...[
-                      SizedBox(height: 16),
-                      _SectionTitle(index: 4, title: 'Yanlış Türleri'),
-                      _ErrorTagSelector(
-                        tags: _errorTagOptions,
-                        selected: _errorTags,
-                        onToggle: (tag) {
-                          setState(() {
-                            if (_errorTags.contains(tag)) {
-                              _errorTags.remove(tag);
-                            } else {
-                              _errorTags.add(tag);
-                            }
-                          });
-                        },
-                      ),
-                    ],
-                    if (widget.type == EntryType.question) ...[
-                      SizedBox(height: 16),
-                      _DatePickerRow(
-                        selectedDate: _selectedDate,
-                        onPickDate: _pickDate,
-                      ),
-                    ],
-                    SizedBox(height: 20),
-                    if (widget.type == EntryType.mockExam) ...[
-                      _SectionTitle(
-                        index: 4,
-                        title: 'Branş Netleri (Opsiyonel)',
-                      ),
-                      _ExamSubjectBreakdown(
-                        subjects: _examSubjects,
-                        onNetChanged: (subject, value) {
-                          setState(() => _examSubjectNets[subject] = value);
-                        },
-                        onMinutesChanged: (subject, value) {
-                          setState(
-                              () => _examSubjectMinutes[subject] = value);
-                        },
-                      ),
-                      SizedBox(height: 20),
-                    ],
-                    _SectionTitle(
-                      index: widget.type == EntryType.mockExam ? 5 : 5,
-                      title: 'Notlar',
-                    ),
-                    _NoteField(controller: _noteController),
-                    SizedBox(height: 32),
-                    ElevatedButton.icon(
-                      onPressed: () => _save(repository),
-                      icon: Icon(Icons.save),
-                      label: Text('Kaydet'),
-                      style: ElevatedButton.styleFrom(
-                        minimumSize: const Size.fromHeight(52),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(18),
-                        ),
-                      ),
-                    ),
-                    SizedBox(height: 12),
-                    TextButton(
-                      onPressed: () => _save(repository, keepOpen: true),
-                      child: Text('Kaydet ve Bir Tane Daha Ekle'),
-                    ),
-                  ],
+              _WizardHeader(
+                title: widget.type == EntryType.question
+                    ? 'Soru Kaydı'
+                    : 'Deneme Kaydı',
+                onClear: _reset,
+              ),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+                child: _StepProgress(currentStep: _currentStep, totalSteps: 4),
+              ),
+              Expanded(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.fromLTRB(20, 12, 20, 100),
+                  child: AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 300),
+                    child: _buildStepContent(subjects, topics),
+                  ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
+      bottomSheet: _BottomActions(
+        isLastStep: _currentStep == 3,
+        onNext: _nextStep,
+        onBack: _backStep,
+        onSave: () => _save(repository),
+        onSaveAndAdd: () => _save(repository, keepOpen: true),
       ),
       bottomNavigationBar: AppBottomNav(
         activeIndex: 2,
@@ -238,8 +149,213 @@ class _EntryWizardScreenState extends State<EntryWizardScreen> {
     );
   }
 
+  Widget _buildStepContent(List<String> subjects, List<TopicSummary> topics) {
+    if (widget.type == EntryType.question) {
+      switch (_currentStep) {
+        case 0:
+          return Column(
+            key: const ValueKey(0),
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _SectionTitle(index: 1, title: 'Ders seç'),
+              _SubjectGrid(
+                subjects: subjects,
+                selected: _selectedSubject,
+                onSelect: (value) {
+                  setState(() => _selectedSubject = value);
+                  _nextStep();
+                },
+              ),
+            ],
+          );
+        case 1:
+          return Column(
+            key: const ValueKey(1),
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _SectionTitle(index: 2, title: 'Konu belirle'),
+              _TopicSelector(
+                topics: topics,
+                selected: _selectedTopic,
+                onSelect: (value) {
+                  setState(() => _selectedTopic = value);
+                  _nextStep();
+                },
+              ),
+            ],
+          );
+        case 2:
+          return Column(
+            key: const ValueKey(2),
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _SectionTitle(index: 3, title: 'Sonuçlar'),
+              _ResultPicker(
+                correct: _correct,
+                wrong: _wrong,
+                blank: _blank,
+                onChanged: _updateResults,
+              ),
+              const SizedBox(height: 20),
+              _DurationPicker(
+                minutes: _minutes,
+                onChanged: (value) => setState(() => _minutes = value),
+              ),
+            ],
+          );
+        case 3:
+          return Column(
+            key: const ValueKey(3),
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _SectionTitle(index: 4, title: 'Detaylar'),
+              _SourceField(controller: _bookController),
+              const SizedBox(height: 16),
+              const Text(
+                'Yanlış Türleri',
+                style: TextStyle(color: Colors.white70, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 8),
+              _ErrorTagSelector(
+                tags: _errorTagOptions,
+                selected: _errorTags,
+                onToggle: (tag) {
+                  setState(() {
+                    if (_errorTags.contains(tag)) {
+                      _errorTags.remove(tag);
+                    } else {
+                      _errorTags.add(tag);
+                    }
+                  });
+                },
+              ),
+              const SizedBox(height: 20),
+              _DatePickerRow(
+                selectedDate: _selectedDate,
+                onPickDate: _pickDate,
+              ),
+              const SizedBox(height: 20),
+              const Text(
+                'Notlar',
+                style: TextStyle(color: Colors.white70, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 8),
+              _NoteField(controller: _noteController),
+            ],
+          );
+      }
+    } else {
+      // Mock Exam steps
+      switch (_currentStep) {
+        case 0:
+          return Column(
+            key: const ValueKey(0),
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _SectionTitle(index: 1, title: 'Deneme türü seç'),
+              _SubjectGrid(
+                subjects: _examTypes,
+                selected: _titleController.text,
+                onSelect: (value) {
+                  setState(() => _titleController.text = value);
+                  _nextStep();
+                },
+              ),
+            ],
+          );
+        case 1:
+          return Column(
+            key: const ValueKey(1),
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _SectionTitle(index: 2, title: 'Tarih seç'),
+              _CalendarPicker(
+                selectedDate: _selectedDate,
+                onChanged: (date) {
+                  setState(() => _selectedDate = date);
+                  _nextStep();
+                },
+              ),
+            ],
+          );
+        case 2:
+          return Column(
+            key: const ValueKey(2),
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _SectionTitle(index: 3, title: 'Sonuçlar'),
+              _ResultPicker(
+                correct: _correct,
+                wrong: _wrong,
+                blank: _blank,
+                onChanged: _updateResults,
+              ),
+              const SizedBox(height: 12),
+              Center(
+                child: Text(
+                  '${(_correct - (_wrong / 4)).toStringAsFixed(2)} Net',
+                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                        color: AppColors.of(context).primaryLight,
+                        fontWeight: FontWeight.bold,
+                      ),
+                ),
+              ),
+              const SizedBox(height: 20),
+              _DurationPicker(
+                minutes: _minutes,
+                onChanged: (value) => setState(() => _minutes = value),
+              ),
+            ],
+          );
+        case 3:
+          return Column(
+            key: const ValueKey(3),
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _SectionTitle(index: 4, title: 'Detaylar'),
+              const Text(
+                'Ders Dağılımı (Opsiyonel)',
+                style: TextStyle(color: Colors.white70, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 8),
+              _ExamSubjectBreakdown(
+                subjects: _examSubjects,
+                onNetChanged: (subject, value) {
+                  setState(() => _examSubjectNets[subject] = value);
+                },
+                onMinutesChanged: (subject, value) {
+                  setState(() => _examSubjectMinutes[subject] = value);
+                },
+              ),
+              const SizedBox(height: 20),
+              const Text(
+                'Notlar',
+                style: TextStyle(color: Colors.white70, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 8),
+              _NoteField(controller: _noteController),
+            ],
+          );
+      }
+    }
+    return const SizedBox();
+  }
+
+  void _nextStep() {
+    if (_currentStep < 3) {
+      setState(() => _currentStep++);
+    }
+  }
+
+  void _backStep() {
+    if (_currentStep > 0) {
+      setState(() => _currentStep--);
+    }
+  }
+
   void _reset() {
     setState(() {
+      _currentStep = 0;
       _correct = 0;
       _wrong = 0;
       _blank = 0;
@@ -360,6 +476,93 @@ class _EntryWizardScreenState extends State<EntryWizardScreen> {
   }
 }
 
+class _StepProgress extends StatelessWidget {
+  const _StepProgress({required this.currentStep, required this.totalSteps});
+
+  final int currentStep;
+  final int totalSteps;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: List.generate(totalSteps, (index) {
+        final active = index <= currentStep;
+        return Expanded(
+          child: Container(
+            height: 4,
+            margin: const EdgeInsets.symmetric(horizontal: 2),
+            decoration: BoxDecoration(
+              color: active
+                  ? AppColors.of(context).primary
+                  : Colors.white.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+        );
+      }),
+    );
+  }
+}
+
+class _BottomActions extends StatelessWidget {
+  const _BottomActions({
+    required this.isLastStep,
+    required this.onNext,
+    required this.onBack,
+    required this.onSave,
+    required this.onSaveAndAdd,
+  });
+
+  final bool isLastStep;
+  final VoidCallback onNext;
+  final VoidCallback onBack;
+  final VoidCallback onSave;
+  final VoidCallback onSaveAndAdd;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+      decoration: BoxDecoration(
+        color: AppColors.of(context).background,
+        border: Border(top: BorderSide(color: Colors.white.withOpacity(0.05))),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            children: [
+              if (!isLastStep)
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: onBack,
+                    child: const Text('Geri'),
+                  ),
+                ),
+              if (!isLastStep) const SizedBox(width: 12),
+              Expanded(
+                flex: 2,
+                child: ElevatedButton(
+                  onPressed: isLastStep ? onSave : onNext,
+                  child: Text(isLastStep ? 'Kaydet' : 'İleri'),
+                ),
+              ),
+            ],
+          ),
+          if (isLastStep)
+            Padding(
+              padding: const EdgeInsets.only(top: 12),
+              child: TextButton(
+                onPressed: onSaveAndAdd,
+                child: const Text('Kaydet ve Bir Tane Daha Ekle'),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
 class _WizardHeader extends StatelessWidget {
   const _WizardHeader({required this.title, required this.onClear});
 
@@ -395,7 +598,7 @@ class _WizardHeader extends StatelessWidget {
           ),
           TextButton(
             onPressed: onClear,
-            child: Text('Temizle'),
+            child: const Text('Temizle'),
           ),
         ],
       ),
@@ -431,7 +634,7 @@ class _SectionTitle extends StatelessWidget {
                   ),
             ),
           ),
-          SizedBox(width: 10),
+          const SizedBox(width: 10),
           Text(
             title,
             style: Theme.of(context).textTheme.titleMedium?.copyWith(
@@ -514,56 +717,26 @@ class _SubjectGrid extends StatelessWidget {
   }
 }
 
-class _ExamMetaSection extends StatelessWidget {
-  const _ExamMetaSection({
-    required this.controller,
-    required this.selectedDate,
-    required this.onPickDate,
-  });
+class _CalendarPicker extends StatelessWidget {
+  const _CalendarPicker({required this.selectedDate, required this.onChanged});
 
-  final TextEditingController controller;
   final DateTime selectedDate;
-  final VoidCallback onPickDate;
+  final ValueChanged<DateTime> onChanged;
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _SectionTitle(index: 1, title: 'Deneme bilgisi'),
-        TextField(
-          controller: controller,
-          decoration: InputDecoration(
-            hintText: 'Deneme adı (Örn: Türkiye Geneli 1)',
-          ),
-        ),
-        SizedBox(height: 12),
-        GestureDetector(
-          onTap: onPickDate,
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-            decoration: BoxDecoration(
-              color: AppColors.of(context).surface,
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: Colors.white.withOpacity(0.05)),
-            ),
-            child: Row(
-              children: [
-                Icon(Icons.event, color: AppColors.of(context).primary),
-                SizedBox(width: 10),
-                Text(
-                  '${selectedDate.day}.${selectedDate.month}.${selectedDate.year}',
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: Colors.white,
-                      ),
-                ),
-                const Spacer(),
-                Icon(Icons.keyboard_arrow_down, color: Colors.white54),
-              ],
-            ),
-          ),
-        ),
-      ],
+    return Container(
+      decoration: BoxDecoration(
+        color: AppColors.of(context).surface,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: Colors.white.withOpacity(0.05)),
+      ),
+      child: CalendarDatePicker(
+        initialDate: selectedDate,
+        firstDate: DateTime(DateTime.now().year - 1),
+        lastDate: DateTime(DateTime.now().year + 1),
+        onDateChanged: onChanged,
+      ),
     );
   }
 }
@@ -586,10 +759,10 @@ class _SourceField extends StatelessWidget {
                 letterSpacing: 0.4,
               ),
         ),
-        SizedBox(height: 8),
+        const SizedBox(height: 8),
         TextField(
           controller: controller,
-          decoration: InputDecoration(
+          decoration: const InputDecoration(
             hintText: 'Örn: Yediiklim Türkçe SB',
           ),
         ),
@@ -668,14 +841,14 @@ class _ResultPicker extends StatelessWidget {
           color: AppColors.of(context).success,
           onChanged: (value) => onChanged(value, wrong, blank),
         ),
-        SizedBox(height: 12),
+        const SizedBox(height: 12),
         _CounterRow(
           label: 'Yanlış',
           value: wrong,
           color: AppColors.of(context).danger,
           onChanged: (value) => onChanged(correct, value, blank),
         ),
-        SizedBox(height: 12),
+        const SizedBox(height: 12),
         _CounterRow(
           label: 'Boş',
           value: blank,
@@ -722,7 +895,7 @@ class _CounterRow extends StatelessWidget {
                   borderRadius: BorderRadius.circular(6),
                 ),
               ),
-              SizedBox(width: 8),
+              const SizedBox(width: 8),
               Text(
                 label,
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
@@ -737,7 +910,7 @@ class _CounterRow extends StatelessWidget {
                 icon: Icons.remove,
                 onTap: () => onChanged(max(0, value - 1)),
               ),
-              SizedBox(width: 8),
+              const SizedBox(width: 8),
               Text(
                 value.toString(),
                 style: Theme.of(context).textTheme.titleMedium?.copyWith(
@@ -745,7 +918,7 @@ class _CounterRow extends StatelessWidget {
                       fontWeight: FontWeight.w700,
                     ),
               ),
-              SizedBox(width: 8),
+              const SizedBox(width: 8),
               _CounterButton(
                 icon: Icons.add,
                 onTap: () => onChanged(value + 1),
@@ -799,7 +972,7 @@ class _DurationPicker extends StatelessWidget {
       child: Row(
         children: [
           Icon(Icons.timer, color: AppColors.of(context).primary),
-          SizedBox(width: 10),
+          const SizedBox(width: 10),
           Text(
             'Süre',
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
@@ -811,7 +984,7 @@ class _DurationPicker extends StatelessWidget {
             icon: Icons.remove,
             onTap: () => onChanged(max(0, minutes - 5)),
           ),
-          SizedBox(width: 8),
+          const SizedBox(width: 8),
           Text(
             '$minutes dk',
             style: Theme.of(context).textTheme.titleMedium?.copyWith(
@@ -819,7 +992,7 @@ class _DurationPicker extends StatelessWidget {
                   fontWeight: FontWeight.w700,
                 ),
           ),
-          SizedBox(width: 8),
+          const SizedBox(width: 8),
           _CounterButton(
             icon: Icons.add,
             onTap: () => onChanged(minutes + 5),
@@ -853,7 +1026,7 @@ class _DatePickerRow extends StatelessWidget {
         child: Row(
           children: [
             Icon(Icons.event, color: AppColors.of(context).primary),
-            SizedBox(width: 10),
+            const SizedBox(width: 10),
             Text(
               'Tarih',
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
@@ -867,7 +1040,7 @@ class _DatePickerRow extends StatelessWidget {
                     color: Colors.white70,
                   ),
             ),
-            SizedBox(width: 6),
+            const SizedBox(width: 6),
             Icon(Icons.keyboard_arrow_down, color: Colors.white54),
           ],
         ),
@@ -918,7 +1091,7 @@ class _ExamSubjectBreakdown extends StatelessWidget {
                       child: TextField(
                         keyboardType:
                             const TextInputType.numberWithOptions(decimal: true),
-                        decoration: InputDecoration(
+                        decoration: const InputDecoration(
                           hintText: 'Net',
                         ),
                         onChanged: (value) {
@@ -930,12 +1103,12 @@ class _ExamSubjectBreakdown extends StatelessWidget {
                         },
                       ),
                     ),
-                    SizedBox(width: 12),
+                    const SizedBox(width: 12),
                     SizedBox(
                       width: 72,
                       child: TextField(
                         keyboardType: TextInputType.number,
-                        decoration: InputDecoration(
+                        decoration: const InputDecoration(
                           hintText: 'dk',
                         ),
                         onChanged: (value) {
@@ -1018,14 +1191,12 @@ class _NoteField extends StatelessWidget {
     return TextField(
       controller: controller,
       maxLines: 4,
-      decoration: InputDecoration(
+      decoration: const InputDecoration(
         hintText: 'Not ekle (opsiyonel)',
       ),
     );
   }
 }
-
-
 
 void _navigateFromNav(BuildContext context, int index) {
   switch (index) {
@@ -1040,9 +1211,6 @@ void _navigateFromNav(BuildContext context, int index) {
       );
       return;
     case 2:
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => QuickAddScreen()),
-      );
       return;
     case 3:
       Navigator.of(context).pushReplacement(
