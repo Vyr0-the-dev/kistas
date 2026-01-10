@@ -59,9 +59,42 @@ class _ProfileScreenState extends State<ProfileScreen> {
           child: ListView(
             padding: const EdgeInsets.fromLTRB(20, 24, 20, 140),
             children: [
+              Center(
+                child: Column(
+                  children: [
+                    Container(
+                      width: 80,
+                      height: 80,
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.05),
+                        borderRadius: BorderRadius.circular(24),
+                        border: Border.all(color: Colors.white.withOpacity(0.05)),
+                      ),
+                      child: Image.asset('assets/images/logo.png'),
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      'KISTAS',
+                      style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: 2,
+                          ),
+                    ),
+                    Text(
+                      'v1.0.0',
+                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                            color: Colors.white38,
+                          ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 32),
               Text(
                 'Ayarlar',
-                style: Theme.of(context).textTheme.displaySmall?.copyWith(
+                style: Theme.of(context).textTheme.titleLarge?.copyWith(
                       color: Colors.white,
                       fontWeight: FontWeight.w700,
                     ),

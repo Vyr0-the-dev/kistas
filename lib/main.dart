@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 
 import 'screens/home_screen.dart';
+import 'screens/splash_screen.dart';
 import 'services/app_repository.dart';
 import 'services/notification_service.dart';
 import 'theme/app_theme.dart';
@@ -60,7 +61,7 @@ class KistasApp extends StatelessWidget {
               Locale('tr', 'TR'),
             ],
             locale: const Locale('tr', 'TR'),
-            home: const HomeScreen(),
+            home: const SplashScreen(),
           );
         },
       ),

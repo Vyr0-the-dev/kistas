@@ -535,7 +535,7 @@ class _Header extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Merhaba, Öğrenci',
+                      'Merhaba',
                       style: Theme.of(context).textTheme.labelLarge?.copyWith(
                             color: AppColors.of(context).textSecondary,
                             letterSpacing: 1,

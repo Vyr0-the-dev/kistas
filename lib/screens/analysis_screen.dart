@@ -2106,10 +2106,6 @@ class _WeeklyReportCard extends StatelessWidget {
               Expanded(
                 child: ElevatedButton.icon(
                   onPressed: onNewsletter,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.of(context).primary,
-                    foregroundColor: Colors.white,
-                  ),
                   icon: Icon(Icons.auto_awesome, size: 18),
                   label: Text('AI Bülten Al'),
                 ),
@@ -2313,22 +2309,8 @@ class _EmptyState extends StatelessWidget {
                 borderRadius: BorderRadius.circular(30),
                 border: Border.all(color: Colors.white.withOpacity(0.05)),
               ),
-              child: Stack(
-                alignment: Alignment.center,
-                children: [
-                  Icon(Icons.bar_chart, color: Colors.white30, size: 50),
-                  Transform.translate(
-                    offset: const Offset(12, 12),
-                    child: Container(
-                      padding: const EdgeInsets.all(4),
-                      decoration: BoxDecoration(
-                        color: AppColors.of(context).primary,
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: const Icon(Icons.add, color: Colors.white, size: 16),
-                    ),
-                  ),
-                ],
+              child: Center(
+                child: Icon(Icons.bar_chart, color: Colors.white30, size: 50),
               ),
             ),
             const SizedBox(height: 24),
