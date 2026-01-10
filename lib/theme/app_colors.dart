@@ -204,6 +204,7 @@ class AppColorsExtension extends ThemeExtension<AppColorsExtension> {
     required this.success,
     required this.warning,
     required this.danger,
+    required this.onPrimary,
   });
 
   final Color background;
@@ -220,6 +221,7 @@ class AppColorsExtension extends ThemeExtension<AppColorsExtension> {
   final Color success;
   final Color warning;
   final Color danger;
+  final Color onPrimary;
 
   factory AppColorsExtension.fromPalette(AppPalette palette) {
     return AppColorsExtension(
@@ -237,6 +239,7 @@ class AppColorsExtension extends ThemeExtension<AppColorsExtension> {
       success: AppColors.success,
       warning: AppColors.warning,
       danger: AppColors.danger,
+      onPrimary: palette.onPrimary,
     );
   }
 
@@ -256,6 +259,7 @@ class AppColorsExtension extends ThemeExtension<AppColorsExtension> {
     Color? success,
     Color? warning,
     Color? danger,
+    Color? onPrimary,
   }) {
     return AppColorsExtension(
       background: background ?? this.background,
@@ -272,6 +276,7 @@ class AppColorsExtension extends ThemeExtension<AppColorsExtension> {
       success: success ?? this.success,
       warning: warning ?? this.warning,
       danger: danger ?? this.danger,
+      onPrimary: onPrimary ?? this.onPrimary,
     );
   }
 
@@ -298,6 +303,7 @@ class AppColorsExtension extends ThemeExtension<AppColorsExtension> {
       success: Color.lerp(success, other.success, t)!,
       warning: Color.lerp(warning, other.warning, t)!,
       danger: Color.lerp(danger, other.danger, t)!,
+      onPrimary: Color.lerp(onPrimary, other.onPrimary, t)!,
     );
   }
 }

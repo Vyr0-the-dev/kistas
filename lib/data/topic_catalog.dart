@@ -15,7 +15,7 @@ const List<TopicSummary> kpssTopicCatalog = [
     ],
   ),
   TopicSummary(id: 'turkce-cumlede-anlam', subject: 'Türkçe', title: 'Cümlede Anlam', nextReview: ''),
-  TopicSummary(id: 'turkce-paragraf', subject: 'Türkçe', title: 'Paragraf', nextReview: ''),
+  TopicSummary(id: 'turkce-paragraf', subject: 'Türkçe', title: 'Paragraf', nextReview: '', importance: 5),
   TopicSummary(id: 'turkce-anlatim-bozukluklari', subject: 'Türkçe', title: 'Anlatım Bozuklukları', nextReview: ''),
   TopicSummary(id: 'turkce-ses-bilgisi', subject: 'Türkçe', title: 'Ses Bilgisi', nextReview: ''),
   TopicSummary(id: 'turkce-yazim-kurallari', subject: 'Türkçe', title: 'Yazım Kuralları', nextReview: ''),
@@ -65,7 +65,7 @@ const List<TopicSummary> kpssTopicCatalog = [
   TopicSummary(id: 'mat-permutasyon', subject: 'Matematik', title: 'Permütasyon', nextReview: ''),
   TopicSummary(id: 'mat-kombinasyon', subject: 'Matematik', title: 'Kombinasyon', nextReview: ''),
   TopicSummary(id: 'mat-olasilik', subject: 'Matematik', title: 'Olasılık', nextReview: ''),
-  TopicSummary(id: 'mat-sorular', subject: 'Matematik', title: 'Problem Çeşitleri', nextReview: ''),
+  TopicSummary(id: 'mat-sorular', subject: 'Matematik', title: 'Problem Çeşitleri', nextReview: '', importance: 5),
   TopicSummary(id: 'mat-problemler-yuzde', subject: 'Matematik', title: 'Yüzde Problemleri', nextReview: ''),
   TopicSummary(id: 'mat-problemler-kar', subject: 'Matematik', title: 'Kâr-Zarar Problemleri', nextReview: ''),
   TopicSummary(id: 'mat-problemler-hiz', subject: 'Matematik', title: 'Hız Problemleri', nextReview: ''),
@@ -96,7 +96,7 @@ const List<TopicSummary> kpssTopicCatalog = [
   TopicSummary(id: 'tarih-osmanli-duraklama', subject: 'Tarih', title: 'Osmanlı Duraklama-Gerileme', nextReview: ''),
   TopicSummary(id: 'tarih-osmanli-dagilma', subject: 'Tarih', title: 'Osmanlı Dağılma Dönemi', nextReview: ''),
   TopicSummary(id: 'tarih-kultur-uygarlik', subject: 'Tarih', title: 'Osmanlı Kültür ve Uygarlık', nextReview: ''),
-  TopicSummary(id: 'tarih-inkilap', subject: 'Tarih', title: 'Atatürk İlke ve İnkılapları', nextReview: ''),
+  TopicSummary(id: 'tarih-inkilap', subject: 'Tarih', title: 'Atatürk İlke ve İnkılapları', nextReview: '', importance: 5),
   TopicSummary(id: 'tarih-kurtulus', subject: 'Tarih', title: 'Kurtuluş Savaşı', nextReview: ''),
   TopicSummary(id: 'tarih-cagdas', subject: 'Tarih', title: 'Çağdaş Türk ve Dünya Tarihi', nextReview: ''),
 
@@ -116,7 +116,7 @@ const List<TopicSummary> kpssTopicCatalog = [
 
   // Vatandaşlık
   TopicSummary(id: 'vatandaslik-hukuk', subject: 'Vatandaşlık', title: 'Hukukun Temel Kavramları', nextReview: ''),
-  TopicSummary(id: 'vatandaslik-anayasa', subject: 'Vatandaşlık', title: 'Anayasa Hukuku', nextReview: ''),
+  TopicSummary(id: 'vatandaslik-anayasa', subject: 'Vatandaşlık', title: 'Anayasa Hukuku', nextReview: '', importance: 5),
   TopicSummary(id: 'vatandaslik-yasama', subject: 'Vatandaşlık', title: 'Yasama', nextReview: ''),
   TopicSummary(id: 'vatandaslik-yurutme', subject: 'Vatandaşlık', title: 'Yürütme', nextReview: ''),
   TopicSummary(id: 'vatandaslik-yargi', subject: 'Vatandaşlık', title: 'Yargı', nextReview: ''),

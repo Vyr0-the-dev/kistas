@@ -13,6 +13,7 @@ class NotificationService {
 
   static const int reminderId = 7001;
   static const int weeklyPlanId = 7010;
+  static const int focusEndId = 7020;
 
   static Future<void> init() async {
     const androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
@@ -161,6 +162,61 @@ class NotificationService {
 
   static Future<void> cancelWeeklyPlan() async {
     await _plugin.cancel(weeklyPlanId);
+  }
+
+  static Future<void> scheduleFocusEnd(int seconds) async {
+    final scheduled = tz.TZDateTime.now(tz.local).add(Duration(seconds: seconds));
+    try {
+      await _plugin.zonedSchedule(
+        focusEndId,
+        'Odak Süresi Bitti',
+        'Harika iş çıkardın! Şimdi kısa bir mola verme vakti.',
+        scheduled,
+        const NotificationDetails(
+          android: AndroidNotificationDetails(
+            'focus_timer',
+            'Odak Zamanlayıcı',
+            channelDescription: 'Odak süresi bitiş bildirimleri',
+            importance: Importance.high,
+            priority: Priority.high,
+            playSound: true,
+            enableVibration: true,
+          ),
+          iOS: DarwinNotificationDetails(
+            presentAlert: true,
+            presentBadge: true,
+            presentSound: true,
+          ),
+        ),
+        androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+        uiLocalNotificationDateInterpretation:
+            UILocalNotificationDateInterpretation.absoluteTime,
+      );
+    } catch (_) {
+      // Fallback if exact alarm not allowed
+      await _plugin.zonedSchedule(
+        focusEndId,
+        'Odak Süresi Bitti',
+        'Harika iş çıkardın! Şimdi kısa bir mola verme vakti.',
+        scheduled,
+        const NotificationDetails(
+          android: AndroidNotificationDetails(
+            'focus_timer',
+            'Odak Zamanlayıcı',
+            channelDescription: 'Odak süresi bitiş bildirimleri',
+            importance: Importance.high,
+            priority: Priority.high,
+          ),
+        ),
+        androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+        uiLocalNotificationDateInterpretation:
+            UILocalNotificationDateInterpretation.absoluteTime,
+      );
+    }
+  }
+
+  static Future<void> cancelFocusEnd() async {
+    await _plugin.cancel(focusEndId);
   }
 
   static Future<void> showReminderNow(String message) async {

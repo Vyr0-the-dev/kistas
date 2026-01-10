@@ -40,58 +40,56 @@ class _TopicSummariesScreenState extends State<TopicSummariesScreen> {
     return Scaffold(
       backgroundColor: AppColors.of(context).background,
       body: AmbientBackground(
-        child: SafeArea(
-          child: ValueListenableBuilder(
-            valueListenable: repository.questionEntries,
-            builder: (context, _, __) {
-              final progress = repository.buildTopicProgress();
-              final filtered = _applyFilters(progress);
-              return Column(
-                children: [
-                  _Header(
-                    controller: _searchController,
-                    onFilterChanged: (value) => setState(() {
-                      _activeFilter = value;
-                    }),
-                    activeFilter: _activeFilter,
-                    weakOnly: _weakOnly,
-                    staleOnly: _staleOnly,
-                    onToggleWeak: () => setState(() {
-                      _weakOnly = !_weakOnly;
-                    }),
-                    onToggleStale: () => setState(() {
-                      _staleOnly = !_staleOnly;
-                    }),
-                    onOpenSort: () => _openSortSheet(context),
-                  ),
-                  Expanded(
-                    child: ListView.builder(
-                      padding: const EdgeInsets.fromLTRB(20, 16, 20, 120),
-                      itemCount: filtered.length,
-                      itemBuilder: (context, index) {
-                        final item = filtered[index];
-                        return Padding(
-                          padding: const EdgeInsets.only(bottom: 14),
-                          child: _TopicCard(
-                            progress: item,
-                            onTap: () {
-                              Navigator.of(context).push(
-                                MaterialPageRoute(
-                                  builder: (_) => TopicDetailScreen(
-                                    topic: item.topic,
-                                  ),
+        child: ValueListenableBuilder(
+          valueListenable: repository.questionEntries,
+          builder: (context, _, __) {
+            final progress = repository.buildTopicProgress();
+            final filtered = _applyFilters(progress);
+            return Column(
+              children: [
+                _Header(
+                  controller: _searchController,
+                  onFilterChanged: (value) => setState(() {
+                    _activeFilter = value;
+                  }),
+                  activeFilter: _activeFilter,
+                  weakOnly: _weakOnly,
+                  staleOnly: _staleOnly,
+                  onToggleWeak: () => setState(() {
+                    _weakOnly = !_weakOnly;
+                  }),
+                  onToggleStale: () => setState(() {
+                    _staleOnly = !_staleOnly;
+                  }),
+                  onOpenSort: () => _openSortSheet(context),
+                ),
+                Expanded(
+                  child: ListView.builder(
+                    padding: const EdgeInsets.fromLTRB(20, 16, 20, 120),
+                    itemCount: filtered.length,
+                    itemBuilder: (context, index) {
+                      final item = filtered[index];
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 14),
+                        child: _TopicCard(
+                          progress: item,
+                          onTap: () {
+                            Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (_) => TopicDetailScreen(
+                                  topic: item.topic,
                                 ),
-                              );
-                            },
-                          ),
-                        );
-                      },
-                    ),
+                              ),
+                            );
+                          },
+                        ),
+                      );
+                    },
                   ),
-                ],
-              );
-            },
-          ),
+                ),
+              ],
+            );
+          },
         ),
       ),
       bottomNavigationBar: _BottomNav(
@@ -252,142 +250,146 @@ class _Header extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return GlassPanel(
-      padding: const EdgeInsets.only(bottom: 12),
+      padding: EdgeInsets.zero,
       radius: const BorderRadius.vertical(bottom: Radius.circular(24)),
-      child: Column(
-        children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                'Konular',
-                style: Theme.of(context).textTheme.displaySmall?.copyWith(
-                      fontWeight: FontWeight.w700,
+      child: SafeArea(
+        bottom: false,
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Konular',
+                    style: Theme.of(context).textTheme.displaySmall?.copyWith(
+                          fontWeight: FontWeight.w700,
+                        ),
+                  ),
+                  IconButton(
+                    onPressed: () => Navigator.of(context).push(
+                      MaterialPageRoute(builder: (_) => const RoadmapScreen()),
                     ),
-              ),
-              IconButton(
-                onPressed: () => Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => const RoadmapScreen()),
-                ),
-                icon: Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: AppColors.of(context).primary.withOpacity(0.15),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Icon(Icons.map, color: AppColors.of(context).primaryLight),
-                ),
-              ),
-            ],
-          ),
-        ),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20),
-          child: TextField(
-            controller: controller,
-            decoration: InputDecoration(
-              prefixIcon: Icon(Icons.search, color: AppColors.of(context).textSecondary),
-              hintText: 'Konu, ders veya etiket ara...'
-            ),
-            onChanged: (_) => onFilterChanged(activeFilter),
-          ),
-        ),
-        SizedBox(height: 12),
-        SizedBox(
-          height: 36,
-          child: ListView(
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            children: [
-              _ChipButton(
-                label: 'Tümü',
-                active: activeFilter == 'Tümü',
-                onTap: () => onFilterChanged('Tümü'),
-              ),
-              _ChipButton(
-                label: 'Matematik',
-                active: activeFilter == 'Matematik',
-                onTap: () => onFilterChanged('Matematik'),
-              ),
-              _ChipButton(
-                label: 'Türkçe',
-                active: activeFilter == 'Türkçe',
-                onTap: () => onFilterChanged('Türkçe'),
-              ),
-              _ChipButton(
-                label: 'Tarih',
-                active: activeFilter == 'Tarih',
-                onTap: () => onFilterChanged('Tarih'),
-              ),
-              _ChipButton(
-                label: 'Coğrafya',
-                active: activeFilter == 'Coğrafya',
-                onTap: () => onFilterChanged('Coğrafya'),
-              ),
-              _ChipButton(
-                label: 'Vatandaşlık',
-                active: activeFilter == 'Vatandaşlık',
-                onTap: () => onFilterChanged('Vatandaşlık'),
-              ),
-            ],
-          ),
-        ),
-        SizedBox(height: 10),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20),
-          child: Row(
-            children: [
-              GestureDetector(
-                onTap: onOpenSort,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 12, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: AppColors.of(context).surface,
-                    borderRadius: BorderRadius.circular(999),
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(Icons.sort, color: Colors.white70, size: 18),
-                      SizedBox(width: 6),
-                      Text(
-                        'Sırala',
-                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                              color: Colors.white70,
-                            ),
+                    icon: Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: AppColors.of(context).primary.withOpacity(0.15),
+                        borderRadius: BorderRadius.circular(12),
                       ),
-                    ],
+                      child: Icon(Icons.map, color: AppColors.of(context).primaryLight),
+                    ),
                   ),
+                ],
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: TextField(
+                controller: controller,
+                decoration: InputDecoration(
+                  prefixIcon: Icon(Icons.search, color: AppColors.of(context).textSecondary),
+                  hintText: 'Konu, ders veya etiket ara...'
                 ),
+                onChanged: (_) => onFilterChanged(activeFilter),
               ),
-              SizedBox(width: 12),
-              Container(
-                width: 1,
-                height: 24,
-                color: Colors.white12,
+            ),
+            SizedBox(height: 12),
+            SizedBox(
+              height: 36,
+              child: ListView(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                children: [
+                  _ChipButton(
+                    label: 'Tümü',
+                    active: activeFilter == 'Tümü',
+                    onTap: () => onFilterChanged('Tümü'),
+                  ),
+                  _ChipButton(
+                    label: 'Matematik',
+                    active: activeFilter == 'Matematik',
+                    onTap: () => onFilterChanged('Matematik'),
+                  ),
+                  _ChipButton(
+                    label: 'Türkçe',
+                    active: activeFilter == 'Türkçe',
+                    onTap: () => onFilterChanged('Türkçe'),
+                  ),
+                  _ChipButton(
+                    label: 'Tarih',
+                    active: activeFilter == 'Tarih',
+                    onTap: () => onFilterChanged('Tarih'),
+                  ),
+                  _ChipButton(
+                    label: 'Coğrafya',
+                    active: activeFilter == 'Coğrafya',
+                    onTap: () => onFilterChanged('Coğrafya'),
+                  ),
+                  _ChipButton(
+                    label: 'Vatandaşlık',
+                    active: activeFilter == 'Vatandaşlık',
+                    onTap: () => onFilterChanged('Vatandaşlık'),
+                  ),
+                ],
               ),
-              SizedBox(width: 12),
-              _FilterToggle(
-                label: 'Zayıf',
-                color: AppColors.of(context).danger,
-                active: weakOnly,
-                onTap: onToggleWeak,
+            ),
+            SizedBox(height: 10),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: Row(
+                children: [
+                  GestureDetector(
+                    onTap: onOpenSort,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: AppColors.of(context).surface,
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(Icons.sort, color: Colors.white70, size: 18),
+                          SizedBox(width: 6),
+                          Text(
+                            'Sırala',
+                            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                                  color: Colors.white70,
+                                ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  SizedBox(width: 12),
+                  Container(
+                    width: 1,
+                    height: 24,
+                    color: Colors.white12,
+                  ),
+                  SizedBox(width: 12),
+                  _FilterToggle(
+                    label: 'Zayıf',
+                    color: AppColors.of(context).danger,
+                    active: weakOnly,
+                    onTap: onToggleWeak,
+                  ),
+                  SizedBox(width: 8),
+                  _FilterToggle(
+                    label: 'Uzun süre önce',
+                    color: AppColors.of(context).warning,
+                    icon: Icons.history,
+                    active: staleOnly,
+                    onTap: onToggleStale,
+                  ),
+                ],
               ),
-              SizedBox(width: 8),
-              _FilterToggle(
-                label: 'Uzun süre önce',
-                color: AppColors.of(context).warning,
-                icon: Icons.history,
-                active: staleOnly,
-                onTap: onToggleStale,
-              ),
-            ],
-          ),
+            ),
+            const SizedBox(height: 16),
+          ],
         ),
-      ],
-    ),
+      ),
     );
   }
 }
@@ -516,11 +518,20 @@ class _TopicCard extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        progress.topic.title,
-                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                              fontWeight: FontWeight.w700,
-                            ),
+                      Row(
+                        children: [
+                          Text(
+                            progress.topic.title,
+                            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                                  fontWeight: FontWeight.w700,
+                                ),
+                          ),
+                          if (progress.topic.importance >= 4) ...[
+                            SizedBox(width: 6),
+                            Icon(Icons.local_fire_department,
+                                color: Colors.orangeAccent, size: 18),
+                          ],
+                        ],
                       ),
                       SizedBox(height: 4),
                       Text(

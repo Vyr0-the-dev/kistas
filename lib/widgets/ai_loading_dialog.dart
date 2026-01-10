@@ -103,7 +103,7 @@ class _AiLoadingDialogState extends State<AiLoadingDialog> with SingleTickerProv
                       ),
                       Icon(
                         Icons.auto_awesome,
-                        color: Colors.white,
+                        color: AppColors.of(context).onPrimary,
                         size: 32,
                       ),
                     ],

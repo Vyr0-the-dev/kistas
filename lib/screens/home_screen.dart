@@ -580,19 +580,18 @@ class _Header extends StatelessWidget {
             ),
             child: Row(
               children: [
-                _SegmentedButton(
-                  label: 'Bugün',
-                  active: selectedRange == 0,
-                  onTap: () => onRangeChanged(0),
-                ),
-                _SegmentedButton(
-                  label: '7 Gün',
-                  active: selectedRange == 1,
-                  onTap: () => onRangeChanged(1),
-                ),
-                _SegmentedButton(
-                  label: '30 Gün',
-                  active: selectedRange == 2,
+                                  _SegmentedButton(
+                                    label: 'Bugün',
+                                    active: selectedRange == 0,
+                                    onTap: () => onRangeChanged(0),
+                                  ),
+                                  _SegmentedButton(
+                                    label: 'Hafta',
+                                    active: selectedRange == 1,
+                                    onTap: () => onRangeChanged(1),
+                                  ),
+                                  _SegmentedButton(
+                                    label: '30 Gün',                  active: selectedRange == 2,
                   onTap: () => onRangeChanged(2),
                 ),
               ],

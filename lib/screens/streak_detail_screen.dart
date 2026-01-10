@@ -46,7 +46,7 @@ class StreakDetailScreen extends StatelessWidget {
                               const SizedBox(height: 12),
                               _WeeklyBarChart(questions: questions),
                               const SizedBox(height: 24),
-                              _buildSectionTitle(context, 'İstatistikler', Icons.Analytics),
+                              _buildSectionTitle(context, 'İstatistikler', Icons.analytics),
                               const SizedBox(height: 12),
                               _StreakStatsRow(data: streakData),
                             ],
@@ -133,7 +133,7 @@ class StreakDetailScreen extends StatelessWidget {
                   style: const TextStyle(
                     color: Colors.white,
                     fontSize: 20,
-                    fontWeight: FontWeight.black,
+                    fontWeight: FontWeight.w900,
                   ),
                 ),
               ),
@@ -152,36 +152,74 @@ class _HeatmapWidget extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final now = DateTime.now();
-    // 15 hafta geriye gidelim
-    final startDate = now.subtract(const Duration(days: 15 * 7));
+    final today = DateTime(now.year, now.month, now.day);
+    final mondayOfThisWeek = today.subtract(Duration(days: today.weekday - 1));
+    final startDate = mondayOfThisWeek.subtract(const Duration(days: 17 * 7));
     
-    return GlassPanel(
-      padding: const EdgeInsets.all(16),
-      radius: BorderRadius.circular(20),
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        reverse: true,
+    return SizedBox(
+      width: double.infinity,
+      child: GlassPanel(
+        padding: const EdgeInsets.all(16),
+        radius: BorderRadius.circular(20),
         child: Row(
-          children: List.generate(15, (weekIndex) {
-            return Column(
-              children: List.generate(7, (dayIndex) {
-                final date = startDate.add(Duration(days: (weekIndex * 7) + dayIndex));
-                if (date.isAfter(now)) return const SizedBox(width: 14, height: 14,);
-                
-                final count = data[DateTime(date.year, date.month, date.day)] ?? 0;
-                return Container(
-                  width: 12,
-                  height: 12,
-                  margin: const EdgeInsets.all(2),
-                  decoration: BoxDecoration(
-                    color: _getColorForCount(context, count),
-                    borderRadius: BorderRadius.circular(3),
-                  ),
-                );
-              }),
-            );
-          }),
+          children: [
+            _buildDayLabels(),
+            const SizedBox(width: 8),
+            Expanded(
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                reverse: true,
+                child: Row(
+                  children: List.generate(18, (weekIndex) {
+                    return Column(
+                      children: List.generate(7, (dayIndex) {
+                        final date = startDate.add(Duration(days: (weekIndex * 7) + dayIndex));
+                        if (date.isAfter(now)) return const SizedBox(width: 14, height: 14);
+                        
+                        final count = data[DateTime(date.year, date.month, date.day)] ?? 0;
+                        return Container(
+                          width: 12,
+                          height: 12,
+                          margin: const EdgeInsets.all(2),
+                          decoration: BoxDecoration(
+                            color: _getColorForCount(context, count),
+                            borderRadius: BorderRadius.circular(3),
+                          ),
+                        );
+                      }),
+                    );
+                  }),
+                ),
+              ),
+            ),
+          ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildDayLabels() {
+    return Column(
+      children: [
+        _dayLabel('Pzt'),
+        _dayLabel(''),
+        _dayLabel('Çar'),
+        _dayLabel(''),
+        _dayLabel('Cum'),
+        _dayLabel(''),
+        _dayLabel('Pzr'),
+      ],
+    );
+  }
+
+  Widget _dayLabel(String label) {
+    return Container(
+      height: 12,
+      margin: const EdgeInsets.all(2),
+      alignment: Alignment.centerLeft,
+      child: Text(
+        label,
+        style: const TextStyle(color: Colors.white24, fontSize: 8, fontWeight: FontWeight.bold),
       ),
     );
   }
@@ -201,8 +239,11 @@ class _WeeklyBarChart extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final mondayOfThisWeek = today.subtract(Duration(days: today.weekday - 1));
+    
     final List<int> weeklyCounts = List.generate(7, (index) {
-      final date = now.subtract(Duration(days: 6 - index));
+      final date = mondayOfThisWeek.add(Duration(days: index));
       return questions
           .where((e) => _isSameDay(e.createdAt, date))
           .fold(0, (sum, e) => sum + e.total);
@@ -218,8 +259,8 @@ class _WeeklyBarChart extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.end,
         children: List.generate(7, (index) {
           final height = (weeklyCounts[index] / maxCount) * 100;
-          final date = now.subtract(Duration(days: 6 - index));
-          final isToday = index == 6;
+          final date = mondayOfThisWeek.add(Duration(days: index));
+          final isToday = _isSameDay(date, now);
 
           return Column(
             children: [

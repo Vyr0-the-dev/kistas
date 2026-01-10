@@ -34,24 +34,20 @@ class TopicDetailScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final repository = AppRepositoryScope.of(context);
-    final entries = repository.entriesForTopic(topic.title);
-    final progress = TopicProgress.fromEntries(topic, entries);
 
-    return Scaffold(
-      backgroundColor: AppColors.of(context).background,
-      body: AmbientBackground(
-        child: SafeArea(
-          child: Container(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [Color(0xFF0F1116).withOpacity(0.0), Color(0xFF121622).withOpacity(0.0)],
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-              ),
-            ),
+    return ValueListenableBuilder<Map<String, TopicSummary>>(
+      valueListenable: repository.customTopics,
+      builder: (context, customMap, _) {
+        final currentTopic = customMap[topic.id] ?? topic;
+        final entries = repository.entriesForTopic(currentTopic.title);
+        final progress = TopicProgress.fromEntries(currentTopic, entries);
+
+        return Scaffold(
+          backgroundColor: AppColors.of(context).background,
+          body: AmbientBackground(
             child: Column(
               children: [
-                _Header(topic: topic),
+                _Header(topic: currentTopic),
                 Expanded(
                   child: SingleChildScrollView(
                     padding: const EdgeInsets.fromLTRB(20, 20, 20, 120),
@@ -62,18 +58,33 @@ class TopicDetailScreen extends StatelessWidget {
                         SizedBox(height: 16),
                         _KpiRow(progress: progress),
                         SizedBox(height: 12),
-                        _MasteryCard(
-                          mastery: _calculateMastery(progress),
-                          lastStudied: progress.lastStudied,
-                        ),
-                        SizedBox(height: 16),
-                        _NotesSection(topic: topic),
-                        SizedBox(height: 16),
+                                            _MasteryCard(
+                                              mastery: _calculateMastery(progress),
+                                              lastStudied: progress.lastStudied,
+                                            ),
+                                            SizedBox(height: 16),
+                                                                _NotesSection(
+                                                                  topic: currentTopic,
+                                                                  onDeleteInsight: (id) async {
+                                                                    final updated = currentTopic.copyWith(
+                                                                      aiInsights: currentTopic.aiInsights
+                                                                          .where((e) => e.id != id)
+                                                                          .toList(),
+                                                                    );
+                                                                    await repository.saveTopicUpdate(updated);
+                                                                  },
+                                                                  onClearMainNotes: () async {
+                                                                    await repository.deleteTopicUpdate(currentTopic.id);
+                                                                  },
+                                                                ),
+                                            
+                                            SizedBox(height: 16),
+                        
                         _TrendCard(entries: entries),
                         SizedBox(height: 16),
                         _MistakeSection(entries: entries),
                         SizedBox(height: 18),
-                        _ActionButtons(topic: topic),
+                        _ActionButtons(topic: currentTopic),
                       ],
                     ),
                   ),
@@ -81,9 +92,9 @@ class TopicDetailScreen extends StatelessWidget {
               ],
             ),
           ),
-        ),
-      ),
-      bottomNavigationBar: _BottomNav(),
+          bottomNavigationBar: _BottomNav(),
+        );
+      },
     );
   }
 }
@@ -99,32 +110,35 @@ class _Header extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      decoration: BoxDecoration(
-        color: AppColors.of(context).background.withOpacity(0.85),
-        border: Border(bottom: BorderSide(color: Colors.white.withOpacity(0.05))),
-      ),
-      child: Row(
-        children: [
-          IconButton(
-            onPressed: () => Navigator.of(context).pop(),
-            icon: Icon(Icons.arrow_back, color: Colors.white70),
+    return GlassPanel(
+      padding: EdgeInsets.zero,
+      radius: const BorderRadius.vertical(bottom: Radius.circular(24)),
+      child: SafeArea(
+        bottom: false,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          child: Row(
+            children: [
+              IconButton(
+                onPressed: () => Navigator.of(context).pop(),
+                icon: Icon(Icons.arrow_back, color: Colors.white70),
+              ),
+              const Spacer(),
+              Text(
+                topic.subject.toUpperCase(),
+                style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                      color: Colors.white54,
+                      letterSpacing: 1,
+                    ),
+              ),
+              const Spacer(),
+              IconButton(
+                onPressed: () => _showMoreActions(context, topic),
+                icon: Icon(Icons.more_horiz, color: Colors.white70),
+              ),
+            ],
           ),
-          const Spacer(),
-          Text(
-            topic.subject.toUpperCase(),
-            style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                  color: Colors.white54,
-                  letterSpacing: 1,
-                ),
-          ),
-          const Spacer(),
-          IconButton(
-            onPressed: () => _showMoreActions(context, topic),
-            icon: Icon(Icons.more_horiz, color: Colors.white70),
-          ),
-        ],
+        ),
       ),
     );
   }
@@ -167,12 +181,21 @@ class _Hero extends StatelessWidget {
                 ),
               ),
               SizedBox(height: 10),
-              Text(
-                progress.topic.title,
-                style: Theme.of(context).textTheme.displaySmall?.copyWith(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w700,
-                    ),
+              Row(
+                children: [
+                  Text(
+                    progress.topic.title,
+                    style: Theme.of(context).textTheme.displaySmall?.copyWith(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w700,
+                        ),
+                  ),
+                  if (progress.topic.importance >= 4) ...[
+                    SizedBox(width: 8),
+                    Icon(Icons.local_fire_department,
+                        color: Colors.orangeAccent, size: 28),
+                  ],
+                ],
               ),
               SizedBox(height: 6),
               Text(
@@ -192,13 +215,21 @@ class _Hero extends StatelessWidget {
 }
 
 class _NotesSection extends StatelessWidget {
-  const _NotesSection({required this.topic});
+  const _NotesSection({
+    required this.topic,
+    required this.onDeleteInsight,
+    required this.onClearMainNotes,
+  });
 
   final TopicSummary topic;
+  final Function(String) onDeleteInsight;
+  final VoidCallback onClearMainNotes;
 
   @override
   Widget build(BuildContext context) {
-    final hasNotes = topic.notes.isNotEmpty;
+    final hasMainNotes = topic.notes.isNotEmpty || topic.summary.isNotEmpty;
+    final hasAiInsights = topic.aiInsights.isNotEmpty;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -212,16 +243,15 @@ class _NotesSection extends StatelessWidget {
                     fontWeight: FontWeight.w700,
                   ),
             ),
-            if (!hasNotes)
-              TextButton.icon(
-                onPressed: () => _requestTopicInsight(context, topic),
-                icon: Icon(Icons.auto_awesome, size: 16),
-                label: Text('AI ile Oluştur'),
-              ),
+            TextButton.icon(
+              onPressed: () => _requestTopicInsight(context, topic),
+              icon: Icon(Icons.auto_awesome, size: 16),
+              label: Text('AI ile Oluştur'),
+            ),
           ],
         ),
         SizedBox(height: 10),
-        if (!hasNotes)
+        if (!hasMainNotes && !hasAiInsights)
           GlassPanel(
             padding: const EdgeInsets.all(16),
             radius: BorderRadius.circular(18),
@@ -239,38 +269,198 @@ class _NotesSection extends StatelessWidget {
                 ),
               ],
             ),
-          )
-        else
-          GlassPanel(
-            padding: const EdgeInsets.all(16),
-            radius: BorderRadius.circular(20),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+          ),
+        if (hasMainNotes)
+          _ExpandableNoteCard(
+            title: 'Konu Özeti & Notlar',
+            subtitle: 'Genel Bilgiler',
+            icon: Icons.description_outlined,
+            summary: topic.summary,
+            notes: topic.notes,
+            onDelete: onClearMainNotes,
+          ),
+        if (hasAiInsights)
+          ...topic.aiInsights.reversed.map((insight) => _ExpandableNoteCard(
+                key: ValueKey(insight.id),
+                title: 'AI Çalışma Rehberi',
+                subtitle: _formatInsightDate(insight.createdAt),
+                icon: Icons.auto_awesome,
+                summary: insight.summary,
+                notes: insight.notes,
+                onDelete: () => onDeleteInsight(insight.id),
+                isAi: true,
+              )),
+      ],
+    );
+  }
+
+  String _formatInsightDate(DateTime date) {
+    return '${date.day}.${date.month}.${date.year} ${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
+  }
+}
+
+class _ExpandableNoteCard extends StatefulWidget {
+  const _ExpandableNoteCard({
+    super.key,
+    required this.title,
+    required this.subtitle,
+    required this.icon,
+    required this.summary,
+    required this.notes,
+    required this.onDelete,
+    this.isAi = false,
+  });
+
+  final String title;
+  final String subtitle;
+  final IconData icon;
+  final String summary;
+  final List<String> notes;
+  final VoidCallback onDelete;
+  final bool isAi;
+
+  @override
+  State<_ExpandableNoteCard> createState() => _ExpandableNoteCardState();
+}
+
+class _ExpandableNoteCardState extends State<_ExpandableNoteCard> {
+  bool _isExpanded = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: () => setState(() => _isExpanded = !_isExpanded),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 250),
+        curve: Curves.easeInOut,
+        margin: const EdgeInsets.only(bottom: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+        decoration: BoxDecoration(
+          color: _isExpanded
+              ? Colors.white.withOpacity(0.08)
+              : Colors.white.withOpacity(0.05),
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(
+            color: _isExpanded
+                ? Colors.white.withOpacity(0.12)
+                : Colors.white.withOpacity(0.05),
+          ),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
               children: [
-                if (topic.summary.isNotEmpty)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 12),
-                    child: Container(
-                      padding: const EdgeInsets.all(14),
-                      decoration: BoxDecoration(
-                        color: AppColors.of(context).primary.withOpacity(0.05),
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: AppColors.of(context).primary.withOpacity(0.2)),
-                      ),
-                      child: Text(
-                        topic.summary,
-                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                              color: Colors.white.withOpacity(0.9),
-                              fontStyle: FontStyle.italic,
+                Icon(
+                  widget.icon,
+                  size: 20,
+                  color: widget.isAi 
+                      ? AppColors.of(context).primaryLight.withOpacity(_isExpanded ? 1.0 : 0.7)
+                      : Colors.white.withOpacity(_isExpanded ? 1.0 : 0.7),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        widget.title,
+                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w700,
+                              fontSize: 16,
                             ),
                       ),
+                      const SizedBox(height: 2),
+                      Text(
+                        widget.subtitle,
+                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                              color: Colors.white38,
+                              fontSize: 11,
+                            ),
+                      ),
+                    ],
+                  ),
+                ),
+                if (!_isExpanded && widget.summary.isNotEmpty)
+                  Container(
+                    margin: const EdgeInsets.only(right: 10),
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.08),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      'Özetli',
+                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                            color: Colors.white38,
+                            fontWeight: FontWeight.w600,
+                            fontSize: 10,
+                          ),
                     ),
                   ),
-                ...topic.notes.map((note) => _NoteItem(text: note)),
+                Icon(
+                  _isExpanded ? Icons.expand_less : Icons.expand_more,
+                  color: Colors.white38,
+                  size: 22,
+                ),
               ],
             ),
-          ),
-      ],
+            if (_isExpanded) ...[
+              const SizedBox(height: 20),
+              const Divider(color: Colors.white10, height: 1),
+              const SizedBox(height: 20),
+              if (widget.summary.isNotEmpty) ...[
+                Text(
+                  widget.summary,
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: Colors.white.withOpacity(0.9),
+                        fontStyle: FontStyle.italic,
+                        height: 1.5,
+                        fontSize: 15,
+                      ),
+                ),
+                const SizedBox(height: 20),
+              ],
+              ...widget.notes.map((note) => _NoteItem(text: note)),
+              const SizedBox(height: 12),
+              Align(
+                alignment: Alignment.centerRight,
+                child: TextButton.icon(
+                  onPressed: () async {
+                    final confirm = await showDialog<bool>(
+                      context: context,
+                      builder: (context) => AlertDialog(
+                        title: const Text('Notu Sil'),
+                        content: Text('Bu ${widget.isAi ? "AI" : ""} notunu silmek istediğine emin misin?'),
+                        actions: [
+                          TextButton(
+                              onPressed: () => Navigator.pop(context, false),
+                              child: const Text('Vazgeç')),
+                          ElevatedButton(
+                            onPressed: () => Navigator.pop(context, true),
+                            style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.redAccent),
+                            child: const Text('Sil'),
+                          ),
+                        ],
+                      ),
+                    );
+                    if (confirm == true) {
+                      widget.onDelete();
+                    }
+                  },
+                  icon: const Icon(Icons.delete_outline, size: 18),
+                  label: const Text('Bu Notu Sil'),
+                  style: TextButton.styleFrom(
+                    foregroundColor: Colors.redAccent.withOpacity(0.8),
+                  ),
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
     );
   }
 }
@@ -283,26 +473,27 @@ class _NoteItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.only(bottom: 10),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
-            margin: const EdgeInsets.only(top: 6),
-            width: 6,
-            height: 6,
-            decoration: BoxDecoration(
-              color: AppColors.of(context).primaryLight,
+            margin: const EdgeInsets.only(top: 7),
+            width: 5,
+            height: 5,
+            decoration: const BoxDecoration(
+              color: Colors.white70,
               shape: BoxShape.circle,
             ),
           ),
-          SizedBox(width: 12),
+          const SizedBox(width: 14),
           Expanded(
             child: Text(
               text,
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: Colors.white70,
-                    height: 1.4,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: Colors.white.withOpacity(0.85),
+                    height: 1.5,
+                    fontSize: 14,
                   ),
             ),
           ),
@@ -516,25 +707,32 @@ class _TrendCardState extends State<_TrendCard> {
 
   @override
   Widget build(BuildContext context) {
-    final days = _range == _TrendRange.week ? 7 : 30;
-    final points = _buildTrendSeries(widget.entries, days);
-    
     final now = DateTime.now();
-List<String> labels;
+    final today = DateTime(now.year, now.month, now.day);
+    
+    DateTime startDate;
+    int days;
+    List<String> labels;
+
     if (_range == _TrendRange.week) {
+      days = 7;
+      startDate = today.subtract(Duration(days: today.weekday - 1));
       labels = List.generate(7, (i) {
-        final d = now.subtract(Duration(days: 6 - i));
+        final d = startDate.add(Duration(days: i));
         return _getWeekdayLabel(d.weekday);
       });
     } else {
-       final start = now.subtract(const Duration(days: 29));
-       final mid = now.subtract(const Duration(days: 14));
-       labels = [
-         '${start.day}.${start.month}',
-         '${mid.day}.${mid.month}',
-         '${now.day}.${now.month}',
-       ];
+      days = 30;
+      startDate = today.subtract(const Duration(days: 29));
+      final mid = today.subtract(const Duration(days: 14));
+      labels = [
+        '${startDate.day}.${startDate.month}',
+        '${mid.day}.${mid.month}',
+        '${today.day}.${today.month}',
+      ];
     }
+
+    final points = _buildTrendSeries(widget.entries, startDate, days);
 
     return GlassPanel(
       padding: const EdgeInsets.all(16),
@@ -996,12 +1194,13 @@ Future<void> _requestTopicInsight(
 
   final prompt = '''
 KPSS P3 "${topic.title}" (${topic.subject}) konusu için özel çalışma rehberi hazırla.
-İstenenler:
-1. Konunun önemi ve soru potansiyeli.
-2. Sık yapılan hatalar ve tuzaklar.
-3. Akılda kalıcı 2-3 püf nokta veya kodlama.
-4. Bu konuya çalışırken dikkat edilmesi gereken en önemli şey.
-Çıktı kısa, net ve maddeler halinde olsun. Mentor tonunda yaz.
+İstenen çıktı sadece JSON formatında olsun.
+Şema:
+{
+  "summary": "Konunun önemi ve soru potansiyeli (1-2 cümle)",
+  "notes": ["Sık yapılan hatalar", "Püf nokta 1", "Püf nokta 2", "Dikkat edilmesi gereken şey"]
+}
+Mentor tonunda, kısa ve öz yaz.
 ''';
 
   final closeLoading = _showLoadingDialog(context, 'AI taktikler hazırlanıyor...');
@@ -1020,42 +1219,67 @@ KPSS P3 "${topic.title}" (${topic.subject}) konusu için özel çalışma rehber
     
     closeLoading();
 
-    if (!context.mounted) {
-      return;
+    final match = RegExp(r'\{[\s\S]*\}').firstMatch(result);
+    if (match == null) {
+      throw Exception('Format hatası');
     }
-    // Navigator.of(context).pop();
     
-    if (repository.aiNotificationsEnabled.value) {
-      await repository.addNotification(
-        AppNotification(
-          id: DateTime.now().microsecondsSinceEpoch.toString(),
-          title: '${topic.title} Taktikleri',
-          body: result.length > 140 ? '${result.substring(0, 140)}…' : result,
-          createdAt: DateTime.now(),
+    final data = jsonDecode(match.group(0)!);
+    final summary = data['summary']?.toString() ?? '';
+    final List<String> notes = (data['notes'] as List?)?.cast<String>() ?? [];
+
+    if (!context.mounted) return;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('${topic.title} Notları'),
+        content: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (summary.isNotEmpty) ...[
+                Text('Özet:', style: TextStyle(fontWeight: FontWeight.bold)),
+                Text(summary),
+                SizedBox(height: 12),
+              ],
+              Text('Kritik Notlar:', style: TextStyle(fontWeight: FontWeight.bold)),
+              ...notes.map((n) => Text('• $n')),
+            ],
+          ),
         ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text('Kapat'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: Text('Kaydet'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true && context.mounted) {
+      final newInsight = TopicInsight(
+        id: DateTime.now().millisecondsSinceEpoch.toString(),
+        summary: summary,
+        notes: notes,
+        createdAt: DateTime.now(),
       );
+      final updated = topic.copyWith(
+        aiInsights: [...topic.aiInsights, newInsight],
+      );
+      await repository.saveTopicUpdate(updated);
+      _showSnack(context, 'AI notu kaydedildi.');
     }
-    
-    if (!context.mounted) {
-      return;
-    }
-    await _showResultDialog(context, '${topic.title} Taktikleri', result);
+
   } catch (e) {
     closeLoading();
-    if (!context.mounted) {
-      return;
-    }
-    // Navigator.of(context).pop();
-    
-    String message = 'AI taktikleri alınamadı.';
-    if (e.toString().contains('429')) {
-      message = 'API kotası aşıldı. Lütfen daha sonra tekrar deneyin.';
-    } else if (e.toString().contains('404')) {
-      message = 'Seçilen model bulunamadı veya yetkisiz.';
-    } else if (e.toString().contains('503')) {
-      message = 'AI servisi yoğun.';
-    }
-    _showSnack(context, message);
+    if (!context.mounted) return;
+    _showSnack(context, 'AI taktikleri alınamadı.');
   }
 }
 
@@ -1089,10 +1313,12 @@ Sorular kısa, öz ve sınavda çıkabilecek kritik bilgiler olsun.
       prompt: prompt,
       model: model,
     );
+    debugPrint('AI Result: $result');
     await repository.incrementAiRequestCount();
     
     final match = RegExp(r'\[[\s\S]*\]').firstMatch(result);
     if (match == null) {
+      debugPrint('AI Format Error: No JSON array found in result');
       throw Exception('Format hatası');
     }
     
@@ -1107,15 +1333,18 @@ Sorular kısa, öz ve sınavda çıkabilecek kritik bilgiler olsun.
       );
     }).toList();
 
-    await repository.saveFlashcards(topic.title, cards);
+    final existingCards = repository.flashcards.value[topic.title] ?? [];
+    final updatedCards = [...existingCards, ...cards];
+    await repository.saveFlashcards(topic.title, updatedCards);
     
     closeLoading();
 
     if (!context.mounted) return;
-    _showSnack(context, '${cards.length} yeni kart oluşturuldu.');
-    _openFlashcards(context, cards, topic.title);
+    _showSnack(context, '${cards.length} yeni kart eklendi. Toplam: ${updatedCards.length}');
+    _openFlashcards(context, updatedCards, topic.title);
 
   } catch (e) {
+    debugPrint('AI Flashcard Error: $e');
     closeLoading();
     if (!context.mounted) return;
     _showSnack(context, 'Kart üretilemedi: $e');
@@ -1212,6 +1441,68 @@ void _showMoreActions(BuildContext context, TopicSummary topic) {
                   _scheduleReview(context, topic);
                 },
               ),
+              if (topic.notes.isNotEmpty || topic.summary.isNotEmpty)
+                _ActionSheetTile(
+                  icon: Icons.delete_sweep_outlined,
+                  title: 'Özet ve Notları Temizle',
+                  subtitle: 'Varsayılan haline döndür',
+                  iconColor: Colors.orangeAccent,
+                  onTap: () async {
+                    Navigator.of(sheetContext).pop();
+                    final confirm = await showDialog<bool>(
+                      context: context,
+                      builder: (context) => AlertDialog(
+                        title: const Text('Notları Sil'),
+                        content: const Text('Bu konu için kaydedilmiş AI özetleri ve notlar silinecek. Emin misin?'),
+                        actions: [
+                          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Vazgeç')),
+                          ElevatedButton(
+                            onPressed: () => Navigator.pop(context, true),
+                            style: ElevatedButton.styleFrom(backgroundColor: Colors.orangeAccent),
+                            child: const Text('Sil'),
+                          ),
+                        ],
+                      ),
+                    );
+                    if (confirm == true) {
+                      await AppRepositoryScope.of(context).deleteTopicUpdate(topic.id);
+                      if (context.mounted) {
+                        _showSnack(context, 'Notlar temizlendi.');
+                      }
+                    }
+                  },
+                ),
+              if (AppRepositoryScope.of(context).flashcards.value.containsKey(topic.title))
+                _ActionSheetTile(
+                  icon: Icons.delete_sweep,
+                  title: 'Bilgi Kartlarını Temizle',
+                  subtitle: 'Tüm kartları sil',
+                  iconColor: Colors.redAccent,
+                  onTap: () async {
+                    Navigator.of(sheetContext).pop();
+                    final confirm = await showDialog<bool>(
+                      context: context,
+                      builder: (context) => AlertDialog(
+                        title: const Text('Kartları Sil'),
+                        content: const Text('Bu konu için oluşturulmuş tüm bilgi kartları silinecek. Emin misin?'),
+                        actions: [
+                          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Vazgeç')),
+                          ElevatedButton(
+                            onPressed: () => Navigator.pop(context, true),
+                            style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent),
+                            child: const Text('Hepsini Sil'),
+                          ),
+                        ],
+                      ),
+                    );
+                    if (confirm == true) {
+                      await AppRepositoryScope.of(context).clearFlashcards(topic.title);
+                      if (context.mounted) {
+                        _showSnack(context, 'Kartlar temizlendi.');
+                      }
+                    }
+                  },
+                ),
               _ActionSheetTile(
                 icon: Icons.insights,
                 title: 'Analize git',
@@ -1248,19 +1539,21 @@ class _ActionSheetTile extends StatelessWidget {
     required this.title,
     required this.subtitle,
     required this.onTap,
+    this.iconColor,
   });
 
   final IconData icon;
   final String title;
   final String subtitle;
   final VoidCallback onTap;
+  final Color? iconColor;
 
   @override
   Widget build(BuildContext context) {
     return ListTile(
       leading: CircleAvatar(
-        backgroundColor: Colors.white.withOpacity(0.06),
-        child: Icon(icon, color: Colors.white70),
+        backgroundColor: (iconColor ?? Colors.white).withOpacity(0.06),
+        child: Icon(icon, color: iconColor ?? Colors.white70),
       ),
       title: Text(
         title,
@@ -1521,13 +1814,11 @@ class _MistakeStat extends StatelessWidget {
   }
 }
 
-List<double> _buildTrendSeries(List<QuestionEntry> entries, int days) {
+List<double> _buildTrendSeries(List<QuestionEntry> entries, DateTime start, int days) {
   if (entries.isEmpty) {
     return [];
   }
   final now = DateTime.now();
-  final start =
-      DateTime(now.year, now.month, now.day).subtract(Duration(days: days - 1));
   final buckets = List<double>.filled(days, 0);
 
   for (final entry in entries) {

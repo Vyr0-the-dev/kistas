@@ -287,8 +287,6 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
                           ),
                         ),
                       ),
-                    if (hasActiveData && activeMode == AnalysisMode.questions)
-                      SliverToBoxAdapter(
                     if (hasActiveData && activeMode == AnalysisMode.exams)
                       SliverToBoxAdapter(
                         child: Padding(
@@ -843,7 +841,7 @@ DateTimeRange _getDateRange(_RangeFilter filter, DateTimeRange? customRange) {
 
   switch (filter) {
     case _RangeFilter.days7:
-      start = today.subtract(const Duration(days: 6));
+      start = today.subtract(Duration(days: today.weekday - 1));
       break;
     case _RangeFilter.days30:
       start = today.subtract(const Duration(days: 29));
@@ -864,7 +862,7 @@ DateTimeRange _getDateRange(_RangeFilter filter, DateTimeRange? customRange) {
           customRange.end.day,
         ).add(const Duration(days: 1));
       } else {
-        start = today.subtract(const Duration(days: 6));
+        start = today.subtract(Duration(days: today.weekday - 1));
       }
       break;
   }
@@ -1047,7 +1045,7 @@ class _RangeSelector extends StatelessWidget {
       child: Row(
         children: [
           _RangeChip(
-            label: '7 Gün',
+            label: 'Hafta',
             active: selected == _RangeFilter.days7,
             onTap: () => onSelect(_RangeFilter.days7),
           ),

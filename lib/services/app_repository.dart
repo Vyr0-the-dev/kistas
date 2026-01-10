@@ -12,6 +12,7 @@ import '../models/topic_summary.dart';
 
 const _questionEntriesKey = 'question_entries';
 const _mockExamsKey = 'mock_exams';
+const _customTopicsKey = 'custom_topics';
 const _dailyGoalKey = 'daily_goal';
 const _geminiApiKey = 'gemini_api_key';
 const _geminiModel = 'gemini_model';
@@ -37,6 +38,7 @@ class AppRepository {
       : questionEntries = ValueNotifier<List<QuestionEntry>>([]),
         mockExams = ValueNotifier<List<MockExam>>([]),
         flashcards = ValueNotifier<Map<String, List<Flashcard>>>({}),
+        customTopics = ValueNotifier<Map<String, TopicSummary>>({}),
         dailyGoal = ValueNotifier<int>(100),
         aiRequestCountToday = ValueNotifier<int>(0),
         geminiApiKey = ValueNotifier<String>(''),
@@ -63,6 +65,7 @@ class AppRepository {
   final ValueNotifier<List<QuestionEntry>> questionEntries;
   final ValueNotifier<List<MockExam>> mockExams;
   final ValueNotifier<Map<String, List<Flashcard>>> flashcards;
+  final ValueNotifier<Map<String, TopicSummary>> customTopics;
   final ValueNotifier<int> dailyGoal;
   final ValueNotifier<int> aiRequestCountToday;
   final ValueNotifier<String> geminiApiKey;
@@ -88,7 +91,14 @@ class AppRepository {
     return AppRepository._(prefs);
   }
 
-  List<TopicSummary> get topics => kpssTopicCatalog;
+  List<TopicSummary> get topics {
+    final base = kpssTopicCatalog;
+    final custom = customTopics.value;
+    if (custom.isEmpty) {
+      return base;
+    }
+    return base.map((t) => custom[t.id] ?? t).toList();
+  }
 
   Future<void> addQuestionEntry(QuestionEntry entry) async {
     final updated = [...questionEntries.value, entry];
@@ -107,6 +117,43 @@ class AppRepository {
     updated[topicTitle] = cards;
     flashcards.value = updated;
     await _saveFlashcards(updated);
+  }
+
+  Future<void> clearFlashcards(String topicTitle) async {
+    final updated = Map<String, List<Flashcard>>.from(flashcards.value);
+    updated.remove(topicTitle);
+    flashcards.value = updated;
+    await _saveFlashcards(updated);
+  }
+
+  Future<void> deleteFlashcard(String topicTitle, String cardId) async {
+    final updated = Map<String, List<Flashcard>>.from(flashcards.value);
+    if (updated.containsKey(topicTitle)) {
+      updated[topicTitle] = updated[topicTitle]!
+          .where((card) => card.id != cardId)
+          .toList();
+      if (updated[topicTitle]!.isEmpty) {
+        updated.remove(topicTitle);
+      }
+      flashcards.value = updated;
+      await _saveFlashcards(updated);
+    }
+  }
+
+  Future<void> saveTopicUpdate(TopicSummary topic) async {
+    final updated = Map<String, TopicSummary>.from(customTopics.value);
+    updated[topic.id] = topic;
+    customTopics.value = updated;
+    await _saveCustomTopics(updated);
+  }
+
+  Future<void> deleteTopicUpdate(String topicId) async {
+    final updated = Map<String, TopicSummary>.from(customTopics.value);
+    if (updated.containsKey(topicId)) {
+      updated.remove(topicId);
+      customTopics.value = updated;
+      await _saveCustomTopics(updated);
+    }
   }
 
   Future<void> clearAll() async {
@@ -259,6 +306,7 @@ class AppRepository {
       'questionEntries': questionEntries.value.map((e) => e.toJson()).toList(),
       'mockExams': mockExams.value.map((e) => e.toJson()).toList(),
       'flashcards': flashcards.value.map((key, value) => MapEntry(key, value.map((e) => e.toJson()).toList())),
+      'customTopics': customTopics.value.map((key, value) => MapEntry(key, value.toJson())),
       'notifications': notifications.value.map((e) => e.toJson()).toList(),
       'aiGoalTargets': aiGoalTargets.value,
       'aiGoalUpdatedAt': aiGoalUpdatedAt.value?.toIso8601String(),
@@ -328,6 +376,7 @@ class AppRepository {
     questionEntries.value = questions;
     mockExams.value = exams;
     flashcards.value = _decodeFlashcards(jsonEncode(data['flashcards'] ?? {}));
+    customTopics.value = _decodeCustomTopics(jsonEncode(data['customTopics'] ?? {}));
     notifications.value = importedNotifications;
     aiGoalTargets.value = targets;
     final updatedRaw = data['aiGoalUpdatedAt'] as String?;
@@ -362,6 +411,7 @@ class AppRepository {
     }
     await _saveQuestionEntries(questions);
     await _saveMockExams(exams);
+    await _saveCustomTopics(customTopics.value);
     await _saveNotifications(importedNotifications);
     await _prefs.setString(_aiGoalTargetsKey, jsonEncode(targets));
     if (aiGoalUpdatedAt.value != null) {
@@ -425,7 +475,15 @@ class AppRepository {
     final progress = buildTopicProgress()
         .where((item) => item.totalQuestions > 0)
         .toList();
-    progress.sort((a, b) => a.accuracy.compareTo(b.accuracy));
+    
+    // Priority = (1 - accuracy) * importance
+    // Higher priority means more urgent/weaker.
+    progress.sort((a, b) {
+      final aPriority = (1 - a.accuracy) * a.topic.importance;
+      final bPriority = (1 - b.accuracy) * b.topic.importance;
+      return bPriority.compareTo(aPriority);
+    });
+
     if (progress.length <= limit) {
       return progress;
     }
@@ -438,6 +496,7 @@ class AppRepository {
     );
     mockExams.value = _decodeMockExams(_prefs.getString(_mockExamsKey));
     flashcards.value = _decodeFlashcards(_prefs.getString(_flashcardsKey));
+    customTopics.value = _decodeCustomTopics(_prefs.getString(_customTopicsKey));
     geminiApiKey.value = _prefs.getString(_geminiApiKey) ?? '';
     geminiModel.value = _prefs.getString(_geminiModel) ?? '';
     themeKey.value = _prefs.getString(_themeKey) ?? 'midnight';
@@ -507,6 +566,11 @@ class AppRepository {
     await _prefs.setString(_flashcardsKey, encoded);
   }
 
+  Future<void> _saveCustomTopics(Map<String, TopicSummary> data) async {
+    final encoded = jsonEncode(data.map((k, v) => MapEntry(k, v.toJson())));
+    await _prefs.setString(_customTopicsKey, encoded);
+  }
+
   Future<void> _saveNotifications(List<AppNotification> items) async {
     final encoded = jsonEncode(items.map((e) => e.toJson()).toList());
     await _prefs.setString(_notificationsKey, encoded);
@@ -553,6 +617,20 @@ class AppRepository {
           list.whereType<Map<String, dynamic>>().map(Flashcard.fromJson).toList(),
         );
       });
+    } catch (_) {
+      return {};
+    }
+  }
+
+  Map<String, TopicSummary> _decodeCustomTopics(String? raw) {
+    if (raw == null || raw.isEmpty) {
+      return {};
+    }
+    try {
+      final Map<String, dynamic> data = jsonDecode(raw);
+      return data.map(
+        (key, value) => MapEntry(key, TopicSummary.fromJson(value)),
+      );
     } catch (_) {
       return {};
     }

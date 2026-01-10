@@ -1,9 +1,29 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
+import 'package:flutter_markdown/flutter_markdown.dart';
 import '../models/flashcard.dart';
+import '../services/app_repository.dart';
 import '../theme/app_colors.dart';
 import '../widgets/ambient_background.dart';
 import '../widgets/glass_panel.dart';
+
+// Helper to render basic math symbols as unicode for better visibility
+String _sanitizeMath(String text) {
+  return text
+      .replaceAll('\$', '') // Remove LaTeX $ delimiters
+      .replaceAll(r'\(', '') // Remove LaTeX \( delimiters
+      .replaceAll(r'\)', '') // Remove LaTeX \) delimiters
+      .replaceAll(r'\[', '') // Remove LaTeX \[ delimiters
+      .replaceAll(r'\]', '') // Remove LaTeX \] delimiters
+      .replaceAll('^2', '²')
+      .replaceAll('^3', '³')
+      .replaceAll('^n', 'ⁿ')
+      .replaceAll('sqrt', '√')
+      .replaceAll('<=', '≤')
+      .replaceAll('>=', '≥')
+      .replaceAll('!=', '≠')
+      .replaceAll('->', '→');
+}
 
 class FlashcardStudyScreen extends StatefulWidget {
   const FlashcardStudyScreen({
@@ -21,12 +41,14 @@ class FlashcardStudyScreen extends StatefulWidget {
 
 class _FlashcardStudyScreenState extends State<FlashcardStudyScreen> {
   late final PageController _pageController;
+  late List<Flashcard> _cards;
   int _currentIndex = 0;
   bool _showAnswer = false;
 
   @override
   void initState() {
     super.initState();
+    _cards = List.from(widget.cards);
     _pageController = PageController();
   }
 
@@ -34,6 +56,45 @@ class _FlashcardStudyScreenState extends State<FlashcardStudyScreen> {
   void dispose() {
     _pageController.dispose();
     super.dispose();
+  }
+
+  Future<void> _deleteCurrentCard() async {
+    final card = _cards[_currentIndex];
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Kartı Sil'),
+        content: const Text('Bu bilgi kartını silmek istediğine emin misin?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Vazgeç'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent),
+            child: const Text('Sil'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true && mounted) {
+      final repository = AppRepositoryScope.of(context);
+      await repository.deleteFlashcard(widget.topicTitle, card.id);
+      
+      setState(() {
+        _cards.removeAt(_currentIndex);
+        if (_cards.isEmpty) {
+          Navigator.of(context).pop();
+          return;
+        }
+        if (_currentIndex >= _cards.length) {
+          _currentIndex = _cards.length - 1;
+        }
+        _showAnswer = false;
+      });
+    }
   }
 
   @override
@@ -47,7 +108,8 @@ class _FlashcardStudyScreenState extends State<FlashcardStudyScreen> {
               _Header(
                 title: widget.topicTitle,
                 current: _currentIndex + 1,
-                total: widget.cards.length,
+                total: _cards.length,
+                onDelete: _deleteCurrentCard,
               ),
               Expanded(
                 child: PageView.builder(
@@ -58,10 +120,10 @@ class _FlashcardStudyScreenState extends State<FlashcardStudyScreen> {
                       _showAnswer = false;
                     });
                   },
-                  itemCount: widget.cards.length,
+                  itemCount: _cards.length,
                   itemBuilder: (context, index) {
                     return _FlashcardItem(
-                      card: widget.cards[index],
+                      card: _cards[index],
                       isFlipped: _showAnswer,
                       onFlip: () => setState(() => _showAnswer = !_showAnswer),
                     );
@@ -75,7 +137,7 @@ class _FlashcardStudyScreenState extends State<FlashcardStudyScreen> {
                           curve: Curves.easeInOut,
                         )
                     : null,
-                onNext: _currentIndex < widget.cards.length - 1
+                onNext: _currentIndex < _cards.length - 1
                     ? () => _pageController.nextPage(
                           duration: const Duration(milliseconds: 300),
                           curve: Curves.easeInOut,
@@ -95,16 +157,18 @@ class _Header extends StatelessWidget {
     required this.title,
     required this.current,
     required this.total,
+    required this.onDelete,
   });
 
   final String title;
   final int current;
   final int total;
+  final VoidCallback onDelete;
 
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(8, 8, 20, 8),
+      padding: const EdgeInsets.fromLTRB(8, 8, 8, 8),
       child: Row(
         children: [
           IconButton(
@@ -145,6 +209,11 @@ class _Header extends StatelessWidget {
                     fontWeight: FontWeight.w700,
                   ),
             ),
+          ),
+          IconButton(
+            onPressed: onDelete,
+            icon: const Icon(Icons.delete_outline, color: Colors.redAccent, size: 20),
+            tooltip: 'Kartı Sil',
           ),
         ],
       ),
@@ -202,13 +271,15 @@ class _FlashcardItem extends StatelessWidget {
             const SizedBox(height: 24),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 24),
-              child: Text(
-                card.question,
-                textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w700,
-                    ),
+              child: MarkdownBody(
+                data: _sanitizeMath(card.question),
+                styleSheet: MarkdownStyleSheet(
+                  p: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w700,
+                      ),
+                  textAlign: WrapAlignment.center,
+                ),
               ),
             ),
             const SizedBox(height: 40),
@@ -238,14 +309,16 @@ class _FlashcardItem extends StatelessWidget {
             const SizedBox(height: 24),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 24),
-              child: Text(
-                card.answer,
-                textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w600,
-                      height: 1.4,
-                    ),
+              child: MarkdownBody(
+                data: _sanitizeMath(card.answer),
+                styleSheet: MarkdownStyleSheet(
+                  p: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w600,
+                        height: 1.4,
+                      ),
+                  textAlign: WrapAlignment.center,
+                ),
               ),
             ),
             if (card.hint != null && card.hint!.isNotEmpty) ...[
@@ -356,7 +429,8 @@ class _ControlButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = isPrimary ? AppColors.of(context).primary : Colors.white12;
+    final backgroundColor = isPrimary ? AppColors.of(context).primary : Colors.white12;
+    final foregroundColor = isPrimary ? AppColors.of(context).onPrimary : Colors.white;
     return Opacity(
       opacity: onTap == null ? 0.4 : 1.0,
       child: ElevatedButton.icon(
@@ -364,8 +438,8 @@ class _ControlButton extends StatelessWidget {
         icon: Icon(icon, size: 18),
         label: Text(label),
         style: ElevatedButton.styleFrom(
-          backgroundColor: color,
-          foregroundColor: Colors.white,
+          backgroundColor: backgroundColor,
+          foregroundColor: foregroundColor,
           elevation: 0,
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),

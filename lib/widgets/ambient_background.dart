@@ -46,43 +46,28 @@ class _AmbientBackgroundState extends State<AmbientBackground>
 
             return Stack(
               children: [
-                // Orb 1: Sağ Üst - Geniş Eliptik Hareket
-                Align(
-                  alignment: Alignment(
-                    1.0 + 0.3 * cos(t), 
-                    -1.0 + 0.3 * sin(t),
-                  ),
-                  child: _Orb(
-                    color: AppColors.of(context).primaryLight,
-                    size: 240,
-                    opacity: 0.15 + 0.05 * sin(t), // Hafif yanıp sönme
-                  ),
+                // Orb 1: Sağ Üst
+                _PositionedOrb(
+                  alignment: Alignment(1.2 + 0.2 * cos(t), -1.2 + 0.2 * sin(t)),
+                  color: AppColors.of(context).primaryLight,
+                  size: 300,
+                  opacity: 0.08,
                 ),
 
-                // Orb 2: Sol Alt - Ters Yön, Daha Yavaş
-                Align(
-                  alignment: Alignment(
-                    -1.0 + 0.4 * cos(t + 2), 
-                    0.8 + 0.4 * sin(t + 2), // Faz farkı
-                  ),
-                  child: _Orb(
-                    color: AppColors.of(context).primary,
-                    size: 280,
-                    opacity: 0.12 + 0.04 * cos(t),
-                  ),
+                // Orb 2: Sol Alt
+                _PositionedOrb(
+                  alignment: Alignment(-1.2 + 0.3 * cos(t + 2), 1.0 + 0.3 * sin(t + 2)),
+                  color: AppColors.of(context).primary,
+                  size: 350,
+                  opacity: 0.06,
                 ),
 
-                // Orb 3: Orta Sağ - Dikey Salınım Ağırlıklı
-                Align(
-                  alignment: Alignment(
-                    0.8 + 0.2 * sin(t + 4), 
-                    0.2 + 0.5 * cos(t + 4),
-                  ),
-                  child: _Orb(
-                    color: AppColors.of(context).primaryDark,
-                    size: 200,
-                    opacity: 0.08,
-                  ),
+                // Orb 3: Orta Sağ
+                _PositionedOrb(
+                  alignment: Alignment(1.3 + 0.2 * sin(t + 4), 0.2 + 0.4 * cos(t + 4)),
+                  color: AppColors.of(context).primaryDark,
+                  size: 250,
+                  opacity: 0.04,
                 ),
               ],
             );
@@ -96,29 +81,35 @@ class _AmbientBackgroundState extends State<AmbientBackground>
   }
 }
 
-class _Orb extends StatelessWidget {
-  const _Orb({
+class _PositionedOrb extends StatelessWidget {
+  const _PositionedOrb({
+    required this.alignment,
     required this.color,
     required this.size,
-    this.opacity = 0.18,
+    required this.opacity,
   });
 
+  final Alignment alignment;
   final Color color;
   final double size;
   final double opacity;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: size,
-      height: size,
-      decoration: BoxDecoration(
-        color: color.withOpacity(opacity.clamp(0.0, 1.0)),
-        shape: BoxShape.circle,
-      ),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 80, sigmaY: 80),
-        child: const SizedBox.shrink(),
+    return Align(
+      alignment: alignment,
+      child: Container(
+        width: size,
+        height: size,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          gradient: RadialGradient(
+            colors: [
+              color.withOpacity(opacity),
+              color.withOpacity(0),
+            ],
+          ),
+        ),
       ),
     );
   }

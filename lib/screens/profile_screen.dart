@@ -60,23 +60,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
             padding: const EdgeInsets.fromLTRB(20, 24, 20, 140),
             children: [
               Text(
-                'Profil',
+                'Ayarlar',
                 style: Theme.of(context).textTheme.displaySmall?.copyWith(
                       color: Colors.white,
                       fontWeight: FontWeight.w700,
                     ),
               ),
-              SizedBox(height: 6),
-              Text(
-                'Verilerini güvenle yönet ve yedekle.',
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: AppColors.of(context).textSecondary,
-                    ),
-              ),
               SizedBox(height: 20),
+
+              _SectionHeader(title: 'Kişisel Hedefler', icon: Icons.person_outline),
               GlassPanel(
                 child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     ValueListenableBuilder<int>(
                       valueListenable: repository.dailyGoal,
@@ -88,7 +82,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         );
                       },
                     ),
-                    const Divider(color: Colors.white12, height: 24),
+                    const Divider(color: Colors.white10, height: 24),
                     ValueListenableBuilder<DateTime>(
                       valueListenable: repository.examDate,
                       builder: (context, examDate, _) {
@@ -108,98 +102,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         );
                       },
                     ),
-                    const Divider(color: Colors.white12, height: 24),
-                    _AiUsageTracker(repository: repository),
-                    const Divider(color: Colors.white12, height: 24),
-                    _AiGoalSection(repository: repository),
-                    const Divider(color: Colors.white12, height: 24),
-                    _ReminderSection(repository: repository),
-                    const Divider(color: Colors.white12, height: 24),
-                    ValueListenableBuilder<String>(
-                      valueListenable: repository.themeKey,
-                      builder: (context, themeKey, _) {
-                        return Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Tema',
-                              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                            ),
-                            SizedBox(height: 12),
-                            Wrap(
-                              spacing: 16,
-                              runSpacing: 16,
-                              children: [
-                                _ThemeOption(
-                                  color: AppColors.midnight.primary,
-                                  label: 'Midnight',
-                                  isSelected: themeKey == 'midnight',
-                                  onTap: () => repository.setTheme('midnight'),
-                                ),
-                                _ThemeOption(
-                                  color: AppColors.ocean.primary,
-                                  label: 'Okyanus',
-                                  isSelected: themeKey == 'ocean',
-                                  onTap: () => repository.setTheme('ocean'),
-                                ),
-                                _ThemeOption(
-                                  color: AppColors.volcanic.primary,
-                                  label: 'Volkanik',
-                                  isSelected: themeKey == 'volcanic',
-                                  onTap: () => repository.setTheme('volcanic'),
-                                ),
-                                _ThemeOption(
-                                  color: AppColors.forest.primary,
-                                  label: 'Orman',
-                                  isSelected: themeKey == 'forest',
-                                  onTap: () => repository.setTheme('forest'),
-                                ),
-                                _ThemeOption(
-                                  color: AppColors.royal.primary,
-                                  label: 'Asil',
-                                  isSelected: themeKey == 'royal',
-                                  onTap: () => repository.setTheme('royal'),
-                                ),
-                                _ThemeOption(
-                                  color: AppColors.sunset.primary,
-                                  label: 'Sunset',
-                                  isSelected: themeKey == 'sunset',
-                                  onTap: () => repository.setTheme('sunset'),
-                                ),
-                                _ThemeOption(
-                                  color: AppColors.glacier.primary,
-                                  label: 'Buzul',
-                                  isSelected: themeKey == 'glacier',
-                                  onTap: () => repository.setTheme('glacier'),
-                                ),
-                                _ThemeOption(
-                                  color: AppColors.crimson.primary,
-                                  label: 'Lal',
-                                  isSelected: themeKey == 'crimson',
-                                  onTap: () => repository.setTheme('crimson'),
-                                ),
-                                _ThemeOption(
-                                  color: AppColors.amber.primary,
-                                  label: 'Kehribar',
-                                  isSelected: themeKey == 'amber',
-                                  onTap: () => repository.setTheme('amber'),
-                                ),
-                                _ThemeOption(
-                                  color: AppColors.graphite.primary,
-                                  label: 'Grafit',
-                                  isSelected: themeKey == 'graphite',
-                                  onTap: () => repository.setTheme('graphite'),
-                                ),
-                              ],
-                            ),
-                          ],
-                        );
-                      },
-                    ),
-                    const Divider(color: Colors.white12, height: 24),
+                  ],
+                ),
+              ),
+              SizedBox(height: 24),
+
+              _SectionHeader(title: 'AI Asistanı (Gemini)', icon: Icons.auto_awesome_outlined),
+              GlassPanel(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
                     ValueListenableBuilder<String>(
                       valueListenable: repository.geminiApiKey,
                       builder: (context, key, _) {
@@ -207,24 +119,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              'Gemini API Anahtarı',
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .bodyMedium
-                                  ?.copyWith(
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.w700,
-                                  ),
+                              'API Yapılandırması',
+                              style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.white54),
                             ),
                             SizedBox(height: 8),
                             TextField(
                               controller: _apiKeyController,
                               obscureText: true,
                               decoration: InputDecoration(
-                                hintText: 'AIza...',
+                                hintText: 'Gemini API Anahtarı (AIza...)',
                               ),
                             ),
-                            SizedBox(height: 8),
+                            SizedBox(height: 12),
                             Row(
                               children: [
                                 Expanded(
@@ -232,16 +138,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                     onPressed: () async {
                                       final apiKey = _apiKeyController.text.trim();
                                       if (apiKey.isEmpty) {
-                                        _showSnack(
-                                            context, 'API anahtarı boş olamaz.');
+                                        _showSnack(context, 'API anahtarı boş olamaz.');
                                         return;
                                       }
                                       await repository.setGeminiApiKey(apiKey);
-                                      if (!context.mounted) {
-                                        return;
-                                      }
-                                      await _fetchAndSelectModel(
-                                          context, repository, apiKey);
+                                      if (!context.mounted) return;
+                                      await _fetchAndSelectModel(context, repository, apiKey);
                                     },
                                     child: Text('Kaydet'),
                                   ),
@@ -259,45 +161,97 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 ),
                               ],
                             ),
-                            SizedBox(height: 12),
                             ValueListenableBuilder<String>(
                               valueListenable: repository.geminiModel,
                               builder: (context, model, _) {
-                                if (model.isEmpty) {
-                                  return SizedBox.shrink();
-                                }
-                                return _ModelInfoCard(model: model);
+                                if (model.isEmpty) return SizedBox.shrink();
+                                return Padding(
+                                  padding: const EdgeInsets.only(top: 12),
+                                  child: _ModelInfoCard(model: model),
+                                );
                               },
                             ),
                           ],
                         );
                       },
                     ),
-                    const Divider(color: Colors.white12, height: 24),
-                    _ProfileAction(
-                      title: 'Yedekleme Oluştur',
-                      subtitle: 'Verilerini JSON olarak dışa aktar.',
-                      icon: Icons.cloud_upload,
-                      onTap: () => _exportBackup(context, repository),
-                    ),
-                    const Divider(color: Colors.white12, height: 24),
-                    _ProfileAction(
-                      title: 'İçe Aktar',
-                      subtitle: 'Önceki yedeği geri yükle.',
-                      icon: Icons.cloud_download,
-                      onTap: () => _importBackup(context, repository),
-                    ),
+                    const Divider(color: Colors.white10, height: 32),
+                    _AiUsageTracker(repository: repository),
+                    const Divider(color: Colors.white10, height: 32),
+                    _AiGoalSection(repository: repository),
                   ],
                 ),
               ),
-              SizedBox(height: 16),
+              SizedBox(height: 24),
+
+              _SectionHeader(title: 'Bildirimler', icon: Icons.notifications_none_outlined),
               GlassPanel(
-                child: _ProfileAction(
-                  title: 'Verileri Sıfırla',
-                  subtitle: 'Tüm soru ve deneme kayıtlarını sil.',
-                  icon: Icons.delete_forever,
-                  iconColor: AppColors.of(context).danger,
-                  onTap: () => _confirmReset(context, repository),
+                child: _ReminderSection(repository: repository),
+              ),
+              SizedBox(height: 24),
+
+              _SectionHeader(title: 'Görünüm', icon: Icons.palette_outlined),
+              GlassPanel(
+                child: ValueListenableBuilder<String>(
+                  valueListenable: repository.themeKey,
+                  builder: (context, themeKey, _) {
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Renk Teması',
+                          style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.white54),
+                        ),
+                        SizedBox(height: 16),
+                        Wrap(
+                          spacing: 16,
+                          runSpacing: 16,
+                          children: [
+                            'midnight', 'ocean', 'volcanic', 'forest', 'royal', 
+                            'sunset', 'glacier', 'crimson', 'amber', 'graphite'
+                          ].map((key) {
+                            final config = _getThemeColor(key);
+                            return _ThemeOption(
+                              color: config.primary,
+                              label: config.label,
+                              isSelected: themeKey == key,
+                              onTap: () => repository.setTheme(key),
+                            );
+                          }).toList(),
+                        ),
+                      ],
+                    );
+                  },
+                ),
+              ),
+              SizedBox(height: 24),
+
+              _SectionHeader(title: 'Veri Yönetimi', icon: Icons.storage_outlined),
+              GlassPanel(
+                child: Column(
+                  children: [
+                    _ProfileAction(
+                      title: 'Yedekleme Oluştur',
+                      subtitle: 'JSON olarak dışa aktar',
+                      icon: Icons.cloud_upload_outlined,
+                      onTap: () => _exportBackup(context, repository),
+                    ),
+                    const Divider(color: Colors.white10, height: 16),
+                    _ProfileAction(
+                      title: 'Yedek Yükle',
+                      subtitle: 'Dosyadan geri yükle',
+                      icon: Icons.cloud_download_outlined,
+                      onTap: () => _importBackup(context, repository),
+                    ),
+                    const Divider(color: Colors.white10, height: 16),
+                    _ProfileAction(
+                      title: 'Verileri Sıfırla',
+                      subtitle: 'Tüm kayıtları kalıcı olarak sil',
+                      icon: Icons.delete_forever_outlined,
+                      iconColor: AppColors.of(context).danger,
+                      onTap: () => _confirmReset(context, repository),
+                    ),
+                  ],
                 ),
               ),
             ],
@@ -309,6 +263,56 @@ class _ProfileScreenState extends State<ProfileScreen> {
         onSelect: (index) => _navigateFromNav(context, index),
       ),
     );
+  }
+}
+
+class _SectionHeader extends StatelessWidget {
+  const _SectionHeader({required this.title, required this.icon});
+  final String title;
+  final IconData icon;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(left: 4, bottom: 12),
+      child: Row(
+        children: [
+          Icon(icon, size: 18, color: AppColors.of(context).primaryLight),
+          SizedBox(width: 8),
+          Text(
+            title.toUpperCase(),
+            style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                  color: AppColors.of(context).primaryLight,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 1.2,
+                ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// Helper to get theme color/label for options
+class _ThemeColorConfig {
+  final Color primary;
+  final String label;
+  _ThemeColorConfig(this.primary, this.label);
+}
+
+_ThemeColorConfig _getThemeColor(String key) {
+  switch (key) {
+    case 'midnight': return _ThemeColorConfig(AppColors.midnight.primary, 'Midnight');
+    case 'ocean': return _ThemeColorConfig(AppColors.ocean.primary, 'Okyanus');
+    case 'volcanic': return _ThemeColorConfig(AppColors.volcanic.primary, 'Volkanik');
+    case 'forest': return _ThemeColorConfig(AppColors.forest.primary, 'Orman');
+    case 'royal': return _ThemeColorConfig(AppColors.royal.primary, 'Asil');
+    case 'sunset': return _ThemeColorConfig(AppColors.sunset.primary, 'Sunset');
+    case 'glacier': return _ThemeColorConfig(AppColors.glacier.primary, 'Buzul');
+    case 'crimson': return _ThemeColorConfig(AppColors.crimson.primary, 'Lal');
+    case 'amber': return _ThemeColorConfig(AppColors.amber.primary, 'Kehribar');
+    case 'graphite': return _ThemeColorConfig(AppColors.graphite.primary, 'Grafit');
+    default: return _ThemeColorConfig(Colors.blue, 'Bilinmeyen');
   }
 }
 
