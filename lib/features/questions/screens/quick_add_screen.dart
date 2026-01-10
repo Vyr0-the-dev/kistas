@@ -260,6 +260,7 @@ Extract study data from this text into JSON: "$result".
 JSON Schema:
 {
   "topic": "string (infer closest topic name, e.g. Matematik, Tarih, Coğrafya)",
+  "tag": "string (infer exam type if mentioned, e.g. KPSS, YKS, DGS. Default to 'KPSS')",
   "total": int (total questions),
   "correct": int (if mentioned),
   "wrong": int (if mentioned),
@@ -292,13 +293,24 @@ Return ONLY raw JSON.
     // Try to match topic
     final topics = repository.topics;
     TopicSummary? matchedTopic;
+    final inferredTag = data['tag']?.toString().toLowerCase() ?? 'kpss';
+    
     if (data['topic'] != null) {
       final topicName = data['topic'].toString().toLowerCase();
       try {
+        // Hem isme hem etikete göre en yakın eşleşmeyi bul
         matchedTopic = topics.firstWhere(
-          (t) => t.title.toLowerCase().contains(topicName) || t.subject.toLowerCase().contains(topicName),
+          (t) => (t.title.toLowerCase().contains(topicName) || t.subject.toLowerCase().contains(topicName)) &&
+                 (t.tag.toLowerCase() == inferredTag),
         );
-      } catch (_) {}
+      } catch (_) {
+        // Etiket tutmazsa sadece isme göre son bir şans
+        try {
+          matchedTopic = topics.firstWhere(
+            (t) => t.title.toLowerCase().contains(topicName) || t.subject.toLowerCase().contains(topicName),
+          );
+        } catch (_) {}
+      }
     }
 
     if (!context.mounted) return;

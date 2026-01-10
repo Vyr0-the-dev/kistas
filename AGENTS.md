@@ -12,6 +12,22 @@ gündelik takip ve planlama kolaylığı sağlayan, koyu temalı ve hızlı bir 
 - Konu listesi filtrelenebilir olmalı (arama + ders filtresi).
 - Tasarım kararlarında internetten görsel referanslardan ilham al.
 
+## MCP (Model Context Protocol) Yapılandırması
+Bu proje için aşağıdaki MCP sunucularının aktif edilmesi önerilir:
+- **Google Search MCP:** Güncel paket sürümleri ve Android standartları için.
+- **Memory MCP:** Kullanıcı tercihlerini ve stil seçimlerini hatırlamak için.
+- **Sequential Thinking MCP:** Mimari değişikliklerde adım adım güvenli ilerlemek için.
+- **Filesystem MCP:** Dosya manipülasyonu ve asset yönetimi için.
+
+## Context7 - Gelişmiş Ajan Kuralları
+1. **Zihin Haritası:** Her büyük değişiklikten önce mimari bir plan sun.
+2. **Hata Yakalama:** Native hataları (Gradle, Kotlin) anında analiz et ve çözüm üret.
+3. **Kullanıcı Kontrolü:** Flutter komutlarını (`pub get`, `run`, `icons`) asla kendin çalıştırma, kullanıcıya bırak.
+4. **Stil Sadakati:** Mevcut "Glassmorphism" ve koyu tema standartlarını her yeni bileşende koru.
+5. **Veri Güvenliği:** API anahtarlarını asla loglama veya açıkça paylaşma.
+6. **Dosya Düzeni:** Klasör yapısını (`core`, `features`, `models`) bozma, yeni eklemeleri uygun yere yap.
+7. **Dil:** Uygulama içi içeriklerde ve kullanıcı etkileşiminde her zaman Türkçe kullan.
+
 ## Komutlar (Tercih Edilen)
 - Flutter:
   - `flutter test`

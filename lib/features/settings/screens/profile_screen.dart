@@ -3,10 +3,11 @@ import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 
-import '../../../core/models/app_notification.dart';
+import '../../../core/models/topic_summary.dart';
 import '../../../core/models/mock_exam.dart';
 import '../../../core/models/question_entry.dart';
 import '../../../core/repositories/app_repository.dart';
@@ -14,15 +15,8 @@ import '../../../core/services/gemini_client.dart';
 import '../../../core/services/notification_service.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/widgets/ai_loading_dialog.dart';
-import '../../../core/widgets/ai_response_dialog.dart';
-import '../../../core/widgets/ambient_background.dart';
-import '../../../core/widgets/app_bottom_nav.dart';
 import '../../../core/widgets/glass_panel.dart';
 import '../../../core/widgets/in_app_notice.dart';
-import '../../analysis/screens/analysis_screen.dart';
-import '../../dashboard/screens/home_screen.dart';
-import '../../questions/screens/quick_add_screen.dart';
-import '../../questions/screens/topic_summaries_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -49,526 +43,484 @@ class _ProfileScreenState extends State<ProfileScreen> {
   @override
   Widget build(BuildContext context) {
     final repository = AppRepositoryScope.of(context);
+
     if (_apiKeyController.text.isEmpty && repository.geminiApiKey.value.isNotEmpty) {
       _apiKeyController.text = repository.geminiApiKey.value;
     }
+
     return SafeArea(
       child: ListView(
         padding: const EdgeInsets.fromLTRB(20, 24, 20, 140),
         children: [
-          Center(
-            child: Column(
-              children: [
-                Container(
-                  width: 80,
-                  height: 80,
-                  decoration: BoxDecoration(
-                    color: AppColors.of(context).primary.withOpacity(0.2),
-                    borderRadius: BorderRadius.circular(24),
-                    border: Border.all(color: AppColors.of(context).primary.withOpacity(0.5)),
-                  ),
-                  child: Icon(
-                    Icons.bolt,
-                    size: 40,
-                    color: AppColors.of(context).primary,
-                  ),
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  'KISTAS',
-                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w900,
-                        letterSpacing: 2,
-                      ),
-                ),
-                Text(
-                  'v1.0.0',
-                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                        color: Colors.white38,
-                      ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 32),
-          Text(
-            'Ayarlar',
-            style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w700,
-                ),
-          ),
-          SizedBox(height: 20),
-
-          _SectionHeader(title: 'Kişisel Hedefler', icon: Icons.person_outline),
-          GlassPanel(
-            child: Column(
-              children: [
-                ValueListenableBuilder<int>(
-                  valueListenable: repository.dailyGoal,
-                  builder: (context, goal, _) {
-                    return _GoalRow(
-                      value: goal,
-                      onDecrease: () => repository.setDailyGoal(goal - 5),
-                      onIncrease: () => repository.setDailyGoal(goal + 5),
-                    );
-                  },
-                ),
-                const Divider(color: Colors.white10, height: 24),
-                ValueListenableBuilder<DateTime>(
-                  valueListenable: repository.examDate,
-                  builder: (context, examDate, _) {
-                    return _ExamDateRow(
-                      value: examDate,
-                      onTap: () async {
-                        final picked = await showDatePicker(
-                          context: context,
-                          initialDate: examDate,
-                          firstDate: DateTime.now(),
-                          lastDate: DateTime(2030),
-                        );
-                        if (picked != null) {
-                          await repository.setExamDate(picked);
-                        }
-                      },
-                    );
-                  },
-                ),
-              ],
-            ),
-          ),
-          SizedBox(height: 24),
-
-          _SectionHeader(title: 'AI Asistanı (Gemini)', icon: Icons.auto_awesome_outlined),
-          GlassPanel(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                ValueListenableBuilder<String>(
-                  valueListenable: repository.geminiApiKey,
-                  builder: (context, key, _) {
-                    return Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'API Yapılandırması',
-                          style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.white54),
-                        ),
-                        SizedBox(height: 8),
-                        TextField(
-                          controller: _apiKeyController,
-                          obscureText: true,
-                          decoration: InputDecoration(
-                            hintText: 'Gemini API Anahtarı (AIza...)',
-                          ),
-                        ),
-                        SizedBox(height: 12),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: OutlinedButton(
-                                onPressed: () async {
-                                  final apiKey = _apiKeyController.text.trim();
-                                  if (apiKey.isEmpty) {
-                                    _showSnack(context, 'API anahtarı boş olamaz.');
-                                    return;
-                                  }
-                                  await repository.setGeminiApiKey(apiKey);
-                                  if (!context.mounted) return;
-                                  await _fetchAndSelectModel(context, repository, apiKey);
-                                },
-                                child: Text('Kaydet'),
-                              ),
-                            ),
-                            SizedBox(width: 8),
-                            Expanded(
-                              child: ElevatedButton(
-                                onPressed: () => _fetchAndSelectModel(
-                                  context,
-                                  repository,
-                                  _apiKeyController.text,
-                                ),
-                                child: Text('Model Seç'),
-                              ),
-                            ),
-                          ],
-                        ),
-                        ValueListenableBuilder<String>(
-                          valueListenable: repository.geminiModel,
-                          builder: (context, model, _) {
-                            if (model.isEmpty) return SizedBox.shrink();
-                            return Padding(
-                              padding: const EdgeInsets.only(top: 12),
-                              child: _ModelInfoCard(model: model),
-                            );
-                          },
-                        ),
-                      ],
-                    );
-                  },
-                ),
-                const Divider(color: Colors.white10, height: 32),
-                _AiUsageTracker(repository: repository),
-                const Divider(color: Colors.white10, height: 32),
-                _AiGoalSection(repository: repository),
-              ],
-            ),
-          ),
-          SizedBox(height: 24),
-
-          _SectionHeader(title: 'Bildirimler', icon: Icons.notifications_none_outlined),
-          GlassPanel(
-            child: _ReminderSection(repository: repository),
-          ),
-          SizedBox(height: 24),
-
-          _SectionHeader(title: 'Görünüm', icon: Icons.palette_outlined),
-          GlassPanel(
-            child: ValueListenableBuilder<String>(
-              valueListenable: repository.themeKey,
-              builder: (context, themeKey, _) {
-                return Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Renk Teması',
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.white54),
-                    ),
-                    SizedBox(height: 16),
-                    Column(
-                      children: [
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                          children: ['midnight', 'ocean', 'volcanic', 'forest', 'royal'].map((key) {
-                            final config = _getThemeColor(key);
-                            return _ThemeOption(
-                              color: config.primary,
-                              label: config.label,
-                              isSelected: themeKey == key,
-                              onTap: () => repository.setTheme(key),
-                            );
-                          }).toList(),
-                        ),
-                        const SizedBox(height: 16),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                          children: ['sunset', 'glacier', 'crimson', 'amber', 'graphite'].map((key) {
-                            final config = _getThemeColor(key);
-                            return _ThemeOption(
-                              color: config.primary,
-                              label: config.label,
-                              isSelected: themeKey == key,
-                              onTap: () => repository.setTheme(key),
-                            );
-                          }).toList(),
-                        ),
-                      ],
-                    ),
-                  ],
-                );
-              },
-            ),
-          ),
-          SizedBox(height: 24),
-
-          _SectionHeader(title: 'Veri Yönetimi', icon: Icons.storage_outlined),
-          GlassPanel(
-            child: Column(
-              children: [
-                _ProfileAction(
-                  title: 'Yedekleme Oluştur',
-                  subtitle: 'JSON olarak dışa aktar',
-                  icon: Icons.cloud_upload_outlined,
-                  onTap: () => _exportBackup(context, repository),
-                ),
-                const Divider(color: Colors.white10, height: 16),
-                _ProfileAction(
-                  title: 'Yedek Yükle',
-                  subtitle: 'Dosyadan geri yükle',
-                  icon: Icons.cloud_download_outlined,
-                  onTap: () => _importBackup(context, repository),
-                ),
-                const Divider(color: Colors.white10, height: 16),
-                _ProfileAction(
-                  title: 'Verileri Sıfırla',
-                  subtitle: 'Tüm kayıtları kalıcı olarak sil',
-                  icon: Icons.delete_forever_outlined,
-                  iconColor: AppColors.of(context).danger,
-                  onTap: () => _confirmReset(context, repository),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _SectionHeader extends StatelessWidget {
-  const _SectionHeader({required this.title, required this.icon});
-  final String title;
-  final IconData icon;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(left: 4, bottom: 12),
-      child: Row(
-        children: [
-          Icon(icon, size: 18, color: AppColors.of(context).primaryLight),
-          SizedBox(width: 8),
-          Text(
-            title.toUpperCase(),
-            style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                  color: AppColors.of(context).primaryLight,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: 1.2,
-                ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// Helper to get theme color/label for options
-class _ThemeColorConfig {
-  final Color primary;
-  final String label;
-  _ThemeColorConfig(this.primary, this.label);
-}
-
-_ThemeColorConfig _getThemeColor(String key) {
-  switch (key) {
-    case 'midnight': return _ThemeColorConfig(AppColors.midnight.primary, 'Midnight');
-    case 'ocean': return _ThemeColorConfig(AppColors.ocean.primary, 'Okyanus');
-    case 'volcanic': return _ThemeColorConfig(AppColors.volcanic.primary, 'Volkanik');
-    case 'forest': return _ThemeColorConfig(AppColors.forest.primary, 'Orman');
-    case 'royal': return _ThemeColorConfig(AppColors.royal.primary, 'Asil');
-    case 'sunset': return _ThemeColorConfig(AppColors.sunset.primary, 'Sunset');
-    case 'glacier': return _ThemeColorConfig(AppColors.glacier.primary, 'Buzul');
-    case 'crimson': return _ThemeColorConfig(AppColors.crimson.primary, 'Lal');
-    case 'amber': return _ThemeColorConfig(AppColors.amber.primary, 'Kehribar');
-    case 'graphite': return _ThemeColorConfig(AppColors.graphite.primary, 'Grafit');
-    default: return _ThemeColorConfig(Colors.blue, 'Bilinmeyen');
-  }
-}
-
-class _ProfileAction extends StatelessWidget {
-  const _ProfileAction({
-    required this.title,
-    required this.subtitle,
-    required this.icon,
-    required this.onTap,
-    this.iconColor,
-  });
-
-  final String title;
-  final String subtitle;
-  final IconData icon;
-  final VoidCallback onTap;
-  final Color? iconColor;
-
-  @override
-  Widget build(BuildContext context) {
-    return ListTile(
-      onTap: onTap,
-      contentPadding: EdgeInsets.zero,
-      leading: Container(
-        width: 42,
-        height: 42,
-        decoration: BoxDecoration(
-          color: (iconColor ?? AppColors.of(context).primary).withOpacity(0.18),
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Icon(icon, color: iconColor ?? AppColors.of(context).primary),
-      ),
-      title: Text(
-        title,
-        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: Colors.white,
-              fontWeight: FontWeight.w700,
-            ),
-      ),
-      subtitle: Text(
-        subtitle,
-        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: AppColors.of(context).textSecondary,
-            ),
-      ),
-      trailing: Icon(Icons.chevron_right, color: Colors.white54),
-    );
-  }
-}
-
-class _ThemeOption extends StatelessWidget {
-  const _ThemeOption({
-    required this.color,
-    required this.label,
-    required this.isSelected,
-    required this.onTap,
-  });
-
-  final Color color;
-  final String label;
-  final bool isSelected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Flexible(
-      child: GestureDetector(
-        onTap: onTap,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 44,
-              height: 44,
-              decoration: BoxDecoration(
-                color: color,
-                shape: BoxShape.circle,
-                border: isSelected
-                    ? Border.all(color: Colors.white, width: 3)
-                    : Border.all(color: Colors.white12, width: 1),
-                boxShadow: isSelected
-                    ? [
-                        BoxShadow(
-                          color: color.withOpacity(0.5),
-                          blurRadius: 10,
-                          spreadRadius: 1,
-                        )
-                      ]
-                    : [],
-              ),
-              child: isSelected
-                  ? const Icon(Icons.check, color: Colors.white, size: 24)
-                  : null,
-            ),
-            const SizedBox(height: 6),
-            Text(
-              label,
-              textAlign: TextAlign.center,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                    color: isSelected ? Colors.white : AppColors.of(context).textSecondary,
-                    fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                    fontSize: 9,
-                  ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _ExamDateRow extends StatelessWidget {
-  const _ExamDateRow({
-    required this.value,
-    required this.onTap,
-  });
-
-  final DateTime value;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Container(
-          width: 42,
-          height: 42,
-          decoration: BoxDecoration(
-            color: AppColors.of(context).primary.withOpacity(0.18),
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Icon(Icons.event, color: AppColors.of(context).primary),
-        ),
-        SizedBox(width: 12),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+          _buildBranding(context),
+          const SizedBox(height: 24),
+          _buildCollapsibleSection(
+            context,
+            title: 'Kişisel Hedefler',
+            icon: Icons.person_outline,
             children: [
-              Text(
-                'Sınav Tarihi',
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w700,
-                    ),
+              ValueListenableBuilder<int>(
+                valueListenable: repository.dailyGoal,
+                builder: (context, goal, _) {
+                  return _GoalRow(
+                    value: goal,
+                    onDecrease: () => repository.setDailyGoal(goal - 5),
+                    onIncrease: () => repository.setDailyGoal(goal + 5),
+                  );
+                },
               ),
-              Text(
-                '${value.day}.${value.month}.${value.year}',
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: AppColors.of(context).textSecondary,
-                    ),
+              const Divider(color: Colors.white10, height: 24),
+              ValueListenableBuilder<DateTime>(
+                valueListenable: repository.examDate,
+                builder: (context, examDate, _) {
+                  return _ExamDateRow(
+                    value: examDate,
+                    onTap: () => _selectExamDate(context, repository, examDate),
+                  );
+                },
               ),
             ],
           ),
+          _buildCollapsibleSection(
+            context,
+            title: 'Sınav / Etiket Yönetimi',
+            icon: Icons.label_important_outline,
+            children: [
+              ValueListenableBuilder<List<TopicSummary>>(
+                valueListenable: repository.userTopics,
+                builder: (context, allTopics, _) {
+                  return _TagManagementList(
+                    allTopics: allTopics,
+                    onRename: (oldTag) => _renameTag(context, oldTag, allTopics),
+                    onDelete: (tag) => _deleteTag(context, tag, allTopics),
+                  );
+                },
+              ),
+            ],
+          ),
+          _buildCollapsibleSection(
+            context,
+            title: 'AI Asistanı (Gemini)',
+            icon: Icons.auto_awesome_outlined,
+            children: [
+              _AiConfigurationSection(
+                controller: _apiKeyController,
+                repository: repository,
+              ),
+              const Divider(color: Colors.white10, height: 32),
+              _AiUsageTracker(repository: repository),
+              const Divider(color: Colors.white10, height: 32),
+              _AiGoalSection(repository: repository),
+            ],
+          ),
+          _buildCollapsibleSection(
+            context,
+            title: 'Bildirimler',
+            icon: Icons.notifications_none_outlined,
+            children: [
+              _ReminderSection(repository: repository),
+            ],
+          ),
+          _buildCollapsibleSection(
+            context,
+            title: 'Görünüm & Tema',
+            icon: Icons.palette_outlined,
+            children: [
+              ValueListenableBuilder<String>(
+                valueListenable: repository.themeKey,
+                builder: (context, themeKey, _) {
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Renk Teması',
+                        style: TextStyle(color: Colors.white54, fontSize: 12),
+                      ),
+                      const SizedBox(height: 16),
+                      _ThemeGrid(
+                        currentTheme: themeKey,
+                        onThemeSelected: repository.setTheme,
+                      ),
+                    ],
+                  );
+                },
+              ),
+            ],
+          ),
+          _buildCollapsibleSection(
+            context,
+            title: 'Veri Yönetimi',
+            icon: Icons.storage_outlined,
+            children: [
+              _ProfileAction(
+                title: 'Yedekleme Oluştur',
+                subtitle: 'JSON olarak dışa aktar',
+                icon: Icons.cloud_upload_outlined,
+                onTap: () => _exportBackup(context, repository),
+              ),
+              const Divider(color: Colors.white10, height: 16),
+              _ProfileAction(
+                title: 'Yedek Yükle',
+                subtitle: 'Dosyadan geri yükle',
+                icon: Icons.cloud_download_outlined,
+                onTap: () => _importBackup(context, repository),
+              ),
+              const Divider(color: Colors.white10, height: 16),
+              _ProfileAction(
+                title: 'Verileri Sıfırla',
+                subtitle: 'Tüm kayıtları kalıcı olarak sil',
+                icon: Icons.delete_forever_outlined,
+                iconColor: AppColors.of(context).danger,
+                onTap: () => _confirmReset(context, repository),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBranding(BuildContext context) {
+    return Center(
+      child: Column(
+        children: [
+          SvgPicture.asset(
+            'assets/images/KISTAS.svg',
+            width: 140,
+            fit: BoxFit.contain,
+          ),
+          Transform.translate(
+            offset: const Offset(0, -35),
+            child: Text(
+              'v1.0.0',
+              style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                    color: Colors.white38,
+                    letterSpacing: 2,
+                  ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCollapsibleSection(
+    BuildContext context,
+    {
+    required String title,
+    required IconData icon,
+    required List<Widget> children,
+  }) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      child: GlassPanel(
+        padding: EdgeInsets.zero,
+        child: Theme(
+          data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+          child: ExpansionTile(
+            leading: Icon(icon, color: AppColors.of(context).primaryLight, size: 22),
+            title: Text(
+              title,
+              style: const TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.w700,
+                fontSize: 15,
+              ),
+            ),
+            childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+            expandedAlignment: Alignment.topLeft,
+            children: children,
+          ),
         ),
-        OutlinedButton(
-          onPressed: onTap,
-          child: const Text('Düzenle'),
+      ),
+    );
+  }
+
+  Future<void> _selectExamDate(
+    BuildContext context,
+    AppRepository repository,
+    DateTime currentDate,
+  ) async {
+    final DateTime? picked = await showDatePicker(
+      context: context,
+      initialDate: currentDate,
+      firstDate: DateTime.now(),
+      lastDate: DateTime(2030),
+    );
+    if (picked != null) {
+      await repository.setExamDate(picked);
+    }
+  }
+
+  Future<void> _renameTag(
+    BuildContext context,
+    String oldTag,
+    List<TopicSummary> allTopics,
+  ) async {
+    final controller = TextEditingController(text: oldTag);
+    final String? newName = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Etiketi Düzenle'),
+        content: TextField(
+          controller: controller,
+          decoration: const InputDecoration(border: OutlineInputBorder()),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Vazgeç'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, controller.text.trim()),
+            child: const Text('Güncelle'),
+          ),
+        ],
+      ),
+    );
+
+    if (newName != null && newName.isNotEmpty && newName != oldTag && mounted) {
+      final repository = AppRepositoryScope.of(context);
+      final topicsToUpdate = allTopics
+          .where((t) => t.tag == oldTag)
+          .map((t) => t.copyWith(tag: newName))
+          .toList();
+      await repository.bulkUpdateUserTopics(topicsToUpdate);
+      _showSnack(context, 'Etiket güncellendi.');
+    }
+  }
+
+  Future<void> _deleteTag(
+    BuildContext context,
+    String tag,
+    List<TopicSummary> allTopics,
+  ) async {
+    final bool? confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Sınavı Sil: $tag'),
+        content: const Text(
+          'Bu sınava ait tüm konular ve çalışma verileri silinecek. Emin misin?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Vazgeç'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent),
+            child: const Text('Hepsini Sil'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true && mounted) {
+      final repository = AppRepositoryScope.of(context);
+      final idsToDelete = allTopics.where((t) => t.tag == tag).map((t) => t.id).toList();
+      for (final id in idsToDelete) {
+        await repository.deleteUserTopic(id);
+      }
+      _showSnack(context, '$tag sınavı ve konuları silindi.');
+    }
+  }
+}
+
+class _TagManagementList extends StatelessWidget {
+  const _TagManagementList({
+    required this.allTopics,
+    required this.onRename,
+    required this.onDelete,
+  });
+
+  final List<TopicSummary> allTopics;
+  final Function(String) onRename;
+  final Function(String) onDelete;
+
+  @override
+  Widget build(BuildContext context) {
+    final tags = allTopics.map((e) => e.tag).toSet().toList();
+    tags.sort();
+
+    if (tags.isEmpty) {
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.all(16.0),
+          child: Text('Henüz etiket yok.', style: TextStyle(color: Colors.white38)),
+        ),
+      );
+    }
+
+    return ListView.separated(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      itemCount: tags.length,
+      separatorBuilder: (_, __) => const Divider(color: Colors.white10, height: 1),
+      itemBuilder: (context, index) {
+        final tag = tags[index];
+        final count = allTopics.where((t) => t.tag == tag).length;
+        return ListTile(
+          contentPadding: EdgeInsets.zero,
+          title: Text(
+            tag,
+            style: const TextStyle(color: Colors.white, fontSize: 14),
+          ),
+          subtitle: Text(
+            '$count konu',
+            style: const TextStyle(color: Colors.white38, fontSize: 11),
+          ),
+          trailing: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              IconButton(
+                icon: const Icon(Icons.edit_outlined, color: Colors.white54, size: 18),
+                onPressed: () => onRename(tag),
+              ),
+              IconButton(
+                icon: const Icon(Icons.delete_outline, color: Colors.redAccent, size: 18),
+                onPressed: () => onDelete(tag),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _AiConfigurationSection extends StatelessWidget {
+  const _AiConfigurationSection({required this.controller, required this.repository});
+
+  final TextEditingController controller;
+  final AppRepository repository;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'API Yapılandırması',
+          style: TextStyle(color: Colors.white54, fontSize: 12),
+        ),
+        const SizedBox(height: 8),
+        TextField(
+          controller: controller,
+          obscureText: true,
+          decoration: const InputDecoration(hintText: 'Gemini API Anahtarı'),
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Expanded(
+              child: OutlinedButton(
+                onPressed: () async {
+                  final apiKey = controller.text.trim();
+                  if (apiKey.isEmpty) {
+                    _showSnack(context, 'API anahtarı boş olamaz.');
+                    return;
+                  }
+                  await repository.setGeminiApiKey(apiKey);
+                  if (!context.mounted) return;
+                  await _fetchAndSelectModel(context, repository, apiKey);
+                },
+                child: const Text('Kaydet'),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: ElevatedButton(
+                onPressed: () => _fetchAndSelectModel(context, repository, controller.text),
+                child: const Text('Model Seç'),
+              ),
+            ),
+          ],
+        ),
+        ValueListenableBuilder<String>(
+          valueListenable: repository.geminiModel,
+          builder: (context, model, _) {
+            if (model.isEmpty) return const SizedBox.shrink();
+            return Padding(
+              padding: const EdgeInsets.only(top: 12),
+              child: _ModelInfoCard(model: model),
+            );
+          },
         ),
       ],
     );
   }
 }
 
-class _GoalRow extends StatelessWidget {
-  const _GoalRow({
-    required this.value,
-    required this.onDecrease,
-    required this.onIncrease,
-  });
-
-  final int value;
-  final VoidCallback onDecrease;
-  final VoidCallback onIncrease;
+class _AiUsageTracker extends StatelessWidget {
+  const _AiUsageTracker({required this.repository});
+  final AppRepository repository;
 
   @override
   Widget build(BuildContext context) {
-    return Row(
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Container(
-          width: 42,
-          height: 42,
-          decoration: BoxDecoration(
-            color: AppColors.of(context).primary.withOpacity(0.18),
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Icon(Icons.flag, color: AppColors.of(context).primary),
+        const Text(
+          'AI Kullanım Takibi',
+          style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 14),
         ),
-        SizedBox(width: 12),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Günlük Hedef',
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w700,
-                    ),
-              ),
-              Text(
-                '$value soru',
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: AppColors.of(context).textSecondary,
-                    ),
-              ),
-            ],
-          ),
+        const SizedBox(height: 6),
+        const Text(
+          'Bugün yapılan AI istekleri.',
+          style: TextStyle(color: Colors.white54, fontSize: 11),
         ),
-        Row(
-          children: [
-            _GoalButton(icon: Icons.remove, onTap: onDecrease),
-            SizedBox(width: 8),
-            _GoalButton(icon: Icons.add, onTap: onIncrease),
-          ],
+        const SizedBox(height: 12),
+        ValueListenableBuilder<int>(
+          valueListenable: repository.aiRequestCountToday,
+          builder: (context, count, _) {
+            return Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: AppColors.of(context).primary.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: AppColors.of(context).primary.withValues(alpha: 0.3),
+                ),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.analytics, color: AppColors.of(context).primary, size: 20),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Bugünkü Kullanım',
+                          style: TextStyle(color: Colors.white54, fontSize: 10),
+                        ),
+                        Text(
+                          '$count İstek',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w800,
+                            fontSize: 16,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: Colors.black26,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Text(
+                      'Limit: 1500',
+                      style: TextStyle(color: Colors.white54, fontSize: 9),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
         ),
       ],
     );
@@ -577,7 +529,6 @@ class _GoalRow extends StatelessWidget {
 
 class _AiGoalSection extends StatelessWidget {
   const _AiGoalSection({required this.repository});
-
   final AppRepository repository;
 
   @override
@@ -585,221 +536,104 @@ class _AiGoalSection extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
+        const Text(
           'AI Hedef Asistanı',
-          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: Colors.white,
-                fontWeight: FontWeight.w700,
-              ),
+          style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 14),
         ),
-        SizedBox(height: 6),
-        Text(
-          'Çalışma verilerine göre günlük/haftalık/aylık hedef önerir.',
-          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: AppColors.of(context).textSecondary,
-              ),
+        const SizedBox(height: 6),
+        const Text(
+          'Çalışma verilerine göre hedef önerir.',
+          style: TextStyle(color: Colors.white54, fontSize: 11),
         ),
-        SizedBox(height: 12),
-        ValueListenableBuilder<Map<String, int>>(
-          valueListenable: repository.aiGoalTargets,
-          builder: (context, targets, _) {
-            return ValueListenableBuilder<DateTime?>(
-              valueListenable: repository.aiGoalUpdatedAt,
-              builder: (context, updatedAt, __) {
-                return Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Expanded(
-                          child: _AiGoalTile(
-                            label: 'Günlük',
-                            value: targets['daily'],
-                            suffix: 'soru',
-                          ),
-                        ),
-                        SizedBox(width: 8),
-                        Expanded(
-                          child: _AiGoalTile(
-                            label: 'Haftalık',
-                            value: targets['weekly'],
-                            suffix: 'soru',
-                          ),
-                        ),
-                        SizedBox(width: 8),
-                        Expanded(
-                          child: _AiGoalTile(
-                            label: 'Aylık',
-                            value: targets['monthly'],
-                            suffix: 'soru',
-                          ),
-                        ),
-                      ],
-                    ),
-                    SizedBox(height: 8),
-                    Text(
-                      updatedAt == null
-                          ? 'Henüz hedef oluşturulmadı.'
-                          : 'Son güncelleme: ${_formatDateTime(updatedAt)}',
-                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                            color: AppColors.of(context).textSecondary,
-                          ),
-                    ),
-                  ],
-                );
-              },
-            );
-          },
-        ),
-        SizedBox(height: 14),
-        ValueListenableBuilder<String>(
-          valueListenable: repository.aiGoalCadence,
-          builder: (context, cadence, _) {
-            return Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                _AiCadenceChip(
-                  label: 'Günlük',
-                  isSelected: cadence == 'daily',
-                  onTap: () => repository.setAiGoalCadence('daily'),
-                ),
-                _AiCadenceChip(
-                  label: 'Haftalık',
-                  isSelected: cadence == 'weekly',
-                  onTap: () => repository.setAiGoalCadence('weekly'),
-                ),
-                _AiCadenceChip(
-                  label: 'Aylık',
-                  isSelected: cadence == 'monthly',
-                  onTap: () => repository.setAiGoalCadence('monthly'),
-                ),
-              ],
-            );
-          },
-        ),
-        SizedBox(height: 12),
-        ValueListenableBuilder<bool>(
-          valueListenable: repository.aiNotificationsEnabled,
-          builder: (context, enabled, _) {
-            return Row(
-              children: [
-                Container(
-                  width: 42,
-                  height: 42,
-                  decoration: BoxDecoration(
-                    color: AppColors.of(context).primary.withOpacity(0.18),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child:
-                      Icon(Icons.notifications, color: AppColors.of(context).primary),
-                ),
-                SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'AI Bildirimleri',
-                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                              color: Colors.white,
-                              fontWeight: FontWeight.w700,
-                            ),
-                      ),
-                      Text(
-                        'Öneriler bildirim kutusuna düşsün.',
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color: AppColors.of(context).textSecondary,
-                            ),
-                      ),
-                    ],
-                  ),
-                ),
-                Switch.adaptive(
-                  value: enabled,
-                  onChanged: repository.setAiNotificationsEnabled,
-                  activeColor: AppColors.of(context).primary,
-                ),
-              ],
-            );
-          },
-        ),
-        SizedBox(height: 12),
+        const SizedBox(height: 12),
+        _AiGoalDisplay(repository: repository),
+        const SizedBox(height: 14),
+        _AiCadenceSelector(repository: repository),
+        const SizedBox(height: 12),
+        _AiNotificationToggle(repository: repository),
+        const SizedBox(height: 12),
         SizedBox(
           width: double.infinity,
           child: ElevatedButton.icon(
             onPressed: () => _requestAiGoals(context, repository),
-            icon: Icon(Icons.auto_awesome),
-            label: Text('AI Hedef Öner'),
+            icon: const Icon(Icons.auto_awesome),
+            label: const Text('AI Hedef Öner'),
           ),
-        ),
-        SizedBox(height: 12),
-        ValueListenableBuilder<String?>(
-          valueListenable: repository.aiProgramLast,
-          builder: (context, program, _) {
-            return ValueListenableBuilder<DateTime?>(
-              valueListenable: repository.aiProgramUpdatedAt,
-              builder: (context, updatedAt, __) {
-                return Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      updatedAt == null
-                          ? 'Henüz bir program oluşturulmadı.'
-                          : 'Son program: ${_formatDateTime(updatedAt)}',
-                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                            color: AppColors.of(context).textSecondary,
-                          ),
-                    ),
-                  ],
-                );
-              },
-            );
-          },
         ),
       ],
     );
   }
 }
 
-class _AiGoalTile extends StatelessWidget {
-  const _AiGoalTile({
-    required this.label,
-    required this.value,
-    required this.suffix,
-  });
+class _AiGoalDisplay extends StatelessWidget {
+  const _AiGoalDisplay({required this.repository});
+  final AppRepository repository;
 
+  @override
+  Widget build(BuildContext context) {
+    return ValueListenableBuilder<Map<String, int>>(
+      valueListenable: repository.aiGoalTargets,
+      builder: (context, targets, _) {
+        return ValueListenableBuilder<DateTime?>(
+          valueListenable: repository.aiGoalUpdatedAt,
+          builder: (context, updatedAt, __) {
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: _AiGoalTile(label: 'Günlük', value: targets['daily'], suffix: 'soru'),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: _AiGoalTile(label: 'Haftalık', value: targets['weekly'], suffix: 'soru'),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: _AiGoalTile(label: 'Aylık', value: targets['monthly'], suffix: 'soru'),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  updatedAt == null
+                      ? 'Henüz hedef oluşturulmadı.'
+                      : 'Son güncelleme: ${_formatDateTime(updatedAt)}',
+                  style: const TextStyle(color: Colors.white38, fontSize: 10),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+}
+
+class _AiGoalTile extends StatelessWidget {
+  const _AiGoalTile({required this.label, required this.value, required this.suffix});
   final String label;
   final int? value;
   final String suffix;
-
   @override
   Widget build(BuildContext context) {
     final display = value == null ? '—' : value.toString();
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.05),
-        borderRadius: BorderRadius.circular(14),
+        color: Colors.white.withValues(alpha: 0.05),
+        borderRadius: BorderRadius.circular(12),
         border: Border.all(color: Colors.white12),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            label,
-            style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                  color: AppColors.of(context).textSecondary,
-                  letterSpacing: 0.4,
-                ),
-          ),
-          SizedBox(height: 4),
+          Text(label, style: const TextStyle(color: Colors.white38, fontSize: 9)),
+          const SizedBox(height: 4),
           Text(
             '$display $suffix',
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w700,
-                ),
+            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 12),
           ),
         ],
       ),
@@ -807,28 +641,57 @@ class _AiGoalTile extends StatelessWidget {
   }
 }
 
-class _AiCadenceChip extends StatelessWidget {
-  const _AiCadenceChip({
-    required this.label,
-    required this.isSelected,
-    required this.onTap,
-  });
+class _AiCadenceSelector extends StatelessWidget {
+  const _AiCadenceSelector({required this.repository});
+  final AppRepository repository;
 
+  @override
+  Widget build(BuildContext context) {
+    return ValueListenableBuilder<String>(
+      valueListenable: repository.aiGoalCadence,
+      builder: (context, cadence, _) {
+        return Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            _AiCadenceChip(
+              label: 'Günlük',
+              isSelected: cadence == 'daily',
+              onTap: () => repository.setAiGoalCadence('daily'),
+            ),
+            _AiCadenceChip(
+              label: 'Haftalık',
+              isSelected: cadence == 'weekly',
+              onTap: () => repository.setAiGoalCadence('weekly'),
+            ),
+            _AiCadenceChip(
+              label: 'Aylık',
+              isSelected: cadence == 'monthly',
+              onTap: () => repository.setAiGoalCadence('monthly'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _AiCadenceChip extends StatelessWidget {
+  const _AiCadenceChip({required this.label, required this.isSelected, required this.onTap});
   final String label;
   final bool isSelected;
   final VoidCallback onTap;
-
   @override
   Widget build(BuildContext context) {
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(999),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         decoration: BoxDecoration(
           color: isSelected
-              ? AppColors.of(context).primary.withOpacity(0.2)
-              : Colors.white.withOpacity(0.06),
+              ? AppColors.of(context).primary.withValues(alpha: 0.2)
+              : Colors.white.withValues(alpha: 0.06),
           borderRadius: BorderRadius.circular(999),
           border: Border.all(
             color: isSelected ? AppColors.of(context).primary : Colors.white12,
@@ -836,23 +699,67 @@ class _AiCadenceChip extends StatelessWidget {
         ),
         child: Text(
           label,
-          style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                color: isSelected ? Colors.white : AppColors.of(context).textSecondary,
-                fontWeight: FontWeight.w600,
-              ),
+          style: TextStyle(
+            color: isSelected ? Colors.white : Colors.white54,
+            fontWeight: FontWeight.w600,
+            fontSize: 11,
+          ),
         ),
       ),
     );
   }
 }
 
+class _AiNotificationToggle extends StatelessWidget {
+  const _AiNotificationToggle({required this.repository});
+  final AppRepository repository;
 
-
-
+  @override
+  Widget build(BuildContext context) {
+    return ValueListenableBuilder<bool>(
+      valueListenable: repository.aiNotificationsEnabled,
+      builder: (context, enabled, _) {
+        return Row(
+          children: [
+            Container(
+              width: 42,
+              height: 42,
+              decoration: BoxDecoration(
+                color: AppColors.of(context).primary.withValues(alpha: 0.18),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(Icons.notifications, color: AppColors.of(context).primary),
+            ),
+            const SizedBox(width: 12),
+            const Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'AI Bildirimleri',
+                    style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 14),
+                  ),
+                  Text(
+                    'Öneriler bildirim kutusuna düşsün.',
+                    style: TextStyle(color: Colors.white54, fontSize: 11),
+                  ),
+                ],
+              ),
+            ),
+            Switch.adaptive(
+              value: enabled,
+              onChanged: repository.setAiNotificationsEnabled,
+              activeColor: AppColors.of(context).primary,
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
 
 class _ReminderSection extends StatelessWidget {
   const _ReminderSection({required this.repository});
-
   final AppRepository repository;
 
   @override
@@ -866,51 +773,38 @@ class _ReminderSection extends StatelessWidget {
             return Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
+                const Text(
                   'Hedef Hatırlatıcısı',
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w700,
-                      ),
+                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 14),
                 ),
-                SizedBox(height: 8),
+                const SizedBox(height: 8),
                 Row(
                   children: [
                     Container(
                       width: 42,
                       height: 42,
                       decoration: BoxDecoration(
-                        color: AppColors.of(context).primary.withOpacity(0.18),
+                        color: AppColors.of(context).primary.withValues(alpha: 0.18),
                         borderRadius: BorderRadius.circular(12),
                       ),
-                      child:
-                          Icon(Icons.alarm, color: AppColors.of(context).primary),
+                      child: Icon(Icons.alarm, color: AppColors.of(context).primary),
                     ),
-                    SizedBox(width: 12),
+                    const SizedBox(width: 12),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
+                          const Text(
                             'Günlük hedef uyarısı',
-                            style: Theme.of(context)
-                                .textTheme
-                                .bodyMedium
-                                ?.copyWith(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.w600,
-                                ),
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w600,
+                              fontSize: 13,
+                            ),
                           ),
                           Text(
-                            enabled
-                                ? 'Saat $time'
-                                : 'Şu an kapalı',
-                            style: Theme.of(context)
-                                .textTheme
-                                .bodySmall
-                                ?.copyWith(
-                                  color: AppColors.of(context).textSecondary,
-                                ),
+                            enabled ? 'Saat $time' : 'Şu an kapalı',
+                            style: const TextStyle(color: Colors.white54, fontSize: 11),
                           ),
                         ],
                       ),
@@ -931,53 +825,17 @@ class _ReminderSection extends StatelessWidget {
                     ),
                   ],
                 ),
-                SizedBox(height: 8),
+                const SizedBox(height: 12),
                 SizedBox(
                   width: double.infinity,
                   child: OutlinedButton.icon(
-                    onPressed: () => _requestExactAlarm(context),
-                    icon: Icon(Icons.settings_suggest),
-                    label: Text('Alarm İzni Kontrol'),
+                    onPressed: enabled ? () => _pickReminderTime(context, repository) : null,
+                    icon: const Icon(Icons.schedule, size: 18),
+                    label: const Text('Saat Seç', style: TextStyle(fontSize: 12)),
                   ),
                 ),
-                SizedBox(height: 8),
-                SizedBox(
-                  width: double.infinity,
-                  child: OutlinedButton.icon(
-                    onPressed: enabled
-                        ? () => _pickReminderTime(context, repository)
-                        : null,
-                    icon: Icon(Icons.schedule),
-                    label: Text('Saat Seç'),
-                  ),
-                ),
-                SizedBox(height: 16),
+                const SizedBox(height: 16),
                 _WeeklyPlanSection(repository: repository),
-                SizedBox(height: 16),
-                SizedBox(
-                  width: double.infinity,
-                  child: OutlinedButton.icon(
-                    onPressed: () async {
-                      await NotificationService.showReminderNow('Bu bir test bildirimidir.');
-                      if (!context.mounted) return;
-                      _showSnack(context, 'Test bildirimi gönderildi.');
-                    },
-                    icon: Icon(Icons.notifications_active),
-                    label: Text('Test Bildirimi Gönder'),
-                  ),
-                ),
-                SizedBox(height: 8),
-                TextButton(
-                  onPressed: () async {
-                    final granted = await NotificationService.requestExactAlarmPermission();
-                    if (!context.mounted) return;
-                    _showSnack(
-                      context, 
-                      granted ? 'Tam zamanlı alarm izni var.' : 'İzin verilmedi. Ayarlardan açın.',
-                    );
-                  },
-                  child: Text('Kesin Alarm İznini Kontrol Et (Android 12+)'),
-                ),
               ],
             );
           },
@@ -989,7 +847,6 @@ class _ReminderSection extends StatelessWidget {
 
 class _WeeklyPlanSection extends StatelessWidget {
   const _WeeklyPlanSection({required this.repository});
-
   final AppRepository repository;
 
   @override
@@ -1006,51 +863,38 @@ class _WeeklyPlanSection extends StatelessWidget {
                 return Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
+                    const Text(
                       'Haftalık Plan Bildirimi',
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w700,
-                          ),
+                      style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 14),
                     ),
-                    SizedBox(height: 8),
+                    const SizedBox(height: 8),
                     Row(
                       children: [
                         Container(
                           width: 42,
                           height: 42,
                           decoration: BoxDecoration(
-                            color: AppColors.of(context).primary.withOpacity(0.18),
+                            color: AppColors.of(context).primary.withValues(alpha: 0.18),
                             borderRadius: BorderRadius.circular(12),
                           ),
-                          child: Icon(Icons.event_note,
-                              color: AppColors.of(context).primary),
+                          child: Icon(Icons.event_note, color: AppColors.of(context).primary),
                         ),
-                        SizedBox(width: 12),
+                        const SizedBox(width: 12),
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(
+                              const Text(
                                 'Haftalık plan hatırlat',
-                                style: Theme.of(context)
-                                    .textTheme
-                                    .bodyMedium
-                                    ?.copyWith(
-                                      color: Colors.white,
-                                      fontWeight: FontWeight.w600,
-                                    ),
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 13,
+                                ),
                               ),
                               Text(
-                                enabled
-                                    ? '${_weekdayLabel(weekday)} • $time'
-                                    : 'Şu an kapalı',
-                                style: Theme.of(context)
-                                    .textTheme
-                                    .bodySmall
-                                    ?.copyWith(
-                                      color: AppColors.of(context).textSecondary,
-                                    ),
+                                enabled ? '${_weekdayLabel(weekday)} • $time' : 'Şu an kapalı',
+                                style: const TextStyle(color: Colors.white54, fontSize: 11),
                               ),
                             ],
                           ),
@@ -1060,8 +904,7 @@ class _WeeklyPlanSection extends StatelessWidget {
                           onChanged: (value) async {
                             await repository.setWeeklyPlanEnabled(value);
                             if (value) {
-                              await NotificationService
-                                  .scheduleWeeklyPlanWithBody(
+                              await NotificationService.scheduleWeeklyPlanWithBody(
                                 time: repository.weeklyPlanTime.value,
                                 weekday: repository.weeklyPlanWeekday.value,
                                 body: _weeklyPlanBody(repository),
@@ -1074,32 +917,22 @@ class _WeeklyPlanSection extends StatelessWidget {
                         ),
                       ],
                     ),
-                    SizedBox(height: 8),
+                    const SizedBox(height: 12),
                     Row(
                       children: [
                         Expanded(
                           child: OutlinedButton.icon(
-                            onPressed: enabled
-                                ? () => _pickWeeklyPlanDay(
-                                      context,
-                                      repository,
-                                    )
-                                : null,
-                            icon: Icon(Icons.calendar_today),
-                            label: Text('Gün Seç'),
+                            onPressed: enabled ? () => _pickWeeklyPlanDay(context, repository) : null,
+                            icon: const Icon(Icons.calendar_today, size: 16),
+                            label: const Text('Gün', style: TextStyle(fontSize: 12)),
                           ),
                         ),
-                        SizedBox(width: 12),
+                        const SizedBox(width: 12),
                         Expanded(
                           child: OutlinedButton.icon(
-                            onPressed: enabled
-                                ? () => _pickWeeklyPlanTime(
-                                      context,
-                                      repository,
-                                    )
-                                : null,
-                            icon: Icon(Icons.schedule),
-                            label: Text('Saat Seç'),
+                            onPressed: enabled ? () => _pickWeeklyPlanTime(context, repository) : null,
+                            icon: const Icon(Icons.schedule, size: 16),
+                            label: const Text('Saat', style: TextStyle(fontSize: 12)),
                           ),
                         ),
                       ],
@@ -1115,14 +948,10 @@ class _WeeklyPlanSection extends StatelessWidget {
   }
 }
 
-
-
 class _GoalButton extends StatelessWidget {
   const _GoalButton({required this.icon, required this.onTap});
-
   final IconData icon;
   final VoidCallback onTap;
-
   @override
   Widget build(BuildContext context) {
     return InkWell(
@@ -1132,27 +961,349 @@ class _GoalButton extends StatelessWidget {
         width: 36,
         height: 36,
         decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.06),
+          color: Colors.white.withValues(alpha: 0.06),
           borderRadius: BorderRadius.circular(12),
         ),
-        child: Icon(icon, color: Colors.white70),
+        child: Icon(icon, color: Colors.white70, size: 20),
       ),
     );
   }
 }
 
-class _AiGoalResult {
-  const _AiGoalResult({
-    required this.daily,
-    required this.weekly,
-    required this.monthly,
-    required this.note,
-  });
+class _ModelInfoCard extends StatelessWidget {
+  const _ModelInfoCard({required this.model});
+  final String model;
+  @override
+  Widget build(BuildContext context) {
+    final info = _getModelInfo(model);
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: AppColors.of(context).surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.of(context).primary.withValues(alpha: 0.3)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.smart_toy, color: AppColors.of(context).primary, size: 18),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  model,
+                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 13),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(info.description, style: const TextStyle(color: Colors.white70, fontSize: 11)),
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(color: Colors.black26, borderRadius: BorderRadius.circular(12)),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Ücretsiz Limitler',
+                  style: TextStyle(color: Colors.white38, fontSize: 9, fontWeight: FontWeight.w600),
+                ),
+                const SizedBox(height: 6),
+                _LimitRow(label: 'Dakikalık İstek', value: info.rpm),
+                _LimitRow(label: 'Günlük İstek', value: info.rpd),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
 
-  final int daily;
-  final int weekly;
-  final int monthly;
-  final String note;
+class _LimitRow extends StatelessWidget {
+  const _LimitRow({required this.label, required this.value});
+  final String label;
+  final String value;
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 1),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(label, style: const TextStyle(color: Colors.white54, fontSize: 10)),
+          Text(
+            value,
+            style: TextStyle(
+              color: AppColors.of(context).primaryLight,
+              fontWeight: FontWeight.w700,
+              fontSize: 10,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ThemeGrid extends StatelessWidget {
+  const _ThemeGrid({required this.currentTheme, required this.onThemeSelected});
+  final String currentTheme;
+  final Function(String) onThemeSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+          children: ['midnight', 'ocean', 'volcanic', 'forest', 'royal'].map((key) {
+            final config = _getThemeColor(key);
+            return _ThemeOption(
+              color: config.primary,
+              label: config.label,
+              isSelected: currentTheme == key,
+              onTap: () => onThemeSelected(key),
+            );
+          }).toList(),
+        ),
+        const SizedBox(height: 16),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+          children: ['sunset', 'glacier', 'crimson', 'amber', 'graphite'].map((key) {
+            final config = _getThemeColor(key);
+            return _ThemeOption(
+              color: config.primary,
+              label: config.label,
+              isSelected: currentTheme == key,
+              onTap: () => onThemeSelected(key),
+            );
+          }).toList(),
+        ),
+      ],
+    );
+  }
+}
+
+class _ThemeOption extends StatelessWidget {
+  const _ThemeOption({
+    required this.color,
+    required this.label,
+    required this.isSelected,
+    required this.onTap,
+  });
+  final Color color;
+  final String label;
+  final bool isSelected;
+  final VoidCallback onTap;
+  @override
+  Widget build(BuildContext context) {
+    return Flexible(
+      child: GestureDetector(
+        onTap: onTap,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: color,
+                shape: BoxShape.circle,
+                border: isSelected
+                    ? Border.all(color: Colors.white, width: 2)
+                    : Border.all(color: Colors.white12, width: 1),
+                boxShadow: isSelected
+                    ? [
+                        BoxShadow(
+                          color: color.withValues(alpha: 0.5),
+                          blurRadius: 8,
+                          spreadRadius: 1,
+                        )
+                      ]
+                    : [],
+              ),
+              child: isSelected ? const Icon(Icons.check, color: Colors.white, size: 20) : null,
+            ),
+            const SizedBox(height: 6),
+            Text(
+              label,
+              textAlign: TextAlign.center,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: isSelected ? Colors.white : Colors.white54,
+                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                fontSize: 9,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ProfileAction extends StatelessWidget {
+  const _ProfileAction({
+    required this.title,
+    required this.subtitle,
+    required this.icon,
+    required this.onTap,
+    this.iconColor,
+  });
+  final String title;
+  final String subtitle;
+  final IconData icon;
+  final VoidCallback onTap;
+  final Color? iconColor;
+  @override
+  Widget build(BuildContext context) {
+    return ListTile(
+      onTap: onTap,
+      contentPadding: EdgeInsets.zero,
+      leading: Container(
+        width: 42,
+        height: 42,
+        decoration: BoxDecoration(
+          color: (iconColor ?? AppColors.of(context).primary).withValues(alpha: 0.18),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Icon(icon, color: iconColor ?? AppColors.of(context).primary),
+      ),
+      title: Text(
+        title,
+        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 14),
+      ),
+      subtitle: Text(
+        subtitle,
+        style: const TextStyle(color: Colors.white54, fontSize: 11),
+      ),
+      trailing: const Icon(Icons.chevron_right, color: Colors.white54, size: 20),
+    );
+  }
+}
+
+class _ExamDateRow extends StatelessWidget {
+  const _ExamDateRow({required this.value, required this.onTap});
+  final DateTime value;
+  final VoidCallback onTap;
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Container(
+          width: 42,
+          height: 42,
+          decoration: BoxDecoration(
+            color: AppColors.of(context).primary.withValues(alpha: 0.18),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Icon(Icons.event, color: AppColors.of(context).primary),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Sınav Tarihi',
+                style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 14),
+              ),
+              Text(
+                '${value.day}.${value.month}.${value.year}',
+                style: const TextStyle(color: Colors.white54, fontSize: 12),
+              ),
+            ],
+          ),
+        ),
+        OutlinedButton(
+          onPressed: onTap,
+          child: const Text('Düzenle', style: TextStyle(fontSize: 12)),
+        ),
+      ],
+    );
+  }
+}
+
+class _GoalRow extends StatelessWidget {
+  const _GoalRow({required this.value, required this.onDecrease, required this.onIncrease});
+  final int value;
+  final VoidCallback onDecrease;
+  final VoidCallback onIncrease;
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Container(
+          width: 42,
+          height: 42,
+          decoration: BoxDecoration(
+            color: AppColors.of(context).primary.withValues(alpha: 0.18),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Icon(Icons.flag, color: AppColors.of(context).primary),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Günlük Hedef',
+                style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 14),
+              ),
+              Text('$value soru', style: const TextStyle(color: Colors.white54, fontSize: 12)),
+            ],
+          ),
+        ),
+        Row(
+          children: [
+            _GoalButton(icon: Icons.remove, onTap: onDecrease),
+            const SizedBox(width: 8),
+            _GoalButton(icon: Icons.add, onTap: onIncrease),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+// Global functions & Helpers
+String _weekdayLabel(int weekday) {
+  switch (weekday) {
+    case DateTime.monday: return 'Pazartesi';
+    case DateTime.tuesday: return 'Salı';
+    case DateTime.wednesday: return 'Çarşamba';
+    case DateTime.thursday: return 'Perşembe';
+    case DateTime.friday: return 'Cuma';
+    case DateTime.saturday: return 'Cumartesi';
+    case DateTime.sunday: return 'Pazar';
+    default: return 'Pazartesi';
+  }
+}
+
+String _weeklyPlanBody(AppRepository repository) {
+  final program = repository.aiProgramLast.value;
+  if (program == null || program.trim().isEmpty) return 'Bu hafta için çalışma planını güncelle.';
+  final firstLine = program.trim().split('\n').first;
+  return firstLine.length > 120 ? '${firstLine.substring(0, 120)}…' : firstLine;
+}
+
+String _formatDateTime(DateTime dateTime) =>
+    '${dateTime.day}.${dateTime.month} ${dateTime.hour}:${dateTime.minute.toString().padLeft(2, '0')}';
+
+void _showSnack(BuildContext context, String message) => InAppNotice.show(context, message);
+
+Future<void> Function() _showLoadingDialog(BuildContext context, String title) {
+  bool isOpen = true;
+  AiLoadingDialog.show(context, status: title).then((_) => isOpen = false);
+  return () async {
+    if (isOpen && context.mounted) Navigator.of(context).pop();
+  };
 }
 
 Future<void> _fetchAndSelectModel(
@@ -1164,30 +1315,18 @@ Future<void> _fetchAndSelectModel(
     _showSnack(context, 'Önce API anahtarını girin.');
     return;
   }
-
   final closeLoading = _showLoadingDialog(context, 'Modeller listeleniyor...');
   try {
     final client = GeminiClient();
     final models = await client.listModels(apiKey);
-    
     closeLoading();
-
-    if (!context.mounted) {
-      return;
-    }
-    // Navigator.of(context).pop();
-
-    if (models.isEmpty) {
-      _showSnack(context, 'Hiçbir model bulunamadı.');
-      return;
-    }
-
+    if (!context.mounted || models.isEmpty) return;
     final selected = await showDialog<String>(
       context: context,
       builder: (context) {
         final currentModel = repository.geminiModel.value;
         return AlertDialog(
-          title: Text('Model Seç'),
+          title: const Text('Model Seç'),
           content: SizedBox(
             width: double.maxFinite,
             child: ListView.builder(
@@ -1202,9 +1341,12 @@ Future<void> _fetchAndSelectModel(
                     style: TextStyle(
                       fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
                       color: isActive ? AppColors.of(context).primaryLight : Colors.white,
+                      fontSize: 14,
                     ),
                   ),
-                  trailing: isActive ? Icon(Icons.check, color: AppColors.of(context).primaryLight) : null,
+                  trailing: isActive
+                      ? Icon(Icons.check, color: AppColors.of(context).primaryLight)
+                      : null,
                   onTap: () => Navigator.of(context).pop(model),
                 );
               },
@@ -1213,121 +1355,59 @@ Future<void> _fetchAndSelectModel(
         );
       },
     );
-
-    if (selected != null) {
+    if (selected != null && context.mounted) {
       await repository.setGeminiModel(selected);
-      // Also save the API key if it hasn't been saved yet
-      if (repository.geminiApiKey.value != apiKey) {
-        await repository.setGeminiApiKey(apiKey);
-      }
-      if (!context.mounted) {
-        return;
-      }
+      if (repository.geminiApiKey.value != apiKey) await repository.setGeminiApiKey(apiKey);
       _showSnack(context, 'Model seçildi: $selected');
     }
   } catch (e) {
     closeLoading();
-    if (!context.mounted) {
-      return;
-    }
-    // Navigator.of(context).pop();
-    
-    String message = 'Hata: ${e.toString().replaceAll("Exception: ", "")}';
-    if (e.toString().contains('429')) {
-      message = 'API kotası aşıldı. Lütfen daha sonra tekrar deneyin.';
-    } else if (e.toString().contains('503')) {
-      message = 'AI servisi yoğun. Lütfen daha sonra deneyin.';
-    }
-    _showSnack(context, message);
+    _showSnack(context, 'Hata: API anahtarını kontrol et.');
   }
 }
 
-Future<void> _requestAiGoals(
-  BuildContext context,
-  AppRepository repository,
-) async {
+Future<void> _requestAiGoals(BuildContext context, AppRepository repository) async {
   final apiKey = repository.geminiApiKey.value;
   if (apiKey.isEmpty) {
     _showSnack(context, 'Gemini anahtarını profilden ekle.');
     return;
   }
-
-  final entries = repository.questionEntries.value;
-  final exams = repository.mockExams.value;
-  final now = DateTime.now();
-
-  final last7Questions = _sumQuestionsSince(entries, now, 7);
-  final last7Minutes = _sumMinutesSince(entries, now, 7);
-  final last30Questions = _sumQuestionsSince(entries, now, 30);
-  final avgNet = _averageNet(exams);
-  final streak = _calculateStreak(entries, exams);
-  final cadence = repository.aiGoalCadence.value;
-
-  final prompt = '''
-KPSS P3 adayı için gerçekçi soru hedefleri belirle. 
-Veriler:
-- Son 7 gün: $last7Questions soru, $last7Minutes dk çalışma.
-- Son 30 gün: $last30Questions soru.
-- Ortalama Net: ${avgNet.toStringAsFixed(1)}
-- Çalışma serisi: $streak gün.
-- Kullanıcı tercihi: ${_cadenceLabel(cadence)} odaklı.
-
-İstenen çıktı: Sadece JSON formatında, başka metin ekleme.
-Şema:
-{
-  "daily": int,
-  "weekly": int,
-  "monthly": int,
-  "note": "Kısa, motive edici mentor notu (maks 120 karakter)"
-}
-Gerçekçi ol, mevcut performansın %10-20 üzerine çıkmayı hedefle.
-''';
-
   final closeLoading = _showLoadingDialog(context, 'AI hedef hazırlanıyor...');
   try {
     final client = GeminiClient();
-    final model = repository.geminiModel.value.isEmpty
-        ? 'gemini-1.5-flash-latest'
-        : repository.geminiModel.value;
-    final result = await client.generateText(
-      apiKey: apiKey,
-      prompt: prompt,
-      model: model,
-    );
+    final model =
+        repository.geminiModel.value.isEmpty ? 'gemini-1.5-flash-latest' : repository.geminiModel.value;
+    final entries = repository.questionEntries.value;
+    final exams = repository.mockExams.value;
+    final streak = _calculateStreak(entries, exams);
+    final prompt =
+        'KPSS/YKS adayı için çalışma verilerine göre JSON formatında günlük, haftalık ve aylık soru hedefi öner. Veri: $streak gün seri.';
+    final result = await client.generateText(apiKey: apiKey, prompt: prompt, model: model);
     await repository.incrementAiRequestCount();
-    
     closeLoading();
-
-    if (!context.mounted) {
-      return;
+    if (context.mounted) {
+      final parsed = _parseAiGoalResult(result);
+      if (parsed != null) await _showAiGoalDialog(context, repository, parsed);
     }
-    // Navigator.of(context).pop();
-    final parsed = _parseAiGoalResult(result);
-    if (parsed == null) {
-      if (!context.mounted) {
-        return;
-      }
-      await _showResultDialog(context, 'AI Hedef Önerisi', result);
-      return;
-    }
-    await _showAiGoalDialog(context, repository, parsed);
   } catch (e) {
     closeLoading();
-    if (!context.mounted) {
-      return;
-    }
-    // Navigator.of(context).pop();
-    
-    String message = 'AI hedef önerisi alınamadı.';
-    if (e.toString().contains('429')) {
-      message = 'API kotası aşıldı. Lütfen daha sonra tekrar deneyin.';
-    } else if (e.toString().contains('404')) {
-      message = 'Seçilen model bulunamadı.';
-    } else if (e.toString().contains('503')) {
-      message = 'AI servisi yoğun. Lütfen daha sonra deneyin.';
-    }
-    
-    _showSnack(context, message);
+    _showSnack(context, 'AI hedef önerisi alınamadı.');
+  }
+}
+
+_AiGoalResult? _parseAiGoalResult(String raw) {
+  final match = RegExp(r'\{[\s\S]*\}').firstMatch(raw);
+  if (match == null) return null;
+  try {
+    final decoded = jsonDecode(match.group(0)!);
+    return _AiGoalResult(
+      daily: decoded['daily'] ?? 50,
+      weekly: decoded['weekly'] ?? 350,
+      monthly: decoded['monthly'] ?? 1500,
+      note: decoded['note'] ?? 'Başarılar!',
+    );
+  } catch (_) {
+    return null;
   }
 }
 
@@ -1336,720 +1416,181 @@ Future<void> _showAiGoalDialog(
   AppRepository repository,
   _AiGoalResult goals,
 ) async {
-  final cadence = repository.aiGoalCadence.value;
-  final cadenceLabel = _cadenceLabel(cadence);
-  final result = await showDialog<_AiGoalDialogAction>(
+  await showDialog(
     context: context,
-    builder: (context) {
-      return AlertDialog(
-        title: Text('AI Hedef Önerisi'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Günlük: ${goals.daily} soru'),
-            Text('Haftalık: ${goals.weekly} soru'),
-            Text('Aylık: ${goals.monthly} soru'),
-            SizedBox(height: 12),
-            Text(goals.note),
-            SizedBox(height: 8),
-            Text(
-              'Seçili kadans: $cadenceLabel',
-              style: Theme.of(context).textTheme.labelSmall,
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () =>
-                Navigator.of(context).pop(_AiGoalDialogAction.saveOnly),
-            child: Text('Kaydet'),
-          ),
-          ElevatedButton(
-            onPressed: () =>
-                Navigator.of(context).pop(_AiGoalDialogAction.applySelected),
-            child: Text('Uygula'),
-          ),
-        ],
-      );
-    },
-  );
-
-  if (!context.mounted) {
-    return;
-  }
-  if (result == null) {
-    return;
-  }
-
-  await repository.setAiGoalTargets({
-    'daily': goals.daily,
-    'weekly': goals.weekly,
-    'monthly': goals.monthly,
-  });
-  await repository.setAiGoalUpdatedAt(DateTime.now());
-
-  if (result == _AiGoalDialogAction.applySelected) {
-    if (cadence == 'daily') {
-      await repository.setDailyGoal(goals.daily);
-      if (!context.mounted) {
-        return;
-      }
-      _showSnack(context, 'Günlük hedef güncellendi.');
-    } else {
-      if (!context.mounted) {
-        return;
-      }
-      _showSnack(context, '$cadenceLabel hedefi kaydedildi.');
-    }
-  } else {
-    if (!context.mounted) {
-      return;
-    }
-    _showSnack(context, 'AI hedefleri kaydedildi.');
-  }
-
-  if (repository.aiNotificationsEnabled.value) {
-    await repository.addNotification(
-      AppNotification(
-        id: DateTime.now().microsecondsSinceEpoch.toString(),
-        title: 'AI Hedef Önerisi',
-        body: 'Günlük ${goals.daily}, haftalık ${goals.weekly}, '
-            'aylık ${goals.monthly} soru.',
-        createdAt: DateTime.now(),
+    builder: (context) => AlertDialog(
+      title: const Text('AI Hedef Önerisi'),
+      content: Text(
+        'Günlük: ${goals.daily}\nHaftalık: ${goals.weekly}\nAylık: ${goals.monthly}\n\n${goals.note}',
       ),
-    );
-  }
-}
-
-_AiGoalResult? _parseAiGoalResult(String raw) {
-  final match = RegExp(r'\{[\s\S]*\}').firstMatch(raw);
-  if (match == null) {
-    return null;
-  }
-  try {
-    final decoded = jsonDecode(match.group(0)!);
-    if (decoded is! Map<String, dynamic>) {
-      return null;
-    }
-    final daily = _readInt(decoded['daily']);
-    final weekly = _readInt(decoded['weekly']);
-    final monthly = _readInt(decoded['monthly']);
-    if (daily == null || weekly == null || monthly == null) {
-      return null;
-    }
-    final note = decoded['note']?.toString().trim() ?? '';
-    return _AiGoalResult(
-      daily: daily,
-      weekly: weekly,
-      monthly: monthly,
-      note: note.isEmpty ? 'AI önerisi hazır.' : note,
-    );
-  } catch (_) {
-    return null;
-  }
-}
-
-int? _readInt(dynamic value) {
-  if (value is int) {
-    return value;
-  }
-  if (value is num) {
-    return value.round();
-  }
-  if (value is String) {
-    final cleaned = value.replaceAll(RegExp(r'[^0-9]'), '');
-    return int.tryParse(cleaned);
-  }
-  return null;
-}
-
-int _sumQuestionsSince(List<QuestionEntry> entries, DateTime now, int days) {
-  return entries
-      .where((entry) => now.difference(entry.createdAt).inDays < days)
-      .fold<int>(0, (sum, entry) => sum + entry.total);
-}
-
-int _sumMinutesSince(List<QuestionEntry> entries, DateTime now, int days) {
-  return entries
-      .where((entry) => now.difference(entry.createdAt).inDays < days)
-      .fold<int>(0, (sum, entry) => sum + entry.minutes);
-}
-
-double _averageNet(List<MockExam> exams) {
-  if (exams.isEmpty) {
-    return 0;
-  }
-  final total = exams.fold<double>(0, (sum, exam) => sum + exam.totalNet);
-  return total / exams.length;
-}
-
-
-
-double _overallAccuracy(List<QuestionEntry> entries) {
-  final correct = entries.fold<int>(0, (sum, entry) => sum + entry.correct);
-  final total = entries.fold<int>(0, (sum, entry) => sum + entry.total);
-  if (total == 0) {
-    return 0;
-  }
-  return correct / total;
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Kapat')),
+        ElevatedButton(
+          onPressed: () async {
+            await repository.setDailyGoal(goals.daily);
+            if (context.mounted) Navigator.pop(context);
+          },
+          child: const Text('Uygula'),
+        ),
+      ],
+    ),
+  );
 }
 
 int _calculateStreak(List<QuestionEntry> entries, List<MockExam> exams) {
   final activityDates = <DateTime>{};
-  for (final entry in entries) {
-    activityDates.add(DateTime(entry.createdAt.year, entry.createdAt.month,
-        entry.createdAt.day));
+  for (final e in entries) {
+    activityDates.add(DateTime(e.createdAt.year, e.createdAt.month, e.createdAt.day));
   }
-  for (final exam in exams) {
-    activityDates.add(DateTime(
-        exam.createdAt.year, exam.createdAt.month, exam.createdAt.day));
+  for (final e in exams) {
+    activityDates.add(DateTime(e.createdAt.year, e.createdAt.month, e.createdAt.day));
   }
-  if (activityDates.isEmpty) {
-    return 0;
-  }
+  if (activityDates.isEmpty) return 0;
   var streak = 0;
   var current = DateTime.now();
   while (true) {
-    final normalized = DateTime(current.year, current.month, current.day);
-    if (!activityDates.contains(normalized)) {
-      break;
-    }
-    streak += 1;
+    if (!activityDates.contains(DateTime(current.year, current.month, current.day))) break;
+    streak++;
     current = current.subtract(const Duration(days: 1));
   }
   return streak;
 }
 
-String _cadenceLabel(String cadence) {
-  switch (cadence) {
-    case 'weekly':
-      return 'Haftalık';
-    case 'monthly':
-      return 'Aylık';
-    default:
-      return 'Günlük';
-  }
-}
-
-String _formatDateTime(DateTime dateTime) {
-  final day = dateTime.day.toString().padLeft(2, '0');
-  final month = dateTime.month.toString().padLeft(2, '0');
-  final hour = dateTime.hour.toString().padLeft(2, '0');
-  final minute = dateTime.minute.toString().padLeft(2, '0');
-  return '$day.$month ${hour}:$minute';
-}
-
-enum _AiGoalDialogAction { saveOnly, applySelected }
-
-Future<void> Function() _showLoadingDialog(BuildContext context, String title) {
-  bool isOpen = true;
-  AiLoadingDialog.show(context, status: title).then((_) => isOpen = false);
-  return () async {
-    if (isOpen && context.mounted) {
-      Navigator.of(context).pop();
-    }
-  };
-}
-
-Future<void> _showResultDialog(
-  BuildContext context,
-  String title,
-  String content,
-) {
-  return AiResponseDialog.show(context, title, content);
-}
-
-Future<void> _exportBackup(
-  BuildContext context,
-  AppRepository repository,
-) async {
+Future<void> _exportBackup(BuildContext context, AppRepository repository) async {
   final data = repository.exportData();
   final dir = await getTemporaryDirectory();
-  final fileName =
-      'kistas_backup_${DateTime.now().millisecondsSinceEpoch}.json';
-  final file = File('${dir.path}/$fileName');
+  final file = File('${dir.path}/kistas_backup.json');
   await file.writeAsString(data);
-  await Share.shareXFiles([XFile(file.path)], text: 'Kıstas yedeği');
+  await Share.shareXFiles([XFile(file.path)], text: 'Kıstas Yedeği');
 }
 
-
-
-Future<void> _requestExactAlarm(BuildContext context) async {
-  final granted = await NotificationService.requestExactAlarmPermission();
-  if (!context.mounted) return;
-  if (granted) {
-    _showSnack(context, 'Tam zamanlı alarm izni verildi.');
-  } else {
-    _showSnack(context, 'Alarm izni verilmedi veya gerekmiyor.');
-  }
-}
-
-Future<void> _pickReminderTime(
-  BuildContext context,
-  AppRepository repository,
-) async {
-  final raw = repository.reminderTime.value;
-  final parts = raw.split(':');
-  final initial = TimeOfDay(
-    hour: parts.length > 1 ? int.tryParse(parts[0]) ?? 20 : 20,
-    minute: parts.length > 1 ? int.tryParse(parts[1]) ?? 0 : 0,
-  );
-  final picked = await showTimePicker(
-    context: context,
-    initialTime: initial,
-  );
-  if (!context.mounted) {
-    return;
-  }
-  if (picked == null) {
-    return;
-  }
-  final formatted =
-      '${picked.hour.toString().padLeft(2, '0')}:${picked.minute.toString().padLeft(2, '0')}';
-  await repository.setReminderTime(formatted);
-  if (repository.reminderEnabled.value) {
-    await NotificationService.scheduleDailyReminder(formatted);
-  }
-  if (!context.mounted) {
-    return;
-  }
-  _showSnack(context, 'Hatırlatıcı saati güncellendi.');
-}
-
-Future<void> _pickWeeklyPlanDay(
-  BuildContext context,
-  AppRepository repository,
-) async {
-  final selected = await showModalBottomSheet<int>(
-    context: context,
-    backgroundColor: AppColors.of(context).surface,
-    shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-    ),
-    builder: (context) {
-      return ListView(
-        shrinkWrap: true,
-        children: [
-          _weekdayTile(context, DateTime.monday),
-          _weekdayTile(context, DateTime.tuesday),
-          _weekdayTile(context, DateTime.wednesday),
-          _weekdayTile(context, DateTime.thursday),
-          _weekdayTile(context, DateTime.friday),
-          _weekdayTile(context, DateTime.saturday),
-          _weekdayTile(context, DateTime.sunday),
-        ],
-      );
-    },
-  );
-  if (!context.mounted) {
-    return;
-  }
-  if (selected == null) {
-    return;
-  }
-  await repository.setWeeklyPlanWeekday(selected);
-  if (repository.weeklyPlanEnabled.value) {
-    await NotificationService.scheduleWeeklyPlanWithBody(
-      time: repository.weeklyPlanTime.value,
-      weekday: repository.weeklyPlanWeekday.value,
-      body: _weeklyPlanBody(repository),
-    );
-  }
-}
-
-Widget _weekdayTile(BuildContext context, int weekday) {
-  return ListTile(
-    title: Text(
-      _weekdayLabel(weekday),
-      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-            color: Colors.white,
-            fontWeight: FontWeight.w600,
-          ),
-    ),
-    onTap: () => Navigator.of(context).pop(weekday),
-  );
-}
-
-Future<void> _pickWeeklyPlanTime(
-  BuildContext context,
-  AppRepository repository,
-) async {
-  final raw = repository.weeklyPlanTime.value;
-  final parts = raw.split(':');
-  final initial = TimeOfDay(
-    hour: parts.length > 1 ? int.tryParse(parts[0]) ?? 9 : 9,
-    minute: parts.length > 1 ? int.tryParse(parts[1]) ?? 0 : 0,
-  );
-  final picked = await showTimePicker(
-    context: context,
-    initialTime: initial,
-  );
-  if (!context.mounted) {
-    return;
-  }
-  if (picked == null) {
-    return;
-  }
-  final formatted =
-      '${picked.hour.toString().padLeft(2, '0')}:${picked.minute.toString().padLeft(2, '0')}';
-  await repository.setWeeklyPlanTime(formatted);
-  if (repository.weeklyPlanEnabled.value) {
-    await NotificationService.scheduleWeeklyPlanWithBody(
-      time: repository.weeklyPlanTime.value,
-      weekday: repository.weeklyPlanWeekday.value,
-      body: _weeklyPlanBody(repository),
-    );
-  }
-  if (!context.mounted) {
-    return;
-  }
-  _showSnack(context, 'Haftalık plan saati güncellendi.');
-}
-
-String _weekdayLabel(int weekday) {
-  switch (weekday) {
-    case DateTime.monday:
-      return 'Pazartesi';
-    case DateTime.tuesday:
-      return 'Salı';
-    case DateTime.wednesday:
-      return 'Çarşamba';
-    case DateTime.thursday:
-      return 'Perşembe';
-    case DateTime.friday:
-      return 'Cuma';
-    case DateTime.saturday:
-      return 'Cumartesi';
-    case DateTime.sunday:
-      return 'Pazar';
-    default:
-      return 'Pazartesi';
-  }
-}
-
-String _weeklyPlanBody(AppRepository repository) {
-  final program = repository.aiProgramLast.value;
-  if (program == null || program.trim().isEmpty) {
-    return 'Bu hafta için çalışma planını güncelle.';
-  }
-  final trimmed = program.trim();
-  final firstLine = trimmed.split('\n').first;
-  return firstLine.length > 120 ? '${firstLine.substring(0, 120)}…' : firstLine;
-}
-
-Future<void> _importBackup(
-  BuildContext context,
-  AppRepository repository,
-) async {
-  final result = await FilePicker.platform.pickFiles(
-    type: FileType.custom,
-    allowedExtensions: ['json'],
-  );
-  if (result == null || result.files.single.path == null) {
-    return;
-  }
-  final file = File(result.files.single.path!);
+Future<void> _importBackup(BuildContext context, AppRepository repository) async {
+  final result = await FilePicker.platform.pickFiles(type: FileType.custom, allowedExtensions: ['json']);
+  if (result == null) return;
   try {
+    final file = File(result.files.single.path!);
     final raw = await file.readAsString();
     await repository.importData(raw);
-    if (!context.mounted) {
-      return;
-    }
-    _showSnack(context, 'Yedek başarıyla içe aktarıldı.');
+    if (context.mounted) _showSnack(context, 'Yedek yüklendi.');
   } catch (_) {
-    if (!context.mounted) {
-      return;
-    }
-    _showSnack(context, 'Yedek okunamadı. Dosyayı kontrol et.');
+    if (context.mounted) _showSnack(context, 'Hata: Geçersiz yedek dosyası.');
   }
 }
 
-Future<void> _confirmReset(
-  BuildContext context,
-  AppRepository repository,
-) async {
-  final shouldReset = await showDialog<bool>(
+Future<void> _confirmReset(BuildContext context, AppRepository repository) async {
+  final reset = await showDialog<bool>(
     context: context,
-    builder: (context) {
-      return AlertDialog(
-        title: Text('Verileri Sıfırla'),
-        content: Text('Tüm kayıtlar silinsin mi? Bu işlem geri alınamaz.'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: Text('Vazgeç'),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            child: Text('Sil'),
-          ),
-        ],
-      );
-    },
-  );
-  if (!context.mounted) {
-    return;
-  }
-  if (shouldReset == true) {
-    await repository.clearAll();
-    if (!context.mounted) {
-      return;
-    }
-    _showSnack(context, 'Tüm veriler silindi.');
-  }
-}
-
-void _showSnack(BuildContext context, String message) {
-  InAppNotice.show(context, message);
-}
-
-class _AiUsageTracker extends StatelessWidget {
-  const _AiUsageTracker({required this.repository});
-
-  final AppRepository repository;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'AI Kullanım Takibi',
-          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: Colors.white,
-                fontWeight: FontWeight.w700,
-              ),
-        ),
-        SizedBox(height: 6),
-        Text(
-          'Bugün yapılan AI isteklerinin sayısı.',
-          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: AppColors.of(context).textSecondary,
-              ),
-        ),
-        SizedBox(height: 12),
-        ValueListenableBuilder<int>(
-          valueListenable: repository.aiRequestCountToday,
-          builder: (context, count, _) {
-            return Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: AppColors.of(context).primary.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: AppColors.of(context).primary.withOpacity(0.3)),
-              ),
-              child: Row(
-                children: [
-                  Icon(Icons.analytics, color: AppColors.of(context).primary),
-                  SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Bugünkü İstekler',
-                          style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                                color: AppColors.of(context).textSecondary,
-                              ),
-                        ),
-                        Text(
-                          '$count İstek',
-                          style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                                color: Colors.white,
-                                fontWeight: FontWeight.w800,
-                              ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: Colors.black26,
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Text(
-                      'Limit: 1500',
-                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                            color: Colors.white54,
-                          ),
-                    ),
-                  ),
-                ],
-              ),
-            );
-          },
+    builder: (context) => AlertDialog(
+      title: const Text('Verileri Sıfırla'),
+      content: const Text('Tüm veriler silinecek. Emin misin?'),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Vazgeç')),
+        ElevatedButton(
+          onPressed: () => Navigator.pop(context, true),
+          style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent),
+          child: const Text('Sil')
         ),
       ],
+    ),
+  );
+  if (reset == true && context.mounted) {
+    await repository.clearAll();
+    _showSnack(context, 'Veriler sıfırlandı.');
+  }
+}
+
+Future<void> _pickReminderTime(BuildContext context, AppRepository repository) async {
+  final picked =
+      await showTimePicker(context: context, initialTime: const TimeOfDay(hour: 20, minute: 0));
+  if (picked != null) {
+    final time =
+        '${picked.hour.toString().padLeft(2, '0')}:${picked.minute.toString().padLeft(2, '0')}';
+    await repository.setReminderTime(time);
+    if (repository.reminderEnabled.value) await NotificationService.scheduleDailyReminder(time);
+  }
+}
+
+Future<void> _pickWeeklyPlanDay(BuildContext context, AppRepository repository) async {
+  final selected = await showModalBottomSheet<int>(
+    context: context,
+    builder: (context) => ListView(
+      shrinkWrap: true,
+      children: [1, 2, 3, 4, 5, 6, 7]
+          .map((d) => ListTile(
+                title: Text(_weekdayLabel(d)),
+                onTap: () => Navigator.pop(context, d),
+              ))
+          .toList(),
+    ),
+  );
+  if (selected != null) await repository.setWeeklyPlanWeekday(selected);
+}
+
+Future<void> _pickWeeklyPlanTime(BuildContext context, AppRepository repository) async {
+  final picked =
+      await showTimePicker(context: context, initialTime: const TimeOfDay(hour: 9, minute: 0));
+  if (picked != null) {
+    await repository.setWeeklyPlanTime(
+      '${picked.hour.toString().padLeft(2, '0')}:${picked.minute.toString().padLeft(2, '0')}',
     );
   }
 }
 
-class _ModelInfoCard extends StatelessWidget {
-  const _ModelInfoCard({required this.model});
-
-  final String model;
-
-  @override
-  Widget build(BuildContext context) {
-    final info = _getModelInfo(model);
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: AppColors.of(context).surface,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.of(context).primary.withOpacity(0.3)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(Icons.smart_toy, color: AppColors.of(context).primary),
-              SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  model,
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w700,
-                      ),
-                ),
-              ),
-            ],
-          ),
-          SizedBox(height: 8),
-          Text(
-            info.description,
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: Colors.white70,
-                ),
-          ),
-          SizedBox(height: 12),
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: Colors.black26,
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Tahmini Limitler (Ücretsiz Paket)',
-                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                        color: AppColors.of(context).textSecondary,
-                        fontWeight: FontWeight.w600,
-                      ),
-                ),
-                SizedBox(height: 6),
-                _LimitRow(label: 'Dakikalık İstek (RPM)', value: info.rpm),
-                _LimitRow(label: 'Günlük İstek (RPD)', value: info.rpd),
-                _LimitRow(label: 'Dakikalık Token (TPM)', value: info.tpm),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _LimitRow extends StatelessWidget {
-  const _LimitRow({required this.label, required this.value});
-
-  final String label;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 2),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(
-            label,
-            style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                  color: Colors.white54,
-                ),
-          ),
-          Text(
-            value,
-            style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                  color: AppColors.of(context).primaryLight,
-                  fontWeight: FontWeight.w700,
-                ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _ModelInfo {
-  const _ModelInfo({
-    required this.description,
-    required this.rpm,
-    required this.rpd,
-    required this.tpm,
+class _AiGoalResult {
+  final int daily;
+  final int weekly;
+  final int monthly;
+  final String note;
+  _AiGoalResult({
+    required this.daily,
+    required this.weekly,
+    required this.monthly,
+    required this.note,
   });
+}
 
+class _ModelDetails {
   final String description;
   final String rpm;
   final String rpd;
-  final String tpm;
+  _ModelDetails(this.description, this.rpm, this.rpd);
 }
 
-_ModelInfo _getModelInfo(String model) {
-  if (model.contains('flash')) {
-    return const _ModelInfo(
-      description: 'Hızlı ve verimli model. Günlük işler için ideal.',
-      rpm: '15',
-      rpd: '1,500',
-      tpm: '1 Milyon',
-    );
-  } else if (model.contains('pro')) {
-    return const _ModelInfo(
-      description: 'Daha karmaşık ve akıl yürütme gerektiren işler için.',
-      rpm: '2',
-      rpd: '50',
-      tpm: '32,000',
-    );
-  } else {
-    return const _ModelInfo(
-      description: 'Genel amaçlı Gemini modeli.',
-      rpm: 'Değişken',
-      rpd: 'Değişken',
-      tpm: 'Değişken',
-    );
-  }
+_ModelDetails _getModelInfo(String model) {
+  if (model.contains('1.5-flash')) return _ModelDetails('Hızlı ve dengeli model.', '15 RPM', '1500 RPD');
+  if (model.contains('1.5-pro')) return _ModelDetails('En zeki ve kapsamlı model.', '2 RPM', '50 RPD');
+  return _ModelDetails('Standart Gemini modeli.', '—', '—');
 }
 
-void _navigateFromNav(BuildContext context, int index) {
-  switch (index) {
-    case 0:
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => HomeScreen()),
-      );
-      return;
-    case 1:
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => TopicSummariesScreen()),
-      );
-      return;
-    case 2:
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => QuickAddScreen()),
-      );
-      return;
-    case 3:
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => AnalysisScreen()),
-      );
-      return;
-    case 4:
-      return;
+class _ThemeColorConfig {
+  final Color primary;
+  final String label;
+  _ThemeColorConfig(this.primary, this.label);
+}
+
+_ThemeColorConfig _getThemeColor(String key) {
+  switch (key) {
+    case 'midnight':
+      return _ThemeColorConfig(AppColors.midnight.primary, 'Midnight');
+    case 'ocean':
+      return _ThemeColorConfig(AppColors.ocean.primary, 'Okyanus');
+    case 'volcanic':
+      return _ThemeColorConfig(AppColors.volcanic.primary, 'Volkanik');
+    case 'forest':
+      return _ThemeColorConfig(AppColors.forest.primary, 'Orman');
+    case 'royal':
+      return _ThemeColorConfig(AppColors.royal.primary, 'Asil');
+    case 'sunset':
+      return _ThemeColorConfig(AppColors.sunset.primary, 'Sunset');
+    case 'glacier':
+      return _ThemeColorConfig(AppColors.glacier.primary, 'Buzul');
+    case 'crimson':
+      return _ThemeColorConfig(AppColors.crimson.primary, 'Lal');
+    case 'amber':
+      return _ThemeColorConfig(AppColors.amber.primary, 'Kehribar');
+    case 'graphite':
+      return _ThemeColorConfig(AppColors.graphite.primary, 'Grafit');
+    default:
+      return _ThemeColorConfig(Colors.blue, 'Bilinmeyen');
   }
 }

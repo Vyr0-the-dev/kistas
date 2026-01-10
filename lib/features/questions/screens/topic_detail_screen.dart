@@ -1194,7 +1194,7 @@ Future<void> _requestTopicInsight(
   }
 
   final prompt = '''
-KPSS P3 "${topic.title}" (${topic.subject}) konusu için özel çalışma rehberi hazırla.
+${topic.tag} "${topic.title}" (${topic.subject}) konusu için özel çalışma rehberi hazırla.
 İstenen çıktı sadece JSON formatında olsun.
 Şema:
 {
@@ -1296,7 +1296,7 @@ Future<void> _generateFlashcards(
   }
 
   final prompt = '''
-KPSS P3 "${topic.title}" (${topic.subject}) konusu için 10 adet bilgi kartı (Flashcard) oluştur.
+${topic.tag} "${topic.title}" (${topic.subject}) konusu için 10 adet bilgi kartı (Flashcard) oluştur.
 İstenen çıktı sadece JSON formatında olsun.
 Şema: [{"id":"string","question":"soru","answer":"cevap","hint":"ipucu"}]
 Sorular kısa, öz ve sınavda çıkabilecek kritik bilgiler olsun.
@@ -1440,6 +1440,37 @@ void _showMoreActions(BuildContext context, TopicSummary topic) {
                 onTap: () {
                   Navigator.of(sheetContext).pop();
                   _scheduleReview(context, topic);
+                },
+              ),
+              _ActionSheetTile(
+                icon: Icons.delete_forever_outlined,
+                title: 'Konuyu Tamamen Sil',
+                subtitle: 'Katalogdan kaldırır',
+                iconColor: Colors.redAccent,
+                onTap: () async {
+                  Navigator.of(sheetContext).pop();
+                  final confirm = await showDialog<bool>(
+                    context: context,
+                    builder: (context) => AlertDialog(
+                      title: const Text('Konuyu Sil'),
+                      content: const Text('Bu konu ve ilgili tüm veriler katalogdan silinecek. Emin misin?'),
+                      actions: [
+                        TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Vazgeç')),
+                        ElevatedButton(
+                          onPressed: () => Navigator.pop(context, true),
+                          style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent),
+                          child: const Text('Kalıcı Olarak Sil'),
+                        ),
+                      ],
+                    ),
+                  );
+                  if (confirm == true) {
+                    await AppRepositoryScope.of(context).deleteUserTopic(topic.id);
+                    if (context.mounted) {
+                      Navigator.of(context).pop(); // Detay ekranından çık
+                      _showSnack(context, 'Konu silindi.');
+                    }
+                  }
                 },
               ),
               if (topic.notes.isNotEmpty || topic.summary.isNotEmpty)

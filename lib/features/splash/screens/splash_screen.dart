@@ -26,7 +26,7 @@ class _SplashScreenState extends State<SplashScreen> {
                 Animate(
                   child: SvgPicture.asset(
                     'assets/images/KISTAS.svg',
-                    width: 320,
+                    width: 240,
                     fit: BoxFit.contain,
                   ),
                 )
@@ -42,13 +42,13 @@ class _SplashScreenState extends State<SplashScreen> {
                 // Transform.translate ile yazıyı yukarı (-50px) çekiyoruz
                 // Böylece SVG'nin altındaki boşluk görsel olarak kapanıyor.
                 Transform.translate(
-                  offset: const Offset(0, -100), 
+                  offset: const Offset(0, -80), 
                   child: const Text(
                     'TAM KONTROL',
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       color: Colors.white70,
-                      fontSize: 14,
+                      fontSize: 18,
                       fontWeight: FontWeight.w200,
                       letterSpacing: 10,
                       fontFamily: 'Roboto',

@@ -39,6 +39,12 @@ flutter_launcher_icons:
   android: true
   ios: true
   image_path: "assets/images/KISTAS.png"
+  adaptive_icon_background: "#262836"
+  adaptive_icon_foreground: "assets/images/KISTAS.png"
+  notification_icon:
+    enabled: true
+    image_path: "assets/images/KISTAS.png"
+    color: "#818CF8"
 
 flutter:
   uses-material-design: true

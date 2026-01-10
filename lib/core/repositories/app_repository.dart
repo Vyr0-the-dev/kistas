@@ -12,6 +12,7 @@ import '../models/topic_summary.dart';
 
 const _questionEntriesKey = 'question_entries';
 const _mockExamsKey = 'mock_exams';
+const _userTopicsKey = 'user_topics';
 const _customTopicsKey = 'custom_topics';
 const _dailyGoalKey = 'daily_goal';
 const _geminiApiKey = 'gemini_api_key';
@@ -38,6 +39,7 @@ class AppRepository {
       : questionEntries = ValueNotifier<List<QuestionEntry>>([]),
         mockExams = ValueNotifier<List<MockExam>>([]),
         flashcards = ValueNotifier<Map<String, List<Flashcard>>>({}),
+        userTopics = ValueNotifier<List<TopicSummary>>([]),
         customTopics = ValueNotifier<Map<String, TopicSummary>>({}),
         dailyGoal = ValueNotifier<int>(100),
         aiRequestCountToday = ValueNotifier<int>(0),
@@ -65,6 +67,7 @@ class AppRepository {
   final ValueNotifier<List<QuestionEntry>> questionEntries;
   final ValueNotifier<List<MockExam>> mockExams;
   final ValueNotifier<Map<String, List<Flashcard>>> flashcards;
+  final ValueNotifier<List<TopicSummary>> userTopics;
   final ValueNotifier<Map<String, TopicSummary>> customTopics;
   final ValueNotifier<int> dailyGoal;
   final ValueNotifier<int> aiRequestCountToday;
@@ -92,12 +95,53 @@ class AppRepository {
   }
 
   List<TopicSummary> get topics {
-    final base = kpssTopicCatalog;
+    final list = userTopics.value;
     final custom = customTopics.value;
     if (custom.isEmpty) {
-      return base;
+      return list;
     }
-    return base.map((t) => custom[t.id] ?? t).toList();
+    return list.map((t) => custom[t.id] ?? t).toList();
+  }
+
+  Future<void> addUserTopic(TopicSummary topic) async {
+    final updated = [...userTopics.value, topic];
+    userTopics.value = updated;
+    await _saveUserTopics(updated);
+  }
+
+  Future<void> addUserTopics(List<TopicSummary> topics) async {
+    final updated = [...userTopics.value, ...topics];
+    userTopics.value = updated;
+    await _saveUserTopics(updated);
+  }
+
+  Future<void> updateUserTopic(TopicSummary topic) async {
+    final updated = userTopics.value.map((t) => t.id == topic.id ? topic : t).toList();
+    userTopics.value = updated;
+    await _saveUserTopics(updated);
+  }
+
+  Future<void> bulkUpdateUserTopics(List<TopicSummary> updatedList) async {
+    final current = [...userTopics.value];
+    for (final updated in updatedList) {
+      final index = current.indexWhere((t) => t.id == updated.id);
+      if (index != -1) {
+        current[index] = updated;
+      }
+    }
+    userTopics.value = current;
+    await _saveUserTopics(current);
+  }
+
+  Future<void> deleteUserTopic(String id) async {
+    final updated = userTopics.value.where((t) => t.id != id).toList();
+    userTopics.value = updated;
+    await _saveUserTopics(updated);
+  }
+
+  Future<void> _saveUserTopics(List<TopicSummary> list) async {
+    final encoded = jsonEncode(list.map((e) => e.toJson()).toList());
+    await _prefs.setString(_userTopicsKey, encoded);
   }
 
   Future<void> addQuestionEntry(QuestionEntry entry) async {
@@ -491,6 +535,13 @@ class AppRepository {
   }
 
   Future<void> _load() async {
+    final topicsRaw = _prefs.getString(_userTopicsKey);
+    if (topicsRaw != null && topicsRaw.isNotEmpty) {
+      userTopics.value = _decodeTopics(topicsRaw);
+    } else {
+      userTopics.value = kpssTopicCatalog;
+      await _saveUserTopics(kpssTopicCatalog);
+    }
     questionEntries.value = _decodeQuestionEntries(
       _prefs.getString(_questionEntriesKey),
     );
@@ -574,6 +625,15 @@ class AppRepository {
   Future<void> _saveNotifications(List<AppNotification> items) async {
     final encoded = jsonEncode(items.map((e) => e.toJson()).toList());
     await _prefs.setString(_notificationsKey, encoded);
+  }
+
+  List<TopicSummary> _decodeTopics(String raw) {
+    try {
+      final List list = jsonDecode(raw);
+      return list.map((e) => TopicSummary.fromJson(e)).toList();
+    } catch (_) {
+      return [];
+    }
   }
 
   List<QuestionEntry> _decodeQuestionEntries(String? raw) {

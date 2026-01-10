@@ -40,6 +40,7 @@ class TopicSummary {
     this.notes = const [],
     this.importance = 3, // 1: Low, 5: Critical
     this.aiInsights = const [],
+    this.tag = 'KPSS',
   });
 
   final String id;
@@ -50,6 +51,7 @@ class TopicSummary {
   final List<String> notes;
   final int importance;
   final List<TopicInsight> aiInsights;
+  final String tag;
 
   Map<String, dynamic> toJson() {
     return {
@@ -61,6 +63,7 @@ class TopicSummary {
       'notes': notes,
       'importance': importance,
       'aiInsights': aiInsights.map((e) => e.toJson()).toList(),
+      'tag': tag,
     };
   }
 
@@ -77,6 +80,7 @@ class TopicSummary {
               ?.map((e) => TopicInsight.fromJson(e as Map<String, dynamic>))
               .toList() ??
           [],
+      tag: json['tag'] as String? ?? 'KPSS',
     );
   }
 
@@ -89,6 +93,7 @@ class TopicSummary {
     List<String>? notes,
     int? importance,
     List<TopicInsight>? aiInsights,
+    String? tag,
   }) {
     return TopicSummary(
       id: id ?? this.id,
@@ -99,6 +104,7 @@ class TopicSummary {
       notes: notes ?? this.notes,
       importance: importance ?? this.importance,
       aiInsights: aiInsights ?? this.aiInsights,
+      tag: tag ?? this.tag,
     );
   }
 }
