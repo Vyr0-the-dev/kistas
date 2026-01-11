@@ -34,7 +34,7 @@ class AnalysisScreen extends StatefulWidget {
 
 class _AnalysisScreenState extends State<AnalysisScreen> {
   AnalysisMode _mode = AnalysisMode.exams;
-  _RangeFilter _rangeFilter = _RangeFilter.days30;
+  _RangeFilter _rangeFilter = _RangeFilter.days7;
   DateTimeRange? _customRange;
   final GlobalKey _weeklyReportKey = GlobalKey();
 
@@ -88,12 +88,16 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
                     );
               final weakTopics = repository.weakestTopics();
 
-              final weeklySummary =
-                  _buildWeeklySummary(questionEntries, mockExams);
-              final weeklyTargets = _buildWeeklyTargets(
-                questionEntries,
-                repository.dailyGoal.value,
-              );
+              final weeklySummary = activeMode == AnalysisMode.exams
+                  ? _buildWeeklyExamSummary(mockExams)
+                  : _buildWeeklyQuestionSummary(questionEntries);
+              
+              final weeklyTargets = activeMode == AnalysisMode.exams
+                  ? _buildWeeklyExamTargets(mockExams) // Deneme hedefi mantığı eklenebilir, şimdilik boş veya basit.
+                  : _buildWeeklyQuestionTargets(
+                      questionEntries,
+                      repository.dailyGoal.value,
+                    );
 
               return CustomScrollView(
                 slivers: [
@@ -106,6 +110,7 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
                       ),
                     ),
                   ),
+                  const SliverToBoxAdapter(child: SizedBox(height: 16)),
                   SliverToBoxAdapter(
                     child: Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -715,16 +720,10 @@ void _showSnack(BuildContext context, String message) {
   );
 }
 
-String _buildWeeklySummary(
-List<QuestionEntry> questions,
-List<MockExam> exams,
-) {
+String _buildWeeklyQuestionSummary(List<QuestionEntry> questions) {
   final now = DateTime.now();
   final last7Questions = questions
       .where((entry) => now.difference(entry.createdAt).inDays < 7)
-      .toList();
-  final last7Exams = exams
-      .where((exam) => now.difference(exam.createdAt).inDays < 7)
       .toList();
   final totalQuestions = last7Questions.fold<int>(
     0,
@@ -734,23 +733,41 @@ List<MockExam> exams,
     0,
     (sum, entry) => sum + entry.minutes,
   );
-  final examCount = last7Exams.length;
-  final avgNet = last7Exams.isEmpty
-      ? 0
-      : last7Exams
-              .fold<double>(0, (sum, exam) => sum + exam.totalNet) /
-          last7Exams.length;
+  
+  // Ortalama doğruluk
+  final totalCorrect = last7Questions.fold<int>(0, (sum, e) => sum + e.correct);
+  final accuracy = totalQuestions == 0 ? 0.0 : totalCorrect / totalQuestions;
+
   return [
-    'Haftalık Özet',
+    'Haftalık Soru Özeti',
     '- Toplam soru: $totalQuestions',
     '- Toplam süre: $totalMinutes dk',
-    '- Deneme sayısı: $examCount',
-    '- Ortalama net: ${avgNet.toStringAsFixed(1)}',
+    '- Doğruluk: %${(accuracy * 100).toStringAsFixed(1)}',
   ].join('\n');
 }
 
-List<_WeeklyTargetItem> _buildWeeklyTargets(
-List<QuestionEntry> questions,
+String _buildWeeklyExamSummary(List<MockExam> exams) {
+  final now = DateTime.now();
+  final last7Exams = exams
+      .where((exam) => now.difference(exam.createdAt).inDays < 7)
+      .toList();
+  final examCount = last7Exams.length;
+  final avgNet = last7Exams.isEmpty
+      ? 0
+      : last7Exams.fold<double>(0, (sum, exam) => sum + exam.totalNet) /
+          last7Exams.length;
+  final totalMinutes = last7Exams.fold<int>(0, (sum, e) => sum + e.minutes);
+
+  return [
+    'Haftalık Deneme Özeti',
+    '- Deneme sayısı: $examCount',
+    '- Ortalama net: ${avgNet.toStringAsFixed(1)}',
+    '- Toplam süre: $totalMinutes dk',
+  ].join('\n');
+}
+
+List<_WeeklyTargetItem> _buildWeeklyQuestionTargets(
+  List<QuestionEntry> questions,
   int dailyGoal,
 ) {
   if (questions.isEmpty) {
@@ -771,6 +788,35 @@ List<QuestionEntry> questions,
         label: '${weekStart.day}.${weekStart.month}',
         actual: total,
         target: dailyGoal * 7,
+      ),
+    );
+  }
+  return items;
+}
+
+List<_WeeklyTargetItem> _buildWeeklyExamTargets(List<MockExam> exams) {
+  // Deneme için sabit bir hedef (örn: haftada 2 deneme) varsayalım veya veriden çıkaralım.
+  // Şimdilik haftalık 2 deneme hedefi koyalım.
+  const weeklyTarget = 2;
+  
+  if (exams.isEmpty) {
+    return [];
+  }
+  final now = DateTime.now();
+  final items = <_WeeklyTargetItem>[];
+  for (var i = 3; i >= 0; i--) {
+    final weekStart = _startOfWeek(now.subtract(Duration(days: 7 * i)));
+    final weekEnd = weekStart.add(const Duration(days: 7));
+    final count = exams
+        .where((exam) =>
+            !exam.createdAt.isBefore(weekStart) &&
+            exam.createdAt.isBefore(weekEnd))
+        .length;
+    items.add(
+      _WeeklyTargetItem(
+        label: '${weekStart.day}.${weekStart.month}',
+        actual: count,
+        target: weeklyTarget,
       ),
     );
   }

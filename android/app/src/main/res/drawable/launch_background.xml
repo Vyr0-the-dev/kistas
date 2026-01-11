@@ -2,14 +2,17 @@
 <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
     <item android:drawable="@color/launch_color" />
 
-    <!-- Logonun o kutuyu doldurması için ölçeklendirme yapıyoruz -->
-    <item
-        android:width="192dp"
-        android:height="192dp"
-        android:gravity="center">
-        <bitmap
-            android:src="@mipmap/ic_launcher"
-            android:filter="true"
-            android:antialias="true" />
+    <item>
+        <inset
+            android:insetLeft="64dp"
+            android:insetTop="64dp"
+            android:insetRight="64dp"
+            android:insetBottom="64dp">
+            <bitmap
+                android:gravity="center"
+                android:src="@mipmap/ic_launcher"
+                android:filter="true"
+                android:antialias="true" />
+        </inset>
     </item>
 </layer-list>

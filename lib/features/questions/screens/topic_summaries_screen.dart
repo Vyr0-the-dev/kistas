@@ -282,75 +282,47 @@ class _TopicSummariesScreenState extends State<TopicSummariesScreen> {
   }
 
   void _showBulkAddDialog(BuildContext context) {
-    final controller = TextEditingController();
     final tagController = TextEditingController(text: 'KPSS');
     
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Toplu Konu Ekle'),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                'Bir CSV dosyası seçebilir veya aşağıya manuel yazabilirsiniz.',
-                style: TextStyle(fontSize: 12, color: Colors.white70),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Bir CSV veya metin dosyası yükleyerek konuları topluca ekleyebilirsiniz.',
+              style: TextStyle(fontSize: 13, color: Colors.white70),
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              'Sınav / Etiket (Örn: KPSS, YKS)',
+              style: TextStyle(fontSize: 11, color: Colors.white54),
+            ),
+            const SizedBox(height: 4),
+            TextField(
+              controller: tagController,
+              decoration: const InputDecoration(
+                hintText: 'Sınav Türü',
+                border: OutlineInputBorder(),
+                contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               ),
-              const SizedBox(height: 12),
-              SizedBox(
-                width: double.infinity,
-                child: OutlinedButton.icon(
-                  onPressed: () => _pickAndProcessCsv(context, tagController.text),
-                  icon: const Icon(Icons.upload_file),
-                  label: const Text('CSV Dosyası Seç'),
-                ),
+            ),
+            const SizedBox(height: 20),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: () => _pickAndProcessCsv(context, tagController.text),
+                icon: const Icon(Icons.upload_file),
+                label: const Text('Dosya Seç ve Yükle'),
               ),
-              const SizedBox(height: 16),
-              const Center(child: Text('— VEYA —', style: TextStyle(fontSize: 10, color: Colors.white38))),
-              const SizedBox(height: 16),
-              const Text(
-                'Sınav / Etiket (Örn: KPSS, YKS, DGS)',
-                style: TextStyle(fontSize: 11, color: Colors.white54),
-              ),
-              const SizedBox(height: 4),
-              TextField(
-                controller: tagController,
-                decoration: const InputDecoration(
-                  hintText: 'Sınav Türü',
-                  border: OutlineInputBorder(),
-                  contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                ),
-              ),
-              const SizedBox(height: 16),
-              const Text(
-                'Format: Ders,Konu Adı\nÖrn: Matematik,Üslü Sayılar',
-                style: TextStyle(fontSize: 11, color: Colors.white54),
-              ),
-              const SizedBox(height: 8),
-              TextField(
-                controller: controller,
-                maxLines: 5,
-                decoration: const InputDecoration(
-                  hintText: 'Ders,Konu\nDers,Konu...', 
-                  border: OutlineInputBorder(),
-                ),
-              ),
-            ],
-          ),
+            ),
+          ],
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Vazgeç')),
-          ElevatedButton(
-            onPressed: () {
-              final text = controller.text.trim();
-              if (text.isEmpty) return;
-              _processBulkAdd(context, text, tag: tagController.text.trim());
-              Navigator.pop(context);
-            },
-            child: const Text('Ekle'),
-          ),
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('İptal')),
         ],
       ),
     );

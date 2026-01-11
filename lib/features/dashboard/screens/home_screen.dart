@@ -4,6 +4,7 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 
 import '../../../core/models/app_notification.dart';
 import '../../../core/models/mock_exam.dart';
@@ -119,28 +120,6 @@ class _HomeScreenState extends State<HomeScreen> {
                         ),
                       SliverToBoxAdapter(
                         child: Padding(
-                          padding:
-                              const EdgeInsets.symmetric(horizontal: 20),
-                          child: _FocusCard(
-                            focusTopic: focusTopic,
-                            hasData: questionEntries.isNotEmpty,
-                            todayTotal: todayTotal,
-                            dailyGoal: dailyGoal,
-                            onAiSuggestion: () => _requestAiSuggestion(
-                              context,
-                              repository,
-                              questionEntries,
-                              focusTopic,
-                              todayTotal,
-                              dailyGoal,
-                              avgNet,
-                            ),
-                            onQuickAdd: () => _openEntry(context),
-                          ),
-                        ),
-                      ),
-                      SliverToBoxAdapter(
-                        child: Padding(
                           padding: const EdgeInsets.fromLTRB(20, 8, 20, 4),
                           child: _AiGoalPanel(
                             repository: repository,
@@ -184,19 +163,6 @@ class _HomeScreenState extends State<HomeScreen> {
                       SliverToBoxAdapter(
                         child: Padding(
                           padding: const EdgeInsets.fromLTRB(20, 8, 20, 4),
-                          child: _DailyTasksCard(
-                            tasks: _buildDailyTasks(
-                              questionEntries,
-                              focusTopic,
-                              todayTotal,
-                              dailyGoal,
-                            ),
-                          ),
-                        ),
-                      ),
-                      SliverToBoxAdapter(
-                        child: Padding(
-                          padding: const EdgeInsets.fromLTRB(20, 8, 20, 4),
                           child: _FocusTimerCard(
                             remainingSeconds: _focusRemaining,
                             running: _focusRunning,
@@ -232,14 +198,6 @@ class _HomeScreenState extends State<HomeScreen> {
                               questionEntries,
                               mockExams,
                             ),
-                          ),
-                        ),
-                      ),
-                      SliverToBoxAdapter(
-                        child: Padding(
-                          padding: const EdgeInsets.fromLTRB(20, 12, 20, 4),
-                          child: _ReviewScheduleCard(
-                            schedule: _buildReviewSchedule(repository),
                           ),
                         ),
                       ),
@@ -653,12 +611,21 @@ class _Header extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      'Merhaba',
-                      style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                            color: AppColors.of(context).textSecondary,
-                            letterSpacing: 1,
-                          ),
+                    Row(
+                      children: [
+                        SvgPicture.asset(
+                          'assets/images/KISTAS.svg',
+                          height: 22,
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          'Merhaba',
+                          style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                                color: AppColors.of(context).textSecondary,
+                                letterSpacing: 1,
+                              ),
+                        ),
+                      ],
                     ),
                     SizedBox(height: 6),
                     Text(
@@ -2533,12 +2500,21 @@ void _showNotificationsSheet(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  'Bildirimler',
-                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w700,
-                      ),
+                Row(
+                  children: [
+                    SvgPicture.asset(
+                      'assets/images/KISTAS.svg',
+                      height: 28,
+                    ),
+                    const SizedBox(width: 16),
+                    Text(
+                      'Bildirimler',
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w700,
+                          ),
+                    ),
+                  ],
                 ),
                 SizedBox(height: 8),
                 Row(
