@@ -1,80 +1,139 @@
-<p align="center">
-  <img src="assets/images/app_icon.png" alt="Kıstas" width="96">
-</p>
+<div align="center">
 
-<h1 align="center">Kıstas</h1>
+<img src="assets/images/app_icon.png" alt="Kıstas" width="112">
 
-<p align="center">
-  <img src="https://img.shields.io/badge/Flutter-3.44-02569B?logo=flutter&logoColor=white" alt="Flutter 3.44">
-  <img src="https://img.shields.io/badge/Dart-3.10-0175C2?logo=dart&logoColor=white" alt="Dart 3.10">
-  <img src="https://img.shields.io/badge/Platform-Android-3DDC84?logo=android&logoColor=white" alt="Android">
-  <img src="https://img.shields.io/badge/Lisans-MIT-green" alt="MIT Lisansı">
-  <img src="https://img.shields.io/badge/Sürüm-1.0.1-blue" alt="v1.0.1">
-</p>
+# Kıstas
 
-KPSS adayları için yapay zeka destekli sınav takip ve çalışma planlama uygulaması. Soru çözümlerini ders ve konu bazında kaydeder, performansını analiz eder ve hedeflerine göre çalışma önerileri sunar.
+*Sınav takibi ve çalışma planlaması için yapay zeka destekli Android uygulaması.*
 
-Flutter ile geliştirilmiş, Android'de çalışan, koyu temalı ve glassmorphism arayüzlü bir uygulamadır. Tüm veriler cihazda saklanır.
+[![Lisans: MIT](https://img.shields.io/badge/Lisans-MIT-green)][license]
+![Flutter 3.44](https://img.shields.io/badge/Flutter-3.44-02569B?logo=flutter&logoColor=white)
+![Dart 3.10](https://img.shields.io/badge/Dart-3.10-0175C2?logo=dart&logoColor=white)
+![Android](https://img.shields.io/badge/Platform-Android-3DDC84?logo=android&logoColor=white)
+![Sürüm 1.0.1](https://img.shields.io/badge/Sürüm-1.0.1-blue)
 
-## Ekran Görüntüleri
+![Isar](https://img.shields.io/badge/DB-Isar-1B1B2F?logo=isar&logoColor=white)
+![Gemini AI](https://img.shields.io/badge/AI-Gemini-88619A)
+![Local-first](https://img.shields.io/badge/Veri-Local--first-303030)
 
-<p align="center">
-  <img src="screenshots/ana_ekran.png" alt="Ana Ekran" width="220">
-  <img src="screenshots/konular.png" alt="Konular" width="220">
-  <img src="screenshots/hizli_ekle.png" alt="Hızlı Ekle" width="220">
-  <img src="screenshots/analiz.png" alt="Analiz" width="220">
-</p>
+</div>
 
-## Özellikler
+<p align="center" style="border-bottom: 3px solid #7c5cff; width: 100%;"></p>
 
-- **Soru Takibi** — Ders ve konu bazlı soru girişi, hızlı ekleme, deneme ve net kaydı
-- **Analiz** — Haftalık/aylık trend grafikleri, net ortalaması, doğruluk takibi
-- **Gemini AI** — Zayıf konu analizi, hedef önerileri, haftalık bülten
-- **Odak Araçları** — Pomodoro zamanlayıcı, çalışma serisi, ısı haritası, rozetler
-- **Bildirimler** — Günlük hedef hatırlatıcısı, haftalık plan bildirimi
-- **Tema** — 10 renk teması, koyu glassmorphism tasarım
-- **Veri** — Yerel veritabanı, JSON yedekleme ve dışa aktarma
+KPSS adaylarına yönelik; soru çözümlerini ders ve konu bazında kaydeden, performansı grafiklerle analiz eden ve Gemini yapay zekasıyla kişisel çalışma önerileri üreten bir sınav takip uygulamasıdır.
 
-## Kullanılan Teknolojiler
+Flutter ile geliştirilmiş olup Android cihazlarda çalışır. Koyu glassmorphism arayüz, 10 renk teması ve tamamen cihaz içi veri saklama ile tasarlanmıştır.
 
-| Kategori | Paket |
+---
+
+<p style="border-left: 4px solid #7c5cff; padding-left: 12px; font-size: 20px; font-weight: 700; margin-bottom: 8px;">Özellikler</p>
+
+<table align="center">
+  <tr>
+    <td width="50%" align="left">
+      <b>📚 Soru takibi</b><br>
+      <span style="color: #888;">Ders ve konu bazında soru girişi, hızlı ekleme, deneme ve net kaydı.</span>
+    </td>
+    <td width="50%" align="left">
+      <b>📈 Analiz</b><br>
+      <span style="color: #888;">Haftalık ve aylık trend grafikleri, net ortalaması, doğruluk takibi.</span>
+    </td>
+  </tr>
+  <tr>
+    <td width="50%" align="left">
+      <b>✨ Gemini AI</b><br>
+      <span style="color: #888;">Zayıf konu analizi, hedef önerileri, haftalık çalışma bülteni.</span>
+    </td>
+    <td width="50%" align="left">
+      <b>⏱️ Odak araçları</b><br>
+      <span style="color: #888;">Pomodoro zamanlayıcı, çalışma serisi, ısı haritası, rozetler.</span>
+    </td>
+  </tr>
+  <tr>
+    <td width="50%" align="left">
+      <b>🔔 Bildirimler</b><br>
+      <span style="color: #888;">Günlük hedef hatırlatıcıları ve haftalık plan bildirimleri.</span>
+    </td>
+    <td width="50%" align="left">
+      <b>🎨 Tema</b><br>
+      <span style="color: #888;">10 renk teması, koyu glassmorphism tasarım.</span>
+    </td>
+  </tr>
+  <tr>
+    <td width="50%" align="left">
+      <b>💾 Veri</b><br>
+      <span style="color: #888;">Isar yerel veritabanı, JSON yedekleme ve dışa aktarma.</span>
+    </td>
+    <td width="50%" align="left">
+      <b>🔒 Gizlilik</b><br>
+      <span style="color: #888;">Tüm veriler cihazda saklanır; buluta veri gönderilmez.</span>
+    </td>
+  </tr>
+</table>
+
+---
+
+<p style="border-left: 4px solid #7c5cff; padding-left: 12px; font-size: 20px; font-weight: 700; margin-bottom: 8px;">Ekran Görüntüleri</p>
+
+<div align="center">
+
+| Ana ekran | Konular | Hızlı ekle | Analiz |
+|:---------:|:-------:|:----------:|:------:|
+| <img src="screenshots/ana_ekran.png" width="210"> | <img src="screenshots/konular.png" width="210"> | <img src="screenshots/hizli_ekle.png" width="210"> | <img src="screenshots/analiz.png" width="210"> |
+
+</div>
+
+---
+
+<p style="border-left: 4px solid #7c5cff; padding-left: 12px; font-size: 20px; font-weight: 700; margin-bottom: 8px;">Teknolojiler</p>
+
+| Kategori | Paketler |
 |---|---|
-| Veritabanı | Isar |
-| Yapay Zeka | Gemini API (HTTP) |
+| Veritabanı | [Isar](https://isar.dev) |
+| Yapay zeka | Gemini API |
 | Bildirimler | flutter_local_notifications, timezone |
 | Depolama | path_provider, shared_preferences, file_picker |
 | Arayüz | google_fonts, flutter_svg, flutter_animate |
 | Diğer | http, share_plus, image_picker, url_launcher, package_info_plus |
 
-## Kurulum
+---
 
-**Gereksinimler:** Flutter SDK 3.44+ (Dart 3.10+), Android Studio veya komut satırı araçları
+<p style="border-left: 4px solid #7c5cff; padding-left: 12px; font-size: 20px; font-weight: 700; margin-bottom: 8px;">Başlangıç</p>
+
+**Gereksinimler:** [Flutter SDK](https://docs.flutter.dev/get-started/install) 3.44 veya üzeri (Dart 3.10+)
 
 ```bash
-# Bağımlılıkları yükle
+# 1. Bağımlılıkları kur
 flutter pub get
 
-# Uygulamayı çalıştır
+# 2. Geliştirme modunda çalıştır
 flutter run
 
-# Testleri çalıştır
+# 3. Testleri çalıştır
 flutter test
 
-# Release APK oluştur
+# 4. Release APK üret
 flutter build apk --release
 ```
 
-Çıktılar `build/app/outputs/` altında bulunur.
+Çıktılar `build/app/outputs/` altında yer alır.
 
-> **Gemini AI:** AI özellikleri için [Google AI Studio](https://aistudio.google.com/apikey)'dan ücretsiz API anahtarı alın ve uygulamanın **Profil** sekmesinden girin. Anahtar yalnızca cihazda saklanır, kaynak kodda yer almaz.
+> **Gemini AI:** AI özellikleri için [Google AI Studio](https://aistudio.google.com/apikey)'dan ücretsiz bir API anahtarı alın ve uygulamanın **Profil** sekmesinden girin. Anahtar yalnızca cihazda saklanır, kaynak kodda yer almaz.
 
-## Ortam Değişkenleri
+---
 
-Bu projede `.env` dosyası kullanılmaz. Tüm yapılandırma dosyaları (tema, API anahtarı) uygulama içi ayarlarla yönetilir; API anahtarı kullanıcı tarafından **Profil** sekmesinden girilir ve cihazda saklanır.
+<p style="border-left: 4px solid #7c5cff; padding-left: 12px; font-size: 20px; font-weight: 700; margin-bottom: 8px;">Ortam Değişkenleri</p>
 
-## Proje Yapısı
+Bu projede `.env` dosyası kullanılmaz. Uygulama yapılandırması (tema ve API anahtarı) uygulama içi ayarlardan yönetilir; API anahtarı kullanıcı tarafından **Profil** sekmesinde girilir ve cihazda tutulur.
 
-```
+---
+
+<p style="border-left: 4px solid #7c5cff; padding-left: 12px; font-size: 20px; font-weight: 700; margin-bottom: 8px;">Proje Yapısı</p>
+
+<details>
+<summary>lib/ dizin ağacı</summary>
+
+```text
 lib/
 ├── core/
 │   ├── data/          # Isar veritabanı, entity'ler, konu kataloğu
@@ -91,6 +150,16 @@ lib/
     └── settings/      # Profil ve ayarlar
 ```
 
+</details>
+
+---
+
+<div align="center">
+
 ## Lisans
 
-MIT — bkz. [LICENSE](LICENSE)
+[MIT](LICENSE) — © 2026 Vyr0
+
+</div>
+
+[license]: LICENSE
