@@ -351,13 +351,16 @@ Future<void> _requestAiSummary(
   final targets = repository.aiGoalTargets.value;
   final cadence = repository.aiGoalCadence.value;
   final prompt = '''
-KPSS P3 çalışması için mentor gibi özet ve aksiyon önerisi yaz.
-Mod: ${mode == AnalysisMode.exams ? 'Deneme' : 'Soru'}
-Ana metrik: ${metrics.title} ${metrics.value} ${metrics.unit}
-Öne çıkan metrikler: ${metrics.leftTitle} ${metrics.leftValue}, ${metrics.rightTitle} ${metrics.rightValue}
-AI hedefleri (günlük/haftalık/aylık): ${targets['daily'] ?? '-'} / ${targets['weekly'] ?? '-'} / ${targets['monthly'] ?? '-'}
-Seçili kadans: ${_cadenceLabel(cadence)}
-İstenen çıktı: 4 maddelik mentor notu (1) kısa durum (2) net/performans odağı (3) bir sonraki aksiyon (4) motivasyon cümlesi.
+Sınav çalışması için mentor gibi özet ve aksiyon önerisi yaz.
+Veriler:
+Analiz Türü: ${metrics.title}
+Değer: ${metrics.value} ${metrics.unit}
+Değişim: %${(metrics.delta * 100).toStringAsFixed(1)}
+${metrics.leftTitle}: ${metrics.leftValue}
+${metrics.rightTitle}: ${metrics.rightValue}
+Trend: ${metrics.trend.take(10).join(', ')}...
+
+Kullanıcı için 3 maddelik kısa, net ve motive edici bir aksiyon planı oluştur.
 ''';
 
   final closeLoading = _showLoadingDialog(context, 'AI özet hazırlanıyor...');
@@ -449,15 +452,11 @@ List<TopicProgress> weakTopics,
       : _formatAverageMinutes(metrics.avgMinutesPerQuestion);
 
   final prompt = '''
-KPSS P3 soru analizi yap. Hatalı eğilimleri ve hız/performans darboğazını çıkar.
-Özet:
-- Ortalama doğruluk: ${(metrics.accuracy * 100).round()}%
-- Günlük tempo: $averageDaily soru
-- Ortalama süre: $avgMinutes
-- Zayıf konular: $weakLabel
-- AI hedefleri (günlük/haftalık/aylık): ${targets['daily'] ?? '-'} / ${targets['weekly'] ?? '-'} / ${targets['monthly'] ?? '-'}
-- Seçili kadans: ${_cadenceLabel(cadence)}
-İstenen çıktı: 4 maddelik net eylem listesi + 1 cümle motivasyon.
+Sınav soru analizi yap. Hatalı eğilimleri ve hız/performans darboğazını çıkar.
+Veriler:
+Toplam: ${metrics.totalQuestions}, Doğru: ${metrics.correct}, Yanlış: ${metrics.wrong}
+Ortalama Süre: $avgMinutes
+Zayıf Konular: $weakLabel
 ''';
 
   final closeLoading = _showLoadingDialog(context, 'AI soru analizi hazırlanıyor...');
@@ -534,16 +533,14 @@ Future<void> _requestAiExamPrediction(
       ? 'Genel çalışma verileri yetersiz.'
       : weakTopics.map((e) => "${e.topic.subject}: ${e.topic.title} (%${(e.accuracy*100).round()} başarı)").take(5).join(', ');
 
-  final prompt = '''
-Sen bir KPSS Soru Avcısı ve mentörsün. Kullanıcının şu anki zayıf olduğu konular şunlar:
-$weakLabel
+    final prompt = '''
+Sen bir Sınav Soru Avcısı ve mentörsün. Kullanıcının şu anki zayıf olduğu konular şunlar:
+${weakTopics.map((t) => '- ${t.topic.title} (${t.topic.subject}) -> Başarı: %${(t.accuracy * 100).round()}').join('\n')}
 
-KPSS P3 (Lisans) sınav ağırlıklarını (son 10 yıl) göz önüne alarak şunları üret:
-1) ACİL MÜDAHALE: Sınavda çıkma ihtimali çok yüksek ama kullanıcının zayıf olduğu 2 konu.
-2) KRİTİK TAHMİN: Bu yıl çıkmasını beklediğin, kullanıcının dikkat etmesi gereken 3 nokta/soru tipi.
-3) TAKTİKSEL ÖNERİ: Hız veya net artışı için bu verilere göre 1 strateji.
-
-Markdown formatında, profesyonel ve heyecan verici bir dille yaz.
+Görev:
+1. Bu konuların hangi sınava (KPSS, YKS, DGS vb.) ait olduğunu içerikten tespit et.
+2. İlgili sınavın son 10 yıllık çıkmış soru dağılımlarını ve konu ağırlıklarını baz al.
+3. Hangi konuya ne kadar yüklenilmesi gerektiğini sayısal öncelik (1-10) vererek anlat.
 ''';
 
   final closeLoading = _showLoadingDialog(context, 'Soru avcısı analiz yapıyor...');
@@ -639,7 +636,7 @@ Future<void> _requestAiNewsletter(
   }
 
   final prompt = '''
-Sen KPSS P3 adayı için bir mentörsün. Aşağıdaki haftalık çalışma özetini al ve profesyonel, motive edici bir "Haftalık Performans Bülteni" hazırla.
+Sen sınav adayı için bir mentörsün. Aşağıdaki haftalık çalışma özetini al ve profesyonel, motive edici bir "Haftalık Performans Bülteni" hazırla.
 Veriler:
 $rawSummary
 
@@ -685,9 +682,9 @@ Bülteni Markdown formatında, paylaşılmaya uygun şık bir şekilde yaz.
       ),
     );
 
-    if (confirmShare == true) {
-      await Share.share(result, subject: 'KPSS Haftalık Performans Bültenim');
-    }
+      if (result.isNotEmpty) {
+        await Share.share(result, subject: 'Haftalık Performans Bültenim');
+      }
 
   } catch (e) {
     closeLoading();
@@ -2486,12 +2483,16 @@ class _QuestionMetrics implements _AnalysisMetrics {
     required this.trend,
     required this.delta,
     required this.totalQuestions,
+    required this.correct, // Add correct
+    required this.wrong,   // Add wrong
     required this.axisLabels,
   });
 
   final double accuracy;
   final double avgMinutesPerQuestion;
   final int totalQuestions;
+  final int correct; // Add correct
+  final int wrong;   // Add wrong
   @override
   final List<double> trend;
   @override
@@ -2505,6 +2506,7 @@ List<QuestionEntry> entries,
     DateTime end,
   ) {
     final totalCorrect = entries.fold<int>(0, (sum, e) => sum + e.correct);
+    final totalWrong = entries.fold<int>(0, (sum, e) => sum + e.wrong); // Calculate wrong
     final totalQuestions = entries.fold<int>(0, (sum, e) => sum + e.total);
     final totalMinutes = entries.fold<int>(0, (sum, e) => sum + e.minutes);
     final accuracy = totalQuestions == 0
@@ -2538,6 +2540,8 @@ List<String> labels;
       trend: trend,
       delta: _calculateDelta(trend),
       totalQuestions: totalQuestions,
+      correct: totalCorrect, // Pass correct
+      wrong: totalWrong,     // Pass wrong
       axisLabels: labels,
     );
   }
@@ -2665,16 +2669,21 @@ Future<void> _requestAiStrategy(
   }
 
   // Gather stats for AI
+  if (exams.isEmpty) {
+    _showSnack(context, 'Analiz için en az 1 deneme kaydı gerekli.');
+    return;
+  }
   final lastExams = exams.take(5).toList();
+  final lastExam = lastExams.first;
   String statsText = lastExams.map((e) {
     return "- ${e.title}: ${e.totalNet} net, ${e.minutes} dk. Branşlar: ${e.subjectNets}";
   }).join('\n');
 
   final prompt = '''
-Sen bir KPSS Sınav Stratejistisin. Kullanıcının son deneme verileri şunlar:
+Sen bir Sınav Stratejistisin. Kullanıcının son deneme verileri şunlar:
 $statsText
 
-Bu verilere dayanarak kullanıcıya şu 3 konuda profesyonel taktik ver:
+Görev:
 1) ZAMAN YÖNETİMİ: Mevcut süre kullanımına göre hangi branşa kaç dakika ayırmalı? (Örn: "Türkçe'yi 45'ten 40'a çekmelisin").
 2) ÇÖZÜM SIRALAMASI: Net ve hız performansına göre en ideal branş sıralaması ne olmalı?
 3) KRİTİK UYARI: En çok net kaybettiği veya süre harcadığı branş için 1 stratejik öneri.

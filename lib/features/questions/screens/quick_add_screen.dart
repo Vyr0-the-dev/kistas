@@ -116,7 +116,7 @@ class QuickAddScreen extends StatelessWidget {
   }
 
   void _openEntry(BuildContext context, EntryType type) {
-    Navigator.of(context).push(
+    Navigator.of(context, rootNavigator: true).push(
       MaterialPageRoute(
         builder: (context) => EntryWizardScreen(type: type),
       ),
@@ -260,7 +260,7 @@ Extract study data from this text into JSON: "$result".
 JSON Schema:
 {
   "topic": "string (infer closest topic name, e.g. Matematik, Tarih, Coğrafya)",
-  "tag": "string (infer exam type if mentioned, e.g. KPSS, YKS, DGS. Default to 'KPSS')",
+  "tag": "string (infer exam type if mentioned, e.g. KPSS, YKS, DGS. Default to 'Genel')",
   "total": int (total questions),
   "correct": int (if mentioned),
   "wrong": int (if mentioned),
@@ -293,7 +293,7 @@ Return ONLY raw JSON.
     // Try to match topic
     final topics = repository.topics;
     TopicSummary? matchedTopic;
-    final inferredTag = data['tag']?.toString().toLowerCase() ?? 'kpss';
+    final inferredTag = data['tag']?.toString().toLowerCase() ?? 'genel';
     
     if (data['topic'] != null) {
       final topicName = data['topic'].toString().toLowerCase();
@@ -550,12 +550,12 @@ class _SuggestionsRow extends StatelessWidget {
     if (recentEntry != null) {
       items.add(
         _SuggestionItem(
-          title: recentEntry!.topic.isEmpty
-              ? 'Son Çalışılan'
-              : recentEntry!.topic,
-          subtitle: recentEntry!.subject.isEmpty
-              ? 'Devam et'
-              : recentEntry!.subject,
+          title: recentEntry!.bookName.isNotEmpty
+              ? recentEntry!.bookName
+              : (recentEntry!.topic.isEmpty ? 'Son Çalışılan' : recentEntry!.topic),
+          subtitle: recentEntry!.bookName.isNotEmpty
+              ? '${recentEntry!.subject} • ${recentEntry!.topic}'
+              : (recentEntry!.subject.isEmpty ? 'Devam et' : recentEntry!.subject),
           label: 'Son Çalışılan',
           accent: AppColors.of(context).primary,
           onTap: () => onQuestionTap(recentEntry!),
@@ -826,10 +826,15 @@ List<_TodayItem> _buildTodayItems(
 
   for (final entry in questionEntries) {
     if (_isSameDay(entry.createdAt, now)) {
+      final hasBook = entry.bookName.isNotEmpty;
       items.add(
         _TodayItem(
-          title: entry.topic.isEmpty ? 'Soru Kaydı' : entry.topic,
-          subtitle: '${entry.total} soru çözüldü',
+          title: hasBook
+              ? entry.bookName
+              : (entry.topic.isEmpty ? 'Soru Kaydı' : entry.topic),
+          subtitle: hasBook
+              ? '${entry.subject} • ${entry.topic} • ${entry.total} soru'
+              : '${entry.total} soru çözüldü',
           timeLabel: _formatTime(entry.createdAt),
           icon: Icons.school,
           accent: AppColors.of(context).primary,
@@ -878,7 +883,7 @@ void _openQuestionFromEntry(
   List<TopicSummary> topics,
 ) {
   final matched = _findTopic(topics, entry);
-  Navigator.of(context).push(
+  Navigator.of(context, rootNavigator: true).push(
     MaterialPageRoute(
       builder: (_) => EntryWizardScreen(
         type: EntryType.question,
@@ -964,7 +969,7 @@ void _showQuickSelectionsSheet(
                         icon: Icons.edit_note,
                         onTap: () {
                           Navigator.of(sheetContext).pop();
-                          Navigator.of(context).push(
+                          Navigator.of(context, rootNavigator: true).push(
                             MaterialPageRoute(
                               builder: (_) => const EntryWizardScreen(
                                 type: EntryType.question,
@@ -981,7 +986,7 @@ void _showQuickSelectionsSheet(
                         icon: Icons.timer,
                         onTap: () {
                           Navigator.of(sheetContext).pop();
-                          Navigator.of(context).push(
+                          Navigator.of(context, rootNavigator: true).push(
                             MaterialPageRoute(
                               builder: (_) => const EntryWizardScreen(
                                 type: EntryType.mockExam,
@@ -999,18 +1004,25 @@ void _showQuickSelectionsSheet(
                   _EmptyHint(text: 'Henüz soru kaydı yok.')
                 else
                   ...recentQuestions.take(6).map(
-                        (entry) => _QuickSelectionTile(
-                          title: entry.topic.isEmpty ? 'Soru Kaydı' : entry.topic,
-                          subtitle: '${entry.subject} • ${entry.total} soru',
-                          trailing: _formatTime(entry.createdAt),
-                          icon: Icons.school,
-                          accent: AppColors.of(context).primary,
-                          onTap: () {
-                            Navigator.of(sheetContext).pop();
-                            _openQuestionFromEntry(context, entry, topics);
-                          },
-                        ),
-                      ),
+                    (entry) {
+                      final hasBook = entry.bookName.isNotEmpty;
+                      return _QuickSelectionTile(
+                        title: hasBook
+                            ? entry.bookName
+                            : (entry.topic.isEmpty ? 'Soru Kaydı' : entry.topic),
+                        subtitle: hasBook
+                            ? '${entry.subject} • ${entry.topic} • ${entry.total} soru'
+                            : '${entry.subject} • ${entry.total} soru',
+                        trailing: _formatTime(entry.createdAt),
+                        icon: Icons.school,
+                        accent: AppColors.of(context).primary,
+                        onTap: () {
+                          Navigator.of(sheetContext).pop();
+                          _openQuestionFromEntry(context, entry, topics);
+                        },
+                      );
+                    },
+                  ),
                 SizedBox(height: 18),
                 _QuickSectionTitle(title: 'Son Denemeler'),
                 if (recentExams.isEmpty)

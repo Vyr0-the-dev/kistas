@@ -25,6 +25,7 @@ import '../../dashboard/screens/home_screen.dart';
 import '../../settings/screens/profile_screen.dart';
 import 'quick_add_screen.dart';
 import 'topic_summaries_screen.dart';
+import '../../mistakes/screens/mistake_gallery_screen.dart';
 
 class TopicDetailScreen extends StatelessWidget {
   const TopicDetailScreen({super.key, required this.topic});
@@ -35,10 +36,13 @@ class TopicDetailScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final repository = AppRepositoryScope.of(context);
 
-    return ValueListenableBuilder<Map<String, TopicSummary>>(
-      valueListenable: repository.customTopics,
-      builder: (context, customMap, _) {
-        final currentTopic = customMap[topic.id] ?? topic;
+    return ValueListenableBuilder<List<TopicSummary>>(
+      valueListenable: repository.userTopics,
+      builder: (context, allTopics, _) {
+        final currentTopic = allTopics.firstWhere(
+          (t) => t.id == topic.id,
+          orElse: () => topic,
+        );
         final entries = repository.entriesForTopic(currentTopic.title);
         final progress = TopicProgress.fromEntries(currentTopic, entries);
 
@@ -92,7 +96,7 @@ class TopicDetailScreen extends StatelessWidget {
               ],
             ),
           ),
-          bottomNavigationBar: _BottomNav(),
+          bottomNavigationBar: null,
         );
       },
     );
@@ -1016,6 +1020,27 @@ class _MistakeSection extends StatelessWidget {
               ),
             ],
           ),
+        const SizedBox(height: 16),
+        if (entries.any((e) => e.imagePaths.isNotEmpty))
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => MistakeGalleryScreen(topicFilter: entries.first.topic),
+                  ),
+                );
+              },
+              icon: const Icon(Icons.collections_outlined, size: 18),
+              label: const Text('Bu Konunun Hata Defteri'),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: Colors.orangeAccent,
+                side: BorderSide(color: Colors.orangeAccent.withOpacity(0.3)),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+              ),
+            ),
+          ),
       ],
     );
   }
@@ -1193,13 +1218,25 @@ Future<void> _requestTopicInsight(
     return;
   }
 
+  // Calculate stats for context
+  final entries = repository.entriesForTopic(topic.title);
+  final progress = TopicProgress.fromEntries(topic, entries);
+  final accuracy = (progress.accuracy * 100).round();
+  final totalSolved = progress.totalQuestions;
+  final wrongCount = progress.wrong;
+
   final prompt = '''
 ${topic.tag} "${topic.title}" (${topic.subject}) konusu için özel çalışma rehberi hazırla.
+Öğrenci İstatistikleri:
+- Toplam Çözülen: $totalSolved
+- Doğruluk Oranı: %$accuracy
+- Yanlış Sayısı: $wrongCount
+Bu istatistiklere dayanarak, öğrencinin seviyesine uygun (başlangıç/orta/ileri) nokta atışı tavsiyeler ver.
 İstenen çıktı sadece JSON formatında olsun.
 Şema:
 {
-  "summary": "Konunun önemi ve soru potansiyeli (1-2 cümle)",
-  "notes": ["Sık yapılan hatalar", "Püf nokta 1", "Püf nokta 2", "Dikkat edilmesi gereken şey"]
+  "summary": "İstatistiklere dayalı durum analizi (1-2 cümle)",
+  "notes": ["Tespit edilen eksik noktaya yönelik tavsiye", "Püf nokta 1", "Püf nokta 2"]
 }
 Mentor tonunda, kısa ve öz yaz.
 ''';
@@ -1331,8 +1368,9 @@ Sorular kısa, öz ve sınavda çıkabilecek kritik bilgiler olsun.
         answer: json['answer'] ?? '',
         hint: json['hint'],
         topicTitle: topic.title,
+        nextReview: DateTime.now(),
       );
-    }).toList();
+    }).toList().cast<Flashcard>();
 
     final existingCards = repository.flashcards.value[topic.title] ?? [];
     final updatedCards = [...existingCards, ...cards];
@@ -1358,46 +1396,6 @@ void _openFlashcards(BuildContext context, List<Flashcard> cards, String topic) 
       builder: (_) => FlashcardStudyScreen(cards: cards, topicTitle: topic),
     ),
   );
-}
-
-class _BottomNav extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return AppBottomNav(
-      activeIndex: 1,
-      onSelect: (index) => _navigateFromNav(context, index),
-    );
-  }
-}
-
-void _navigateFromNav(BuildContext context, int index) {
-  switch (index) {
-    case 0:
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => HomeScreen()),
-      );
-      return;
-    case 1:
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => TopicSummariesScreen()),
-      );
-      return;
-    case 2:
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => QuickAddScreen()),
-      );
-      return;
-    case 3:
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => AnalysisScreen()),
-      );
-      return;
-    case 4:
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => ProfileScreen()),
-      );
-      return;
-  }
 }
 
 void _showMoreActions(BuildContext context, TopicSummary topic) {
@@ -1954,11 +1952,20 @@ void _showSnack(BuildContext context, String message) {
 }
 
 Future<void> Function() _showLoadingDialog(BuildContext context, String title) {
-  bool isOpen = true;
-  AiLoadingDialog.show(context, status: title).then((_) => isOpen = false);
+  bool isOpen = false;
+  
+  // Start the dialog but don't await it here
+  AiLoadingDialog.show(context, status: title).then((_) {
+    isOpen = false;
+  });
+  isOpen = true;
+
   return () async {
+    // Small delay to ensure it's actually in the navigator stack before popping
+    await Future.delayed(const Duration(milliseconds: 500));
     if (isOpen && context.mounted) {
-      Navigator.of(context).pop();
+      Navigator.of(context, rootNavigator: true).pop();
+      isOpen = false;
     }
   };
 }

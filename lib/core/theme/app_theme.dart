@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
@@ -94,6 +95,12 @@ ThemeData buildAppTheme(String themeKey) {
     dividerTheme: DividerThemeData(
       color: Colors.white.withOpacity(0.08),
       thickness: 1,
+    ),
+    pageTransitionsTheme: const PageTransitionsTheme(
+      builders: {
+        TargetPlatform.android: FadeUpwardsPageTransitionsBuilder(),
+        TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
+      },
     ),
     iconTheme: const IconThemeData(
       color: AppColors.textSecondary,

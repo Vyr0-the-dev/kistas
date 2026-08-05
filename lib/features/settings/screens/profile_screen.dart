@@ -4,10 +4,10 @@ import 'dart:io';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 
-import '../../../core/models/topic_summary.dart';
 import '../../../core/models/mock_exam.dart';
 import '../../../core/models/question_entry.dart';
 import '../../../core/repositories/app_repository.dart';
@@ -59,6 +59,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
             title: 'Kişisel Hedefler',
             icon: Icons.person_outline,
             children: [
+              _buildActivityHeatmap(context, repository),
+              const SizedBox(height: 24),
               ValueListenableBuilder<int>(
                 valueListenable: repository.dailyGoal,
                 builder: (context, goal, _) {
@@ -76,23 +78,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   return _ExamDateRow(
                     value: examDate,
                     onTap: () => _selectExamDate(context, repository, examDate),
-                  );
-                },
-              ),
-            ],
-          ),
-          _buildCollapsibleSection(
-            context,
-            title: 'Sınav / Etiket Yönetimi',
-            icon: Icons.label_important_outline,
-            children: [
-              ValueListenableBuilder<List<TopicSummary>>(
-                valueListenable: repository.userTopics,
-                builder: (context, allTopics, _) {
-                  return _TagManagementList(
-                    allTopics: allTopics,
-                    onRename: (oldTag) => _renameTag(context, oldTag, allTopics),
-                    onDelete: (tag) => _deleteTag(context, tag, allTopics),
                   );
                 },
               ),
@@ -191,12 +176,23 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
           Transform.translate(
             offset: const Offset(0, -35),
-            child: Text(
-              'v1.0.0',
-              style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                    color: Colors.white38,
-                    letterSpacing: 2,
-                  ),
+            child: FutureBuilder<PackageInfo>(
+              future: PackageInfo.fromPlatform(),
+              builder: (context, snapshot) {
+                final version = snapshot.data?.version ?? '...';
+                final buildNumber = snapshot.data?.buildNumber ?? '';
+                final displayVersion = buildNumber.isNotEmpty 
+                    ? 'v$version+$buildNumber' 
+                    : 'v$version';
+                
+                return Text(
+                  displayVersion,
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                        color: Colors.white38,
+                        letterSpacing: 2,
+                      ),
+                );
+              },
             ),
           ),
         ],
@@ -252,142 +248,110 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
-  Future<void> _renameTag(
-    BuildContext context,
-    String oldTag,
-    List<TopicSummary> allTopics,
-  ) async {
-    final controller = TextEditingController(text: oldTag);
-    final String? newName = await showDialog<String>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Etiketi Düzenle'),
-        content: TextField(
-          controller: controller,
-          decoration: const InputDecoration(border: OutlineInputBorder()),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Vazgeç'),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(context, controller.text.trim()),
-            child: const Text('Güncelle'),
-          ),
-        ],
-      ),
-    );
-
-    if (newName != null && newName.isNotEmpty && newName != oldTag && mounted) {
-      final repository = AppRepositoryScope.of(context);
-      final topicsToUpdate = allTopics
-          .where((t) => t.tag == oldTag)
-          .map((t) => t.copyWith(tag: newName))
-          .toList();
-      await repository.bulkUpdateUserTopics(topicsToUpdate);
-      _showSnack(context, 'Etiket güncellendi.');
-    }
-  }
-
-  Future<void> _deleteTag(
-    BuildContext context,
-    String tag,
-    List<TopicSummary> allTopics,
-  ) async {
-    final bool? confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text('Sınavı Sil: $tag'),
-        content: const Text(
-          'Bu sınava ait tüm konular ve çalışma verileri silinecek. Emin misin?',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Vazgeç'),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(context, true),
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent),
-            child: const Text('Hepsini Sil'),
-          ),
-        ],
-      ),
-    );
-
-    if (confirmed == true && mounted) {
-      final repository = AppRepositoryScope.of(context);
-      final idsToDelete = allTopics.where((t) => t.tag == tag).map((t) => t.id).toList();
-      for (final id in idsToDelete) {
-        await repository.deleteUserTopic(id);
-      }
-      _showSnack(context, '$tag sınavı ve konuları silindi.');
-    }
-  }
 }
 
-class _TagManagementList extends StatelessWidget {
-  const _TagManagementList({
-    required this.allTopics,
-    required this.onRename,
-    required this.onDelete,
-  });
-
-  final List<TopicSummary> allTopics;
-  final Function(String) onRename;
-  final Function(String) onDelete;
-
-  @override
-  Widget build(BuildContext context) {
-    final tags = allTopics.map((e) => e.tag).toSet().toList();
-    tags.sort();
-
-    if (tags.isEmpty) {
-      return const Center(
-        child: Padding(
-          padding: EdgeInsets.all(16.0),
-          child: Text('Henüz etiket yok.', style: TextStyle(color: Colors.white38)),
-        ),
-      );
-    }
-
-    return ListView.separated(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      itemCount: tags.length,
-      separatorBuilder: (_, __) => const Divider(color: Colors.white10, height: 1),
-      itemBuilder: (context, index) {
-        final tag = tags[index];
-        final count = allTopics.where((t) => t.tag == tag).length;
-        return ListTile(
-          contentPadding: EdgeInsets.zero,
-          title: Text(
-            tag,
-            style: const TextStyle(color: Colors.white, fontSize: 14),
-          ),
-          subtitle: Text(
-            '$count konu',
-            style: const TextStyle(color: Colors.white38, fontSize: 11),
-          ),
-          trailing: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              IconButton(
-                icon: const Icon(Icons.edit_outlined, color: Colors.white54, size: 18),
-                onPressed: () => onRename(tag),
-              ),
-              IconButton(
-                icon: const Icon(Icons.delete_outline, color: Colors.redAccent, size: 18),
-                onPressed: () => onDelete(tag),
-              ),
-            ],
-          ),
+  Widget _buildActivityHeatmap(BuildContext context, AppRepository repository) {
+    return ValueListenableBuilder<List<QuestionEntry>>(
+      valueListenable: repository.questionEntries,
+      builder: (context, entries, _) {
+        return ValueListenableBuilder<List<MockExam>>(
+          valueListenable: repository.mockExams,
+          builder: (context, exams, __) {
+            final activityMap = _calculateDailyActivity(entries, exams);
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Aktivite Haritası',
+                  style: TextStyle(color: Colors.white54, fontSize: 12),
+                ),
+                const SizedBox(height: 12),
+                RepaintBoundary(child: _HeatmapGrid(activityMap: activityMap)),
+              ],
+            );
+          },
         );
       },
     );
   }
+
+class _HeatmapGrid extends StatelessWidget {
+  const _HeatmapGrid({required this.activityMap});
+  final Map<DateTime, int> activityMap;
+
+  @override
+  Widget build(BuildContext context) {
+    final now = DateTime.now();
+    // 5 months lookback (approx 20 weeks)
+    const weeks = 20; 
+    
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      reverse: true,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: List.generate(weeks, (weekIndex) {
+          // Calculate start of the week (Monday) based on lookback
+          final weekStart = now.subtract(Duration(days: (weeks - 1 - weekIndex) * 7 + now.weekday - 1));
+          
+          return Padding(
+            padding: const EdgeInsets.only(right: 4),
+            child: Column(
+              children: List.generate(7, (dayIndex) {
+                final date = weekStart.add(Duration(days: dayIndex));
+                // Normalize date to remove time
+                final normalizedDate = DateTime(date.year, date.month, date.day);
+                // Don't show future days
+                if (normalizedDate.isAfter(DateTime(now.year, now.month, now.day))) {
+                   return const SizedBox(width: 12, height: 12);
+                }
+                
+                final count = activityMap[normalizedDate] ?? 0;
+                
+                return Container(
+                  width: 12,
+                  height: 12,
+                  margin: const EdgeInsets.only(bottom: 4),
+                  decoration: BoxDecoration(
+                    color: _getHeatmapColor(context, count),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                );
+              }),
+            ),
+          );
+        }),
+      ),
+    );
+  }
+
+  Color _getHeatmapColor(BuildContext context, int count) {
+    if (count == 0) return Colors.white.withOpacity(0.05);
+    if (count <= 20) return AppColors.of(context).primary.withOpacity(0.3);
+    if (count <= 50) return AppColors.of(context).primary.withOpacity(0.5);
+    if (count <= 100) return AppColors.of(context).primary.withOpacity(0.7);
+    return AppColors.of(context).primary;
+  }
 }
+
+Map<DateTime, int> _calculateDailyActivity(List<QuestionEntry> entries, List<MockExam> exams) {
+  final map = <DateTime, int>{};
+  
+  for (final e in entries) {
+    final date = DateTime(e.createdAt.year, e.createdAt.month, e.createdAt.day);
+    map[date] = (map[date] ?? 0) + e.total;
+  }
+  
+  for (final e in exams) {
+    final date = DateTime(e.createdAt.year, e.createdAt.month, e.createdAt.day);
+    // Weigh exams heavily (e.g. 1 exam = 50 points of activity) or just by question count if available
+    // Here we count it as 100 "activity points" for visualization
+    map[date] = (map[date] ?? 0) + 100;
+  }
+  
+  return map;
+}
+
 
 class _AiConfigurationSection extends StatelessWidget {
   const _AiConfigurationSection({required this.controller, required this.repository});
@@ -1060,20 +1024,7 @@ class _ThemeGrid extends StatelessWidget {
       children: [
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-          children: ['midnight', 'ocean', 'volcanic', 'forest', 'royal'].map((key) {
-            final config = _getThemeColor(key);
-            return _ThemeOption(
-              color: config.primary,
-              label: config.label,
-              isSelected: currentTheme == key,
-              onTap: () => onThemeSelected(key),
-            );
-          }).toList(),
-        ),
-        const SizedBox(height: 16),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-          children: ['sunset', 'glacier', 'crimson', 'amber', 'graphite'].map((key) {
+          children: ['graphite', 'royal', 'volcanic', 'ocean', 'sunset'].map((key) {
             final config = _getThemeColor(key);
             return _ThemeOption(
               color: config.primary,
@@ -1299,10 +1250,19 @@ String _formatDateTime(DateTime dateTime) =>
 void _showSnack(BuildContext context, String message) => InAppNotice.show(context, message);
 
 Future<void> Function() _showLoadingDialog(BuildContext context, String title) {
-  bool isOpen = true;
-  AiLoadingDialog.show(context, status: title).then((_) => isOpen = false);
+  bool isOpen = false;
+  
+  AiLoadingDialog.show(context, status: title).then((_) {
+    isOpen = false;
+  });
+  isOpen = true;
+
   return () async {
-    if (isOpen && context.mounted) Navigator.of(context).pop();
+    await Future.delayed(const Duration(milliseconds: 500));
+    if (isOpen && context.mounted) {
+      Navigator.of(context, rootNavigator: true).pop();
+      isOpen = false;
+    }
   };
 }
 
@@ -1315,54 +1275,76 @@ Future<void> _fetchAndSelectModel(
     _showSnack(context, 'Önce API anahtarını girin.');
     return;
   }
+
+  // 1. Show Loading
   final closeLoading = _showLoadingDialog(context, 'Modeller listeleniyor...');
+  
+  // Wait a bit to ensure dialog is actually pushed to stack
+  await Future.delayed(const Duration(milliseconds: 600));
+
+  List<String> models = [];
   try {
     final client = GeminiClient();
-    final models = await client.listModels(apiKey);
-    closeLoading();
-    if (!context.mounted || models.isEmpty) return;
-    final selected = await showDialog<String>(
-      context: context,
-      builder: (context) {
-        final currentModel = repository.geminiModel.value;
-        return AlertDialog(
-          title: const Text('Model Seç'),
-          content: SizedBox(
-            width: double.maxFinite,
-            child: ListView.builder(
-              shrinkWrap: true,
-              itemCount: models.length,
-              itemBuilder: (context, index) {
-                final model = models[index];
-                final isActive = model == currentModel;
-                return ListTile(
-                  title: Text(
-                    model,
-                    style: TextStyle(
-                      fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
-                      color: isActive ? AppColors.of(context).primaryLight : Colors.white,
-                      fontSize: 14,
-                    ),
-                  ),
-                  trailing: isActive
-                      ? Icon(Icons.check, color: AppColors.of(context).primaryLight)
-                      : null,
-                  onTap: () => Navigator.of(context).pop(model),
-                );
-              },
-            ),
-          ),
-        );
-      },
-    );
-    if (selected != null && context.mounted) {
-      await repository.setGeminiModel(selected);
-      if (repository.geminiApiKey.value != apiKey) await repository.setGeminiApiKey(apiKey);
-      _showSnack(context, 'Model seçildi: $selected');
-    }
+    models = await client.listModels(apiKey);
   } catch (e) {
-    closeLoading();
+    await closeLoading();
     _showSnack(context, 'Hata: API anahtarını kontrol et.');
+    return;
+  }
+
+  // 2. Explicitly close loading
+  await closeLoading();
+  // Ensure stack is settled
+  await Future.delayed(const Duration(milliseconds: 200));
+
+  if (!context.mounted) return;
+
+  if (models.isEmpty) {
+    _showSnack(context, 'Uygun model bulunamadı.');
+    return;
+  }
+
+  // 3. Show selection dialog
+  final selected = await showDialog<String>(
+    context: context,
+    barrierDismissible: true,
+    builder: (dialogContext) {
+      final currentModel = repository.geminiModel.value;
+      return AlertDialog(
+        title: const Text('Model Seç'),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: ListView.builder(
+            shrinkWrap: true,
+            itemCount: models.length,
+            itemBuilder: (context, index) {
+              final model = models[index];
+              final isActive = model == currentModel;
+              return ListTile(
+                title: Text(
+                  model,
+                  style: TextStyle(
+                    fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
+                    color: isActive ? AppColors.of(context).primaryLight : Colors.white,
+                    fontSize: 14,
+                  ),
+                ),
+                trailing: isActive
+                    ? Icon(Icons.check, color: AppColors.of(context).primaryLight)
+                    : null,
+                onTap: () => Navigator.of(dialogContext).pop(model),
+              );
+            },
+          ),
+        ),
+      );
+    },
+  );
+
+  // 4. Update repository
+  if (selected != null && context.mounted) {
+    await repository.setGeminiModel(selected);
+    _showSnack(context, 'Model seçildi: $selected');
   }
 }
 

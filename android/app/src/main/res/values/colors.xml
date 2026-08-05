@@ -2,5 +2,5 @@
 <resources>
     <!-- Logodaki arka plan rengiyle eşleşen ton -->
     <color name="launch_color">#262836</color>
-	<color name="ic_launcher_background">#262836</color>
+	<color name="ic_launcher_background">#282a39</color>
 </resources>

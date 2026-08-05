@@ -96,7 +96,7 @@ class _TopicSummariesScreenState extends State<TopicSummariesScreen> {
   }
 
   Future<void> _updateSelectedTag() async {
-    final controller = TextEditingController(text: 'KPSS');
+    final controller = TextEditingController(text: 'Genel');
     final newTag = await showDialog<String>(
       context: context,
       builder: (context) => AlertDialog(
@@ -193,29 +193,31 @@ class _TopicSummariesScreenState extends State<TopicSummariesScreen> {
               body: Column(
                 children: [
                   if (!_isSelectionMode)
-                    _Header(
-                      topics: currentTopics,
-                      controller: _searchController,
-                      onFilterChanged: (value) => setState(() {
-                        _activeFilter = value;
-                      }),
-                      activeFilter: _activeFilter,
-                      onTagChanged: (value) => setState(() {
-                        _activeTag = value;
-                        _activeFilter = 'Tümü';
-                      }),
-                      activeTag: _activeTag,
-                      weakOnly: _weakOnly,
-                      staleOnly: _staleOnly,
-                      onToggleWeak: () => setState(() {
-                        _weakOnly = !_weakOnly;
-                      }),
-                      onToggleStale: () => setState(() {
-                        _staleOnly = !_staleOnly;
-                      }),
-                      onOpenSort: () => _openSortSheet(context),
-                      onBulkAdd: () => _showBulkAddDialog(context),
-                    ),
+                      _Header(
+                        topics: currentTopics,
+                        controller: _searchController,
+                        onFilterChanged: (value) => setState(() {
+                          _activeFilter = value;
+                        }),
+                        activeFilter: _activeFilter,
+                        onTagChanged: (value) => setState(() {
+                          _activeTag = value;
+                          _activeFilter = 'Tümü';
+                        }),
+                        activeTag: _activeTag,
+                        weakOnly: _weakOnly,
+                        staleOnly: _staleOnly,
+                        onToggleWeak: () => setState(() {
+                          _weakOnly = !_weakOnly;
+                        }),
+                        onToggleStale: () => setState(() {
+                          _staleOnly = !_staleOnly;
+                        }),
+                        onOpenSort: () => _openSortSheet(context),
+                        onBulkAdd: () => _showBulkAddDialog(context),
+                        onManageTags: () => _showManageTagsSheet(context, currentTopics),
+                      ),
+
                   Expanded(
                     child: filtered.isEmpty 
                       ? _buildEmptyState(context)
@@ -282,7 +284,7 @@ class _TopicSummariesScreenState extends State<TopicSummariesScreen> {
   }
 
   void _showBulkAddDialog(BuildContext context) {
-    final tagController = TextEditingController(text: 'KPSS');
+    final tagController = TextEditingController(text: 'Genel');
     
     showDialog(
       context: context,
@@ -298,7 +300,7 @@ class _TopicSummariesScreenState extends State<TopicSummariesScreen> {
             ),
             const SizedBox(height: 16),
             const Text(
-              'Sınav / Etiket (Örn: KPSS, YKS)',
+              'Sınav / Etiket (Örn: Sınav, YKS)',
               style: TextStyle(fontSize: 11, color: Colors.white54),
             ),
             const SizedBox(height: 4),
@@ -328,7 +330,8 @@ class _TopicSummariesScreenState extends State<TopicSummariesScreen> {
     );
   }
 
-  void _pickAndProcessCsv(BuildContext context, String tag) async {
+  Future<void> _pickAndProcessCsv(BuildContext context, String tag) async {
+    final finalTag = tag.trim().isEmpty ? 'Genel' : tag.trim();
     try {
       final result = await FilePicker.platform.pickFiles(
         type: FileType.custom,
@@ -338,7 +341,7 @@ class _TopicSummariesScreenState extends State<TopicSummariesScreen> {
       if (result != null && result.files.single.bytes != null) {
         final content = String.fromCharCodes(result.files.single.bytes!);
         if (context.mounted) {
-          _processBulkAdd(context, content, tag: tag);
+          _processBulkAdd(context, content, tag: finalTag);
           Navigator.pop(context); // Diyaloğu kapat
         }
       }
@@ -371,7 +374,7 @@ class _TopicSummariesScreenState extends State<TopicSummariesScreen> {
         subject: subject,
         title: title,
         nextReview: '',
-        tag: tag.isEmpty ? 'KPSS' : tag,
+        tag: tag.isEmpty ? 'Genel' : tag,
       ));
     }
 
@@ -536,21 +539,35 @@ class _TopicSummariesScreenState extends State<TopicSummariesScreen> {
     final newName = await showDialog<String>(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text('Etiketi Düzenle'),
-        content: TextField(controller: controller, decoration: const InputDecoration(border: OutlineInputBorder())),
+        title: const Text('Etiketi Düzenle'),
+        content: TextField(
+          controller: controller,
+          decoration: const InputDecoration(border: OutlineInputBorder()),
+        ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Vazgeç')),
-          ElevatedButton(onPressed: () => Navigator.pop(context, controller.text.trim()), child: const Text('Güncelle')),
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Vazgeç'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, controller.text.trim()),
+            child: const Text('Güncelle'),
+          ),
         ],
       ),
     );
 
     if (newName != null && newName.isNotEmpty && newName != oldTag && mounted) {
       final repository = AppRepositoryScope.of(context);
-      final topicsToUpdate = allTopics.where((t) => t.tag == oldTag).map((t) => t.copyWith(tag: newName)).toList();
+      final topicsToUpdate = allTopics
+          .where((t) => t.tag == oldTag)
+          .map((t) => t.copyWith(tag: newName))
+          .toList();
       await repository.bulkUpdateUserTopics(topicsToUpdate);
-      Navigator.pop(context); // Sheet'i kapat
-      _showSnack(context, 'Etiket güncellendi.');
+      if (mounted) {
+        Navigator.pop(context); // Sheet'i kapat
+        _showSnack(context, 'Etiket güncellendi.');
+      }
     }
   }
 
@@ -601,6 +618,7 @@ class _Header extends StatelessWidget {
     required this.onToggleStale,
     required this.onOpenSort,
     required this.onBulkAdd,
+    required this.onManageTags,
   });
 
   final List<TopicSummary> topics;
@@ -615,6 +633,7 @@ class _Header extends StatelessWidget {
   final VoidCallback onToggleStale;
   final VoidCallback onOpenSort;
   final VoidCallback onBulkAdd;
+  final VoidCallback onManageTags;
 
   @override
   Widget build(BuildContext context) {
@@ -656,6 +675,17 @@ class _Header extends StatelessWidget {
                             borderRadius: BorderRadius.circular(12),
                           ),
                           child: const Icon(Icons.add, color: Colors.white70),
+                        ),
+                      ),
+                      IconButton(
+                        onPressed: onManageTags,
+                        icon: Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: AppColors.of(context).primary.withValues(alpha: 0.15),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: const Icon(Icons.label_outline, color: Colors.white70),
                         ),
                       ),
                       IconButton(

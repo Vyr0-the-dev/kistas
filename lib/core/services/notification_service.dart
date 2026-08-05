@@ -14,24 +14,26 @@ class NotificationService {
   static const int reminderId = 7001;
   static const int weeklyPlanId = 7010;
   static const int focusEndId = 7020;
+  static const int mistakeReminderId = 7030;
 
   static Future<void> init() async {
-    const androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
+    const androidSettings = AndroidInitializationSettings('notification_icon');
     const initSettings = InitializationSettings(android: androidSettings);
-    await _plugin.initialize(initSettings);
+    await _plugin.initialize(
+      initSettings,
+      onDidReceiveNotificationResponse: (details) {
+        if (details.actionId == 'stop_alarm') {
+          const MethodChannel('com.example.app/alarm').invokeMethod('stop');
+        }
+      },
+    );
 
     if (!kIsWeb) {
       final android = _plugin.resolvePlatformSpecificImplementation<
           AndroidFlutterLocalNotificationsPlugin>();
       await android?.requestNotificationsPermission();
       
-      // Check for exact alarm permission on Android 12+
       final bool? canScheduleExactAlarms = await android?.areNotificationsEnabled();
-      // Note: There isn't a direct API to request SCHEDULE_EXACT_ALARM permission from within Dart.
-      // If needed, user must grant it manually in system settings.
-      // We can check if it's granted or inform the user.
-      // For now, we rely on the fallback to inexact alarms if exact fails.
-      // If notifications are consistently missing, this is a key area to investigate on device settings.
       debugPrint('NotificationService: Notifications permission granted: $canScheduleExactAlarms');
     }
 
@@ -51,9 +53,8 @@ class NotificationService {
 
   static Future<void> scheduleDailyReminder(String time) async {
     final parts = time.split(':');
-    if (parts.length != 2) {
-      return;
-    }
+    if (parts.length != 2) return;
+    
     final hour = int.tryParse(parts[0]) ?? 20;
     final minute = int.tryParse(parts[1]) ?? 0;
     final now = tz.TZDateTime.now(tz.local);
@@ -79,66 +80,19 @@ class NotificationService {
     await _plugin.cancel(reminderId);
   }
 
-  static Future<void> scheduleWeeklyPlan({
-    required String time,
-    required int weekday,
-  }) async {
-    final parts = time.split(':');
-    if (parts.length != 2) {
-      return;
-    }
-    final hour = int.tryParse(parts[0]) ?? 9;
-    final minute = int.tryParse(parts[1]) ?? 0;
-    final now = tz.TZDateTime.now(tz.local);
-    var scheduled = tz.TZDateTime(
-      tz.local,
-      now.year,
-      now.month,
-      now.day,
-      hour,
-      minute,
-    );
-    while (scheduled.weekday != weekday) {
-      scheduled = scheduled.add(const Duration(days: 1));
-    }
-    if (scheduled.isBefore(now)) {
-      scheduled = scheduled.add(const Duration(days: 7));
-    }
-
-    await _safeZonedSchedule(
-      id: weeklyPlanId,
-      title: 'Haftalık Plan Hatırlatma',
-      body: 'Bu hafta için çalışma planını güncelle.',
-      scheduled: scheduled,
-      channelId: 'weekly_plan',
-      channelName: 'Haftalık Plan',
-      channelDescription: 'Haftalık plan hatırlatmaları',
-      matchDateTimeComponents: DateTimeComponents.dayOfWeekAndTime,
-      importance: Importance.defaultImportance,
-      priority: Priority.defaultPriority,
-    );
-  }
-
   static Future<void> scheduleWeeklyPlanWithBody({
     required String time,
     required int weekday,
     required String body,
   }) async {
     final parts = time.split(':');
-    if (parts.length != 2) {
-      return;
-    }
+    if (parts.length != 2) return;
+    
     final hour = int.tryParse(parts[0]) ?? 9;
     final minute = int.tryParse(parts[1]) ?? 0;
     final now = tz.TZDateTime.now(tz.local);
-    var scheduled = tz.TZDateTime(
-      tz.local,
-      now.year,
-      now.month,
-      now.day,
-      hour,
-      minute,
-    );
+    var scheduled = tz.TZDateTime(tz.local, now.year, now.month, now.day, hour, minute);
+    
     while (scheduled.weekday != weekday) {
       scheduled = scheduled.add(const Duration(days: 1));
     }
@@ -155,8 +109,6 @@ class NotificationService {
       channelName: 'Haftalık Plan',
       channelDescription: 'Haftalık plan hatırlatmaları',
       matchDateTimeComponents: DateTimeComponents.dayOfWeekAndTime,
-      importance: Importance.defaultImportance,
-      priority: Priority.defaultPriority,
     );
   }
 
@@ -164,50 +116,70 @@ class NotificationService {
     await _plugin.cancel(weeklyPlanId);
   }
 
+  static Future<void> scheduleMistakeReminder() async {
+    final now = tz.TZDateTime.now(tz.local);
+    // Schedule for every Sunday at 18:00
+    var scheduled = tz.TZDateTime(tz.local, now.year, now.month, now.day, 18, 0);
+    
+    while (scheduled.weekday != DateTime.sunday) {
+      scheduled = scheduled.add(const Duration(days: 1));
+    }
+    
+    if (scheduled.isBefore(now)) {
+      scheduled = scheduled.add(const Duration(days: 7));
+    }
+
+    await _safeZonedSchedule(
+      id: mistakeReminderId,
+      title: 'Hata Defteri Tekrarı',
+      body: 'Bu hafta biriktirdiğin hataları çözme vakti! Hadi eksiklerini kapat.',
+      scheduled: scheduled,
+      channelId: 'mistake_reminder',
+      channelName: 'Hata Defteri Hatırlatıcı',
+      channelDescription: 'Haftalık hatalı soru çözme hatırlatması',
+      matchDateTimeComponents: DateTimeComponents.dayOfWeekAndTime,
+    );
+  }
+
   static Future<void> scheduleFocusEnd(int seconds) async {
     final scheduled = tz.TZDateTime.now(tz.local).add(Duration(seconds: seconds));
+    
+    final details = NotificationDetails(
+      android: AndroidNotificationDetails(
+        'focus_timer',
+        'Odak Zamanlayıcı',
+        channelDescription: 'Odak süresi bitiş bildirimleri',
+        importance: Importance.high,
+        priority: Priority.high,
+        playSound: true,
+        enableVibration: true,
+        icon: 'notification_icon',
+      ),
+      iOS: const DarwinNotificationDetails(
+        presentAlert: true,
+        presentBadge: true,
+        presentSound: true,
+      ),
+    );
+
     try {
       await _plugin.zonedSchedule(
         focusEndId,
         'Odak Süresi Bitti',
         'Harika iş çıkardın! Şimdi kısa bir mola verme vakti.',
         scheduled,
-        const NotificationDetails(
-          android: AndroidNotificationDetails(
-            'focus_timer',
-            'Odak Zamanlayıcı',
-            channelDescription: 'Odak süresi bitiş bildirimleri',
-            importance: Importance.high,
-            priority: Priority.high,
-            playSound: true,
-            enableVibration: true,
-          ),
-          iOS: DarwinNotificationDetails(
-            presentAlert: true,
-            presentBadge: true,
-            presentSound: true,
-          ),
-        ),
+        details,
         androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
         uiLocalNotificationDateInterpretation:
             UILocalNotificationDateInterpretation.absoluteTime,
       );
     } catch (_) {
-      // Fallback if exact alarm not allowed
       await _plugin.zonedSchedule(
         focusEndId,
         'Odak Süresi Bitti',
         'Harika iş çıkardın! Şimdi kısa bir mola verme vakti.',
         scheduled,
-        const NotificationDetails(
-          android: AndroidNotificationDetails(
-            'focus_timer',
-            'Odak Zamanlayıcı',
-            channelDescription: 'Odak süresi bitiş bildirimleri',
-            importance: Importance.high,
-            priority: Priority.high,
-          ),
-        ),
+        details,
         androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
         uiLocalNotificationDateInterpretation:
             UILocalNotificationDateInterpretation.absoluteTime,
@@ -216,7 +188,11 @@ class NotificationService {
   }
 
   static Future<void> cancelFocusEnd() async {
-    await _plugin.cancel(focusEndId);
+    try {
+      await _plugin.cancel(focusEndId);
+    } catch (e) {
+      debugPrint('NotificationService: Cancel focus error: $e');
+    }
   }
 
   static Future<void> showReminderNow(String message) async {
@@ -231,6 +207,33 @@ class NotificationService {
           channelDescription: 'Anlık hedef hatırlatmaları',
           importance: Importance.high,
           priority: Priority.high,
+          icon: 'notification_icon',
+        ),
+      ),
+    );
+  }
+
+  static Future<void> showFocusEndNotification() async {
+    await _plugin.show(
+      focusEndId,
+      'Odak Süresi Bitti',
+      'Harika iş çıkardın! Şimdi kısa bir mola verme vakti.',
+      const NotificationDetails(
+        android: AndroidNotificationDetails(
+          'focus_timer',
+          'Odak Zamanlayıcı',
+          channelDescription: 'Odak süresi bitiş bildirimleri',
+          importance: Importance.max,
+          priority: Priority.high,
+          icon: 'notification_icon',
+          actions: [
+            AndroidNotificationAction(
+              'stop_alarm', 
+              'DURDUR', 
+              showsUserInterface: true, // Bringing to foreground ensures the stop command hits the player
+              cancelNotification: true,
+            ),
+          ],
         ),
       ),
     );
@@ -243,40 +246,35 @@ class NotificationService {
     required DateTime dateTime,
   }) async {
     final scheduled = tz.TZDateTime.from(dateTime, tz.local);
+    final details = NotificationDetails(
+      android: AndroidNotificationDetails(
+        'topic_review',
+        'Konu Hatırlatmaları',
+        channelDescription: 'Konu bazlı tekrar hatırlatmaları',
+        importance: Importance.high,
+        priority: Priority.high,
+        icon: 'notification_icon',
+      ),
+    );
+
     try {
       await _plugin.zonedSchedule(
         id,
         title,
         body,
         scheduled,
-        const NotificationDetails(
-          android: AndroidNotificationDetails(
-            'topic_review',
-            'Konu Hatırlatmaları',
-            channelDescription: 'Konu bazlı tekrar hatırlatmaları',
-            importance: Importance.high,
-            priority: Priority.high,
-          ),
-        ),
+        details,
         androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
         uiLocalNotificationDateInterpretation:
             UILocalNotificationDateInterpretation.absoluteTime,
       );
-    } on PlatformException {
+    } catch (_) {
       await _plugin.zonedSchedule(
         id,
         title,
         body,
         scheduled,
-        const NotificationDetails(
-          android: AndroidNotificationDetails(
-            'topic_review',
-            'Konu Hatırlatmaları',
-            channelDescription: 'Konu bazlı tekrar hatırlatmaları',
-            importance: Importance.defaultImportance,
-            priority: Priority.defaultPriority,
-          ),
-        ),
+        details,
         androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
         uiLocalNotificationDateInterpretation:
             UILocalNotificationDateInterpretation.absoluteTime,
@@ -296,42 +294,37 @@ class NotificationService {
     Importance importance = Importance.high,
     Priority priority = Priority.high,
   }) async {
+    final details = NotificationDetails(
+      android: AndroidNotificationDetails(
+        channelId,
+        channelName,
+        channelDescription: channelDescription,
+        importance: importance,
+        priority: priority,
+        icon: 'notification_icon',
+      ),
+    );
+
     try {
       await _plugin.zonedSchedule(
         id,
         title,
         body,
         scheduled,
-        NotificationDetails(
-          android: AndroidNotificationDetails(
-            channelId,
-            channelName,
-            channelDescription: channelDescription,
-            importance: importance,
-            priority: priority,
-          ),
-        ),
+        details,
         androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
         uiLocalNotificationDateInterpretation:
             UILocalNotificationDateInterpretation.absoluteTime,
         matchDateTimeComponents: matchDateTimeComponents,
       );
-    } on PlatformException catch (e) {
-      debugPrint('NotificationService: Exact alarm failed, falling back. Error: $e');
+    } catch (e) {
+      debugPrint('NotificationService: Exact alarm fallback. Error: $e');
       await _plugin.zonedSchedule(
         id,
         title,
         body,
         scheduled,
-        NotificationDetails(
-          android: AndroidNotificationDetails(
-            channelId,
-            channelName,
-            channelDescription: channelDescription,
-            importance: importance,
-            priority: priority,
-          ),
-        ),
+        details,
         androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
         uiLocalNotificationDateInterpretation:
             UILocalNotificationDateInterpretation.absoluteTime,

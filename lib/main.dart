@@ -5,11 +5,18 @@ import 'features/splash/screens/splash_screen.dart';
 import 'core/repositories/app_repository.dart';
 import 'core/services/notification_service.dart';
 import 'core/theme/app_theme.dart';
+import 'core/data/database_service.dart';
+
+final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  final repository = await AppRepository.init();
+  final db = DatabaseService();
+  await db.init();
+  final repository = await AppRepository.init(db);
   await NotificationService.init();
+  await NotificationService.scheduleMistakeReminder();
+  
   if (repository.reminderEnabled.value) {
     await NotificationService.scheduleDailyReminder(
       repository.reminderTime.value,
@@ -48,6 +55,7 @@ class KistasApp extends StatelessWidget {
         valueListenable: repository.themeKey,
         builder: (context, themeKey, _) {
           return MaterialApp(
+            navigatorKey: navigatorKey,
             debugShowCheckedModeBanner: false,
             title: 'Kıstas',
             theme: buildAppTheme(themeKey),

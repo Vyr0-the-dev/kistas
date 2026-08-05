@@ -1,6 +1,10 @@
+import 'dart:io';
 import 'dart:math';
+import 'dart:ui'; // Add for FontFeature
 
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:path_provider/path_provider.dart';
 
 import '../../../core/models/mock_exam.dart';
 import '../../../core/models/question_entry.dart';
@@ -8,12 +12,11 @@ import '../../../core/models/topic_summary.dart';
 import '../../../core/repositories/app_repository.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/widgets/ambient_background.dart';
-import '../../../core/widgets/app_bottom_nav.dart';
 import '../../../core/widgets/in_app_notice.dart';
 import '../../analysis/screens/analysis_screen.dart';
 import '../../dashboard/screens/home_screen.dart';
-import '../../settings/screens/profile_screen.dart';
-import 'topic_summaries_screen.dart';
+import '../../settings/screens/profile_screen.dart'; // Import ProfileScreen
+import 'topic_summaries_screen.dart'; // Import TopicSummariesScreen
 
 enum EntryType { question, mockExam }
 
@@ -23,11 +26,13 @@ class EntryWizardScreen extends StatefulWidget {
     required this.type,
     this.preselectedTopic,
     this.initialData,
+    this.initialImagePath,
   });
 
   final EntryType type;
   final TopicSummary? preselectedTopic;
   final Map<String, dynamic>? initialData;
+  final String? initialImagePath;
 
   @override
   State<EntryWizardScreen> createState() => _EntryWizardScreenState();
@@ -42,12 +47,15 @@ class _EntryWizardScreenState extends State<EntryWizardScreen> {
   String _selectedSubject = '';
   String _selectedTopic = '';
   DateTime _selectedDate = DateTime.now();
+  final List<File> _selectedImages = [];
+  
   final Map<String, double> _examSubjectNets = {};
   final Map<String, int> _examSubjectMinutes = {};
   final Set<String> _errorTags = {};
   final TextEditingController _titleController = TextEditingController();
   final TextEditingController _noteController = TextEditingController();
   final TextEditingController _bookController = TextEditingController();
+  final TextEditingController _examTypeController = TextEditingController(text: 'Genel');
 
   static const List<String> _examSubjects = [
     'Türkçe',
@@ -75,9 +83,13 @@ class _EntryWizardScreenState extends State<EntryWizardScreen> {
   @override
   void initState() {
     super.initState();
+    if (widget.initialImagePath != null) {
+      _selectedImages.add(File(widget.initialImagePath!));
+    }
     if (widget.preselectedTopic != null) {
       _selectedSubject = widget.preselectedTopic!.subject;
       _selectedTopic = widget.preselectedTopic!.title;
+      _examTypeController.text = widget.preselectedTopic!.tag;
       _currentStep = 2; // Start at results if topic is preselected
     }
     if (widget.initialData != null) {
@@ -94,17 +106,67 @@ class _EntryWizardScreenState extends State<EntryWizardScreen> {
     _titleController.dispose();
     _noteController.dispose();
     _bookController.dispose();
+    _examTypeController.dispose();
     super.dispose();
+  }
+
+  Future<void> _pickImage() async {
+    try {
+      final picker = ImagePicker();
+      final picked = await picker.pickImage(source: ImageSource.camera);
+      if (picked != null) {
+        final dir = await getApplicationDocumentsDirectory();
+        final name = 'question_${DateTime.now().millisecondsSinceEpoch}_${_selectedImages.length}.jpg';
+        final savedImage = await File(picked.path).copy('${dir.path}/$name');
+        setState(() {
+          _selectedImages.add(savedImage);
+        });
+      }
+    } catch (e) {
+      _showSnack('Fotoğraf seçilemedi: $e');
+    }
+  }
+
+  void _removeImage(int index) {
+    setState(() {
+      _selectedImages.removeAt(index);
+    });
+  }
+
+  void _openStopwatch() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => _StopwatchDialog(
+        initialMinutes: 0,
+        onStop: (elapsedMinutes) {
+           setState(() {
+             _minutes = elapsedMinutes;
+           });
+        },
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     final repository = AppRepositoryScope.of(context);
     final subjects = repository.topics.map((e) => e.subject).toSet().toList();
+    
+    // Sort topics: If a tag is entered, show matching topics first
+    final enteredTag = _examTypeController.text.trim();
     final topics = repository.topics
         .where((item) =>
             _selectedSubject.isEmpty || item.subject == _selectedSubject)
-        .toList();
+        .toList()
+      ..sort((a, b) {
+        if (enteredTag.isEmpty) return 0;
+        final aMatches = a.tag.toLowerCase().contains(enteredTag.toLowerCase());
+        final bMatches = b.tag.toLowerCase().contains(enteredTag.toLowerCase());
+        if (aMatches && !bMatches) return -1;
+        if (!aMatches && bMatches) return 1;
+        return 0;
+      });
 
     return Scaffold(
       backgroundColor: AppColors.of(context).background,
@@ -124,27 +186,29 @@ class _EntryWizardScreenState extends State<EntryWizardScreen> {
               ),
               Expanded(
                 child: SingleChildScrollView(
-                  padding: const EdgeInsets.fromLTRB(20, 12, 20, 100),
-                  child: AnimatedSwitcher(
-                    duration: const Duration(milliseconds: 300),
-                    child: _buildStepContent(subjects, topics),
+                  padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
+                  child: Column(
+                    children: [
+                      AnimatedSwitcher(
+                        duration: const Duration(milliseconds: 300),
+                        child: _buildStepContent(subjects, topics),
+                      ),
+                      const SizedBox(height: 32),
+                      _BottomActions(
+                        isLastStep: _currentStep == (widget.type == EntryType.question ? 3 : 3),
+                        onNext: _nextStep,
+                        onBack: _backStep,
+                        onSave: () => _save(repository),
+                        onSaveAndAdd: () => _save(repository, keepOpen: true),
+                      ),
+                      const SizedBox(height: 40), // Safe area for bottom nav
+                    ],
                   ),
                 ),
               ),
             ],
           ),
         ),
-      ),
-      bottomSheet: _BottomActions(
-        isLastStep: _currentStep == 3,
-        onNext: _nextStep,
-        onBack: _backStep,
-        onSave: () => _save(repository),
-        onSaveAndAdd: () => _save(repository, keepOpen: true),
-      ),
-      bottomNavigationBar: AppBottomNav(
-        activeIndex: 2,
-        onSelect: (index) => _navigateFromNav(context, index),
       ),
     );
   }
@@ -163,7 +227,6 @@ class _EntryWizardScreenState extends State<EntryWizardScreen> {
                 selected: _selectedSubject,
                 onSelect: (value) {
                   setState(() => _selectedSubject = value);
-                  _nextStep();
                 },
               ),
             ],
@@ -179,7 +242,6 @@ class _EntryWizardScreenState extends State<EntryWizardScreen> {
                 selected: _selectedTopic,
                 onSelect: (value) {
                   setState(() => _selectedTopic = value);
-                  _nextStep();
                 },
               ),
             ],
@@ -197,9 +259,31 @@ class _EntryWizardScreenState extends State<EntryWizardScreen> {
                 onChanged: _updateResults,
               ),
               const SizedBox(height: 20),
-              _DurationPicker(
-                minutes: _minutes,
-                onChanged: (value) => setState(() => _minutes = value),
+              Row(
+                children: [
+                    Expanded(
+                        child: _DurationPicker(
+                        minutes: _minutes,
+                        onChanged: (value) => setState(() => _minutes = value),
+                        ),
+                    ),
+                    const SizedBox(width: 12),
+                    GestureDetector(
+                        onTap: _openStopwatch,
+                        child: Container(
+                            height: 52,
+                            width: 52,
+                            decoration: BoxDecoration(
+                                color: AppColors.of(context).primary.withOpacity(0.2),
+                                borderRadius: BorderRadius.circular(16),
+                                border: Border.all(
+                                    color: AppColors.of(context).primary.withOpacity(0.5),
+                                ),
+                            ),
+                            child: Icon(Icons.timer, color: AppColors.of(context).primary),
+                        ),
+                    ),
+                ],
               ),
             ],
           );
@@ -210,6 +294,27 @@ class _EntryWizardScreenState extends State<EntryWizardScreen> {
             children: [
               _SectionTitle(index: 4, title: 'Detaylar'),
               _SourceField(controller: _bookController),
+              const SizedBox(height: 16),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Sınav Türü / Etiket',
+                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                          color: Colors.white54,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 0.4,
+                        ),
+                  ),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: _examTypeController,
+                    decoration: const InputDecoration(
+                      hintText: 'Örn: KPSS, YKS, DGS',
+                    ),
+                  ),
+                ],
+              ),
               const SizedBox(height: 16),
               const Text(
                 'Yanlış Türleri',
@@ -229,6 +334,90 @@ class _EntryWizardScreenState extends State<EntryWizardScreen> {
                   });
                 },
               ),
+              const SizedBox(height: 20),
+              const Text(
+                'Hata Defteri İçin Fotoğraflar',
+                style: TextStyle(color: Colors.white70, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 8),
+              if (_selectedImages.isNotEmpty)
+                 SizedBox(
+                   height: 120,
+                   child: ListView.builder(
+                     scrollDirection: Axis.horizontal,
+                     itemCount: _selectedImages.length + 1,
+                     itemBuilder: (context, index) {
+                       if (index == _selectedImages.length) {
+                         return GestureDetector(
+                           onTap: _pickImage,
+                           child: Container(
+                             width: 100,
+                             margin: const EdgeInsets.only(right: 12),
+                             decoration: BoxDecoration(
+                               color: Colors.white.withOpacity(0.05),
+                               borderRadius: BorderRadius.circular(16),
+                               border: Border.all(color: Colors.white.withOpacity(0.1)),
+                             ),
+                             child: const Icon(Icons.add_a_photo, color: Colors.white54),
+                           ),
+                         );
+                       }
+                       final img = _selectedImages[index];
+                       return Stack(
+                         children: [
+                           Container(
+                             width: 100,
+                             margin: const EdgeInsets.only(right: 12),
+                             child: ClipRRect(
+                               borderRadius: BorderRadius.circular(16),
+                               child: Image.file(img, fit: BoxFit.cover),
+                             ),
+                           ),
+                           Positioned(
+                             top: 4,
+                             right: 16,
+                             child: GestureDetector(
+                               onTap: () => _removeImage(index),
+                               child: Container(
+                                 padding: const EdgeInsets.all(4),
+                                 decoration: const BoxDecoration(
+                                   color: Colors.black54,
+                                   shape: BoxShape.circle,
+                                 ),
+                                 child: const Icon(Icons.close, color: Colors.white, size: 14),
+                               ),
+                             ),
+                           ),
+                         ],
+                       );
+                     },
+                   ),
+                 )
+              else
+                 GestureDetector(
+                     onTap: _pickImage,
+                     child: Container(
+                         height: 100,
+                         width: double.infinity,
+                         decoration: BoxDecoration(
+                             color: Colors.white.withOpacity(0.05),
+                             borderRadius: BorderRadius.circular(16),
+                             border: Border.all(color: Colors.white.withOpacity(0.1), style: BorderStyle.solid),
+                         ),
+                         child: Column(
+                             mainAxisAlignment: MainAxisAlignment.center,
+                             children: [
+                                 Icon(Icons.add_a_photo, color: Colors.white54, size: 32),
+                                 const SizedBox(height: 8),
+                                 Text(
+                                     'Hatalı Soru Fotoğraflarını Ekle',
+                                     style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.white54),
+                                 ),
+                             ],
+                         ),
+                     ),
+                 ),
+              
               const SizedBox(height: 20),
               _DatePickerRow(
                 selectedDate: _selectedDate,
@@ -252,13 +441,26 @@ class _EntryWizardScreenState extends State<EntryWizardScreen> {
             key: const ValueKey(0),
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _SectionTitle(index: 1, title: 'Deneme türü seç'),
+              _SectionTitle(index: 1, title: 'Deneme adı veya türü'),
+              TextField(
+                controller: _titleController,
+                decoration: const InputDecoration(
+                  hintText: 'Örn: 3D Yayınları Deneme 1',
+                  labelText: 'Deneme Adı',
+                ),
+                onChanged: (v) => setState(() {}),
+              ),
+              const SizedBox(height: 20),
+              const Text(
+                'Hızlı Seçimler',
+                style: TextStyle(color: Colors.white54, fontSize: 12, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 8),
               _SubjectGrid(
                 subjects: _examTypes,
                 selected: _titleController.text,
                 onSelect: (value) {
                   setState(() => _titleController.text = value);
-                  _nextStep();
                 },
               ),
             ],
@@ -301,9 +503,31 @@ class _EntryWizardScreenState extends State<EntryWizardScreen> {
                 ),
               ),
               const SizedBox(height: 20),
-              _DurationPicker(
-                minutes: _minutes,
-                onChanged: (value) => setState(() => _minutes = value),
+               Row(
+                children: [
+                    Expanded(
+                        child: _DurationPicker(
+                        minutes: _minutes,
+                        onChanged: (value) => setState(() => _minutes = value),
+                        ),
+                    ),
+                    const SizedBox(width: 12),
+                    GestureDetector(
+                        onTap: _openStopwatch,
+                        child: Container(
+                            height: 52,
+                            width: 52,
+                            decoration: BoxDecoration(
+                                color: AppColors.of(context).primary.withOpacity(0.2),
+                                borderRadius: BorderRadius.circular(16),
+                                border: Border.all(
+                                    color: AppColors.of(context).primary.withOpacity(0.5),
+                                ),
+                            ),
+                            child: Icon(Icons.timer, color: AppColors.of(context).primary),
+                        ),
+                    ),
+                ],
               ),
             ],
           );
@@ -363,6 +587,7 @@ class _EntryWizardScreenState extends State<EntryWizardScreen> {
       _selectedSubject = '';
       _selectedTopic = '';
       _selectedDate = DateTime.now();
+      _selectedImages.clear();
       _examSubjectNets.clear();
       _examSubjectMinutes.clear();
       _errorTags.clear();
@@ -419,6 +644,10 @@ class _EntryWizardScreenState extends State<EntryWizardScreen> {
           note: _noteController.text.trim(),
           createdAt: createdAt,
           errorTags: _errorTags.toList(),
+          examType: _examTypeController.text.trim().isEmpty
+              ? 'Genel'
+              : _examTypeController.text.trim(),
+          imagePaths: _selectedImages.map((e) => e.path).toList(),
         ),
       );
     } else {
@@ -439,6 +668,9 @@ class _EntryWizardScreenState extends State<EntryWizardScreen> {
             ..removeWhere((_, value) => value <= 0),
           subjectMinutes: Map<String, int>.from(_examSubjectMinutes)
             ..removeWhere((_, value) => value <= 0),
+          examType: _examTypeController.text.trim().isEmpty
+              ? 'Genel'
+              : _examTypeController.text.trim(),
         ),
       );
     }
@@ -476,6 +708,86 @@ class _EntryWizardScreenState extends State<EntryWizardScreen> {
   }
 }
 
+// --- STOPWATCH DIALOG ---
+class _StopwatchDialog extends StatefulWidget {
+  const _StopwatchDialog({required this.initialMinutes, required this.onStop});
+  final int initialMinutes;
+  final ValueChanged<int> onStop;
+
+  @override
+  State<_StopwatchDialog> createState() => _StopwatchDialogState();
+}
+
+class _StopwatchDialogState extends State<_StopwatchDialog> {
+  late Stopwatch _stopwatch;
+  late int _baseMinutes;
+  // Timer to refresh UI
+  Stream<int>? _timerStream;
+
+  @override
+  void initState() {
+    super.initState();
+    _stopwatch = Stopwatch()..start();
+    _baseMinutes = widget.initialMinutes;
+    _timerStream = Stream.periodic(const Duration(seconds: 1), (i) => i);
+  }
+
+  void _finish() {
+    _stopwatch.stop();
+    final totalMinutes = _baseMinutes + _stopwatch.elapsed.inMinutes;
+    widget.onStop(totalMinutes);
+    Navigator.of(context).pop();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+        backgroundColor: AppColors.of(context).background,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                    Text("Süre Tutuluyor", style: Theme.of(context).textTheme.titleLarge?.copyWith(color: Colors.white)),
+                    const SizedBox(height: 24),
+                    StreamBuilder<int>(
+                        stream: _timerStream,
+                        builder: (context, snapshot) {
+                            final elapsed = _stopwatch.elapsed;
+                            final h = elapsed.inHours.toString().padLeft(2, '0');
+                            final m = (elapsed.inMinutes % 60).toString().padLeft(2, '0');
+                            final s = (elapsed.inSeconds % 60).toString().padLeft(2, '0');
+                            return Text(
+                                "$h:$m:$s",
+                                style: TextStyle(
+                                    fontSize: 48, 
+                                    fontWeight: FontWeight.bold, 
+                                    color: AppColors.of(context).primary,
+                                    fontFeatures: const [FontFeature.tabularFigures()],
+                                ),
+                            );
+                        },
+                    ),
+                    const SizedBox(height: 32),
+                    SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton(
+                            onPressed: _finish,
+                            style: ElevatedButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(vertical: 16),
+                            ),
+                            child: const Text("Bitti, Süreyi Kaydet"),
+                        ),
+                    ),
+                ],
+            ),
+        ),
+    );
+  }
+}
+
+// --- REST OF WIDGETS ---
 class _StepProgress extends StatelessWidget {
   const _StepProgress({required this.currentStep, required this.totalSteps});
 
@@ -911,12 +1223,44 @@ class _CounterRow extends StatelessWidget {
                 onTap: () => onChanged(max(0, value - 1)),
               ),
               const SizedBox(width: 8),
-              Text(
-                value.toString(),
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w700,
+              GestureDetector(
+                onTap: () async {
+                  final controller = TextEditingController(text: value.toString());
+                  final result = await showDialog<int>(
+                    context: context,
+                    builder: (context) => AlertDialog(
+                      title: const Text('Sayı Gir'),
+                      content: TextField(
+                        controller: controller,
+                        keyboardType: TextInputType.number,
+                        autofocus: true,
+                        decoration: const InputDecoration(hintText: 'Miktar girin'),
+                      ),
+                      actions: [
+                        TextButton(onPressed: () => Navigator.pop(context), child: const Text('İptal')),
+                        ElevatedButton(
+                          onPressed: () => Navigator.pop(context, int.tryParse(controller.text)),
+                          child: const Text('Tamam'),
+                        ),
+                      ],
                     ),
+                  );
+                  if (result != null) onChanged(result);
+                },
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.05),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    value.toString(),
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w700,
+                        ),
+                  ),
+                ),
               ),
               const SizedBox(width: 8),
               _CounterButton(
@@ -1145,38 +1489,74 @@ class _ErrorTagSelector extends StatelessWidget {
     return Wrap(
       spacing: 8,
       runSpacing: 8,
-      children: tags
-          .map(
-            (tag) => InkWell(
-              onTap: () => onToggle(tag),
-              borderRadius: BorderRadius.circular(14),
-              child: Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                decoration: BoxDecoration(
+      children: [
+        ...tags.map(
+          (tag) => InkWell(
+            onTap: () => onToggle(tag),
+            borderRadius: BorderRadius.circular(14),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: selected.contains(tag)
+                    ? AppColors.of(context).primary.withOpacity(0.18)
+                    : Colors.white.withOpacity(0.05),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(
                   color: selected.contains(tag)
-                      ? AppColors.of(context).primary.withOpacity(0.18)
-                      : Colors.white.withOpacity(0.05),
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(
-                    color: selected.contains(tag)
-                        ? AppColors.of(context).primary
-                        : Colors.white12,
-                  ),
-                ),
-                child: Text(
-                  tag,
-                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                        color: selected.contains(tag)
-                            ? Colors.white
-                            : Colors.white70,
-                        fontWeight: FontWeight.w600,
-                      ),
+                      ? AppColors.of(context).primary
+                      : Colors.white12,
                 ),
               ),
+              child: Text(
+                tag,
+                style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                      color: selected.contains(tag) ? Colors.white : Colors.white70,
+                      fontWeight: FontWeight.w600,
+                    ),
+              ),
             ),
-          )
-          .toList(),
+          ),
+        ),
+        InkWell(
+          onTap: () async {
+            final controller = TextEditingController();
+            final newTag = await showDialog<String>(
+              context: context,
+              builder: (context) => AlertDialog(
+                title: const Text('Yeni Etiket'),
+                content: TextField(
+                  controller: controller,
+                  autofocus: true,
+                  decoration: const InputDecoration(hintText: 'Etiket adı'),
+                ),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text('İptal'),
+                  ),
+                  ElevatedButton(
+                    onPressed: () => Navigator.pop(context, controller.text.trim()),
+                    child: const Text('Ekle'),
+                  ),
+                ],
+              ),
+            );
+            if (newTag != null && newTag.isNotEmpty) {
+              onToggle(newTag);
+            }
+          },
+          borderRadius: BorderRadius.circular(14),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.05),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: Colors.white12),
+            ),
+            child: const Icon(Icons.add, size: 16, color: Colors.white70),
+          ),
+        ),
+      ],
     );
   }
 }

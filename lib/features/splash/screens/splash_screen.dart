@@ -32,15 +32,13 @@ class _SplashScreenState extends State<SplashScreen> {
                 )
                 .fadeIn(duration: 1000.ms)
                 .scale(
-                  begin: const Offset(0.8, 0.8),
+                  begin: const Offset(0.95, 0.95),
                   end: const Offset(1, 1),
                   duration: 1000.ms,
-                  curve: Curves.easeOutQuart,
+                  curve: Curves.easeOut,
                 ),
 
                 // 2. TAM KONTROL METNİ
-                // Transform.translate ile yazıyı yukarı (-50px) çekiyoruz
-                // Böylece SVG'nin altındaki boşluk görsel olarak kapanıyor.
                 Transform.translate(
                   offset: const Offset(0, -80), 
                   child: const Text(
@@ -57,40 +55,31 @@ class _SplashScreenState extends State<SplashScreen> {
                 )
                 .animate(
                   onComplete: (controller) async {
-                    // Animasyon bittikten sonra 1 saniye bekle
-                    await Future.delayed(const Duration(seconds: 1));
+                    // Toplam süreyi 1.25sn (1250ms) yapacak şekilde ayarlandı
+                    await Future.delayed(const Duration(milliseconds: 250));
                     if (mounted) {
                                         Navigator.of(context).pushReplacement(
                                           PageRouteBuilder(
                                             pageBuilder: (context, animation, secondaryAnimation) =>
                                                 widget.onInitializationComplete ?? const MainScreen(),
                                             transitionsBuilder: (context, animation, secondaryAnimation, child) {
-                                              const curve = Curves.easeOutExpo; // Daha dinamik bir eğri
-                                              final curvedAnimation = CurvedAnimation(
-                                                parent: animation,
-                                                curve: curve,
-                                              );
-                      
                                               return FadeTransition(
-                                                opacity: curvedAnimation,
-                                                child: ScaleTransition(
-                                                  scale: Tween<double>(begin: 0.85, end: 1.0).animate(curvedAnimation), // Daha belirgin büyüme
-                                                  child: child,
-                                                ),
+                                                opacity: animation,
+                                                child: child,
                                               );
                                             },
-                                            transitionDuration: const Duration(milliseconds: 800), // Süreyi biraz uzattık
+                                            transitionDuration: const Duration(milliseconds: 250),
                                           ),
                                         );                    }
                   },
                 )
-                .fadeIn(delay: 800.ms, duration: 1000.ms)
+                .fadeIn(delay: 300.ms, duration: 700.ms)
                 .moveY(
-                  begin: 15, 
+                  begin: 10, 
                   end: 0, 
-                  delay: 800.ms, 
-                  duration: 1000.ms, 
-                  curve: Curves.easeOutCirc
+                  delay: 300.ms, 
+                  duration: 700.ms, 
+                  curve: Curves.easeOut
                 ),
               ],
             ),

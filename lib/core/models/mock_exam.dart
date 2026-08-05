@@ -12,6 +12,7 @@ class MockExam {
     required this.createdAt,
     this.subjectNets = const {},
     this.subjectMinutes = const {},
+    this.examType = 'Genel',
   });
 
   final String id;
@@ -26,6 +27,7 @@ class MockExam {
   final DateTime createdAt;
   final Map<String, double> subjectNets;
   final Map<String, int> subjectMinutes;
+  final String examType;
 
   Map<String, dynamic> toJson() {
     return {
@@ -41,6 +43,7 @@ class MockExam {
       'createdAt': createdAt.toIso8601String(),
       'subjectNets': subjectNets,
       'subjectMinutes': subjectMinutes,
+      'examType': examType,
     };
   }
 
@@ -97,6 +100,7 @@ class MockExam {
           DateTime.now(),
       subjectNets: nets,
       subjectMinutes: minutes,
+      examType: json['examType'] as String? ?? 'Genel',
     );
   }
 }

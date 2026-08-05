@@ -1,7 +1,7 @@
 {
-  "name": "Soru Takip Dev",
+  "name": "Kıstas Dev",
   "dockerComposeFile": "../docker-compose.yaml",
-  "service": "soru-takip-node",
+  "service": "kistas-dev",
   "workspaceFolder": "/app",
 
   "forwardPorts": [

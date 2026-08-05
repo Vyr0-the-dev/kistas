@@ -16,8 +16,7 @@ class AppBottomNav extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      height: 70,
+    return SafeArea(
       child: Stack(
         alignment: Alignment.bottomCenter,
         clipBehavior: Clip.none,
@@ -25,7 +24,7 @@ class AppBottomNav extends StatelessWidget {
           ClipRRect(
             borderRadius: const BorderRadius.vertical(top: Radius.circular(26)),
             child: BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+              filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
               child: Container(
                 padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
                 decoration: BoxDecoration(
@@ -46,7 +45,7 @@ class AppBottomNav extends StatelessWidget {
                       active: activeIndex == 1,
                       onTap: () => onSelect(1),
                     ),
-                    SizedBox(width: 60),
+                    const SizedBox(width: 60),
                     _NavItem(
                       label: 'Analiz',
                       icon: Icons.bar_chart,
@@ -101,7 +100,7 @@ class _NavItem extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(icon, color: color, size: 22),
-            SizedBox(height: 4),
+            const SizedBox(height: 4),
             Text(
               label,
               style: Theme.of(context).textTheme.labelSmall?.copyWith(
@@ -148,7 +147,7 @@ class _CenterAction extends StatelessWidget {
               child: Icon(Icons.add, color: Theme.of(context).colorScheme.onPrimary, size: 24),
             ),
           ),
-          SizedBox(height: 4),
+          const SizedBox(height: 4),
           Transform.translate(
             offset: const Offset(0, -6),
             child: Text(

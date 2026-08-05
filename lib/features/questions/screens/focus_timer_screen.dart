@@ -111,27 +111,33 @@ class FocusTimerScreen extends StatelessWidget {
                           ),
                     ),
                     SizedBox(height: 16),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        _AtmosphereButton(
-                          label: 'Lo-Fi',
-                          icon: Icons.headset,
-                          url: 'https://www.youtube.com/watch?v=jfKfPfyJRdk',
-                        ),
-                        SizedBox(width: 12),
-                        _AtmosphereButton(
-                          label: 'Yağmur',
-                          icon: Icons.umbrella,
-                          url: 'https://www.youtube.com/watch?v=mPZkdNFkNps',
-                        ),
-                        SizedBox(width: 12),
-                        _AtmosphereButton(
-                          label: 'Kütüphane',
-                          icon: Icons.local_library,
-                          url: 'https://www.youtube.com/watch?v=4vIQON2fDWM',
-                        ),
-                      ],
+                    GlassPanel(
+                      padding: const EdgeInsets.all(12),
+                      radius: BorderRadius.circular(20),
+                      child: Column(
+                        children: [
+                          _AtmosphereTile(
+                            label: 'Lo-Fi Müzik (Ders Odaklı)',
+                            subtitle: 'Uygulama içinde çalmaya devam eder',
+                            icon: Icons.headset,
+                            url: 'https://www.youtube.com/watch?v=jfKfPfyJRdk',
+                          ),
+                          const Divider(color: Colors.white10),
+                          _AtmosphereTile(
+                            label: 'Yağmur Sesi (Derin Odak)',
+                            subtitle: 'Zihni sakinleştirir',
+                            icon: Icons.umbrella,
+                            url: 'https://www.youtube.com/watch?v=mPZkdNFkNps',
+                          ),
+                          const Divider(color: Colors.white10),
+                          _AtmosphereTile(
+                            label: 'Kütüphane Ambiyansı',
+                            subtitle: 'Sınav atmosferi yaratır',
+                            icon: Icons.local_library,
+                            url: 'https://www.youtube.com/watch?v=4vIQON2fDWM',
+                          ),
+                        ],
+                      ),
                     ),
                   ],
                 ),
@@ -145,42 +151,40 @@ class FocusTimerScreen extends StatelessWidget {
   }
 }
 
-class _AtmosphereButton extends StatelessWidget {
-  const _AtmosphereButton({
+class _AtmosphereTile extends StatelessWidget {
+  const _AtmosphereTile({
     required this.label,
+    required this.subtitle,
     required this.icon,
     required this.url,
   });
 
   final String label;
+  final String subtitle;
   final IconData icon;
   final String url;
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
+    return ListTile(
       onTap: () => launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication),
-      child: Column(
-        children: [
-          Container(
-            width: 56,
-            height: 56,
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.05),
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: Colors.white.withOpacity(0.08)),
-            ),
-            child: Icon(icon, color: Colors.white70),
-          ),
-          SizedBox(height: 8),
-          Text(
-            label,
-            style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                  color: Colors.white54,
-                ),
-          ),
-        ],
+      leading: Container(
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          color: Colors.white.withOpacity(0.05),
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Icon(icon, color: AppColors.of(context).primary, size: 20),
       ),
+      title: Text(
+        label,
+        style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600),
+      ),
+      subtitle: Text(
+        subtitle,
+        style: const TextStyle(color: Colors.white38, fontSize: 11),
+      ),
+      trailing: const Icon(Icons.open_in_new, color: Colors.white24, size: 16),
     );
   }
 }

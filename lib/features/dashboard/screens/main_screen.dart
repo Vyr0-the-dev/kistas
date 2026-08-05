@@ -17,8 +17,16 @@ class MainScreen extends StatefulWidget {
 }
 
 class _MainScreenState extends State<MainScreen> {
-  late PageController _pageController;
   int _currentIndex = 0;
+  late final PageController _pageController;
+  
+  final _navigatorKeys = [
+    GlobalKey<NavigatorState>(),
+    GlobalKey<NavigatorState>(),
+    GlobalKey<NavigatorState>(),
+    GlobalKey<NavigatorState>(),
+    GlobalKey<NavigatorState>(),
+  ];
 
   @override
   void initState() {
@@ -32,36 +40,80 @@ class _MainScreenState extends State<MainScreen> {
     super.dispose();
   }
 
+  Future<bool> _onWillPop() async {
+    final NavigatorState? currentState = _navigatorKeys[_currentIndex].currentState;
+    if (currentState != null && await currentState.maybePop()) {
+      return false;
+    }
+    if (_currentIndex != 0) {
+      _onTabSelect(0);
+      return false;
+    }
+    return true;
+  }
+
+  void _onTabSelect(int index) {
+    if (index == 1) {
+      // Konular sekmesine geçişte her zaman başa dön
+      _navigatorKeys[1].currentState?.popUntil((route) => route.isFirst);
+    }
+
+    if (_currentIndex == index) {
+      // Pop to first route if tapping active tab
+      _navigatorKeys[index].currentState?.popUntil((route) => route.isFirst);
+    } else {
+      setState(() => _currentIndex = index);
+      _pageController.animateToPage(
+        index,
+        duration: const Duration(milliseconds: 500),
+        curve: Curves.easeOutQuint,
+      );
+    }
+  }
+
+  Widget _buildTab(int index, Widget child) {
+    return Navigator(
+      key: _navigatorKeys[index],
+      onGenerateRoute: (settings) => MaterialPageRoute(
+        builder: (_) => child,
+        settings: settings,
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.of(context).background,
-      body: AmbientBackground(
-        child: PageView(
-          controller: _pageController,
-          onPageChanged: (index) {
-            setState(() {
-              _currentIndex = index;
-            });
-          },
-          children: const [
-            HomeScreen(),
-            TopicSummariesScreen(),
-            QuickAddScreen(),
-            AnalysisScreen(),
-            ProfileScreen(),
-          ],
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) async {
+        if (didPop) return;
+        final bool shouldPop = await _onWillPop();
+        if (shouldPop && context.mounted) {
+          Navigator.of(context).pop();
+        }
+      },
+      child: Scaffold(
+        backgroundColor: AppColors.of(context).background,
+        body: AmbientBackground(
+          child: PageView(
+            controller: _pageController,
+            physics: const BouncingScrollPhysics(),
+            onPageChanged: (index) {
+              setState(() => _currentIndex = index);
+            },
+            children: [
+              _buildTab(0, const HomeScreen()),
+              _buildTab(1, const TopicSummariesScreen()),
+              _buildTab(2, const QuickAddScreen()),
+              _buildTab(3, const AnalysisScreen()),
+              _buildTab(4, const ProfileScreen()),
+            ],
+          ),
         ),
-      ),
-      bottomNavigationBar: AppBottomNav(
-        activeIndex: _currentIndex,
-        onSelect: (index) {
-          _pageController.animateToPage(
-            index,
-            duration: const Duration(milliseconds: 300),
-            curve: Curves.easeOut,
-          );
-        },
+        bottomNavigationBar: AppBottomNav(
+          activeIndex: _currentIndex,
+          onSelect: _onTabSelect,
+        ),
       ),
     );
   }

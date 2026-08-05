@@ -1,13 +1,15 @@
+# Kıstas geliştirme ortamı.
+# Flutter ve Android SDK kendi makinenizde neredeyse oraya bağlamak için
+# aşağıdaki yorum satırlarını kendi yollarınızla düzenleyin.
 services:
-  soru-takip-node:
+  kistas-dev:
     build:
       context: .
-    container_name: soru-takip-node
     volumes:
       - .:/app
-      - C:\src\flutter:/flutter
+      # - C:\src\flutter:/flutter        # Flutter SDK'nızın yolu
+      # - C:\Android\sdk:/android-sdk    # Android SDK'nızın yolu
       - flutter-cache:/flutter/bin/cache
-      - C:\Android\sdk:/android-sdk
       - gemini-config:/root/.config/gemini
     environment:
       FLUTTER_ROOT: /flutter

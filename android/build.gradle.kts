@@ -20,6 +20,16 @@ subprojects {
         if (extensions.findByName("android") != null) {
             try {
                 val android = extensions.findByName("android")!!
+                
+                // Force compileSdkVersion to 36 to fix lStar error
+                val setCompileSdkVersion = android.javaClass.getMethod("compileSdkVersion", Int::class.javaPrimitiveType)
+                setCompileSdkVersion.invoke(android, 36)
+                
+                // Force targetSdkVersion to 36
+                val defaultConfig = android.javaClass.getMethod("getDefaultConfig").invoke(android)
+                val setTargetSdkVersion = defaultConfig.javaClass.getMethod("targetSdkVersion", Int::class.javaPrimitiveType)
+                setTargetSdkVersion.invoke(defaultConfig, 36)
+
                 val getNamespace = android.javaClass.getMethod("getNamespace")
                 if (getNamespace.invoke(android) == null) {
                     val setNamespace = android.javaClass.getMethod("setNamespace", String::class.java)
