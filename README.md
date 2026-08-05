@@ -68,6 +68,10 @@ flutter build apk --release
 
 > **Gemini AI:** AI özellikleri için [Google AI Studio](https://aistudio.google.com/apikey)'dan ücretsiz API anahtarı alın ve uygulamanın **Profil** sekmesinden girin. Anahtar yalnızca cihazda saklanır, kaynak kodda yer almaz.
 
+## Ortam Değişkenleri
+
+Bu projede `.env` dosyası kullanılmaz. Tüm yapılandırma dosyaları (tema, API anahtarı) uygulama içi ayarlarla yönetilir; API anahtarı kullanıcı tarafından **Profil** sekmesinden girilir ve cihazda saklanır.
+
 ## Proje Yapısı
 
 ```
