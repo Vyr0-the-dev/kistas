@@ -21,6 +21,16 @@
 - **Tema** — 10 renk teması, koyu glassmorphism tasarım, animasyonlu açılış ekranı
 - **Veri** — Yerel veritabanı (Isar), JSON yedekleme ve dışa aktarma
 
+## Ekran Görüntüleri
+
+| Ana Ekran | Analiz | Konular |
+|---|---|---|
+| ![Ana Ekran](screenshots/ana_ekran.png) | ![Analiz](screenshots/analiz.png) | ![Konular](screenshots/konular.png) |
+
+| Hızlı Ekle | Soru/Deneme Ekle | Konu Detay |
+|---|---|---|
+| ![Hızlı Ekle](screenshots/hizli_ekle.png) | ![Soru/Deneme Ekle](screenshots/soru_deneme_ekle.png) | ![Konu Detay](screenshots/konu_detay.png) |
+
 ## Kurulum
 
 Gereksinimler: [Flutter SDK](https://docs.flutter.dev/get-started/install) (Dart 3.x)
