@@ -43,9 +43,7 @@ Kıstas, KPSS Lisans (P3 / ATC) hazırlık sürecini **gündelik takip** haline 
 
 ## 🖼️ Ekran Görüntüleri
 
-| Ana Ekran | Analiz | Konular |
-|---|---|---|
-| ![Ana Ekran](ekran_analizleri/ana_ekran/ana_ekran.png) | ![Analiz](ekran_analizleri/analiz/analiz.png) | ![Konular](ekran_analizleri/konular/konular.png) |
+Ekran görüntüleri uygulamanın kendisinden alınabilir. Arayüz görselleri `assets/images/` altında yer alır.
 
 ## 🚀 Kurulum
 
@@ -88,12 +86,6 @@ lib/
     ├── mistakes/      # Yanlışlar galerisi ve çözüm
     └── settings/      # Profil ve ayarlar
 ```
-
-## 🛠️ Geliştirme Ortamı (Opsiyonel)
-
-Projede Docker tabanlı bir geliştirme ortamı da mevcuttur (`.devcontainer/`, `Dockerfile`, `docker-compose.yaml`).
-Docker Compose dosyasındaki Flutter ve Android SDK bağlama noktalarını kendi makine yollarınızla
-düzenleyerek `flutter` komutlarını konteyner içinde çalıştırabilirsiniz.
 
 ## 🤝 Katkı
 
