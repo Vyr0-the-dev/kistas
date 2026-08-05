@@ -57,8 +57,11 @@ __pycache__/
 # Local tooling config
 .gemini/
 
-# Platform ephemeral dosyalar� (sadece Android hedeflenir)
-ios/
-linux/
-macos/
-windows/
+# Flutter build zamanı geçici dosyaları (platform klasörleri repo'da tutulmaz,
+# yalnızca build sırasında üretilen geçiciler engellenir)
+**/ephemeral/
+**/Generated.xcconfig
+**/flutter_export_environment.sh
+**/GeneratedPluginRegistrant.*
+**/flutter_lldb*
+**/flutter_native_integration.env
