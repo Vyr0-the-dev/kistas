@@ -23,13 +23,9 @@
 
 ## Ekran Görüntüleri
 
-| Ana Ekran | Analiz | Konular |
-|---|---|---|
-| ![Ana Ekran](screenshots/ana_ekran.png) | ![Analiz](screenshots/analiz.png) | ![Konular](screenshots/konular.png) |
-
-| Hızlı Ekle | Soru/Deneme Ekle | Konu Detay |
-|---|---|---|
-| ![Hızlı Ekle](screenshots/hizli_ekle.png) | ![Soru/Deneme Ekle](screenshots/soru_deneme_ekle.png) | ![Konu Detay](screenshots/konu_detay.png) |
+| Ana Ekran | Konular | Hızlı Ekle | Analiz |
+|---|---|---|---|
+| ![Ana Ekran](screenshots/ana_ekran.png) | ![Konular](screenshots/konular.png) | ![Hızlı Ekle](screenshots/hizli_ekle.png) | ![Analiz](screenshots/analiz.png) |
 
 ## Kurulum
 
