@@ -5,7 +5,7 @@
 <h1 align="center">Kıstas</h1>
 
 <p align="center">
-  KPSS P3 (ATC) adayları için yapay zeka destekli sınav takip ve çalışma planlama uygulaması.
+  KPSS adayları için yapay zeka destekli sınav takip ve çalışma planlama uygulaması.
   <br>Android için Flutter ile geliştirilmiş, koyu temalı ve glassmorphism arayüzlü.
 </p>
 
