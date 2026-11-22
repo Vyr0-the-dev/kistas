@@ -118,7 +118,7 @@ class _AiLoadingDialogState extends State<AiLoadingDialog> with SingleTickerProv
               child: Text(
                 widget.status,
                 style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                      color: Colors.white,
+                      color: AppColors.of(context).textPrimary,
                       fontWeight: FontWeight.w600,
                     ),
               ),

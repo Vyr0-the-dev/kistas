@@ -11,6 +11,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/widgets/ai_loading_dialog.dart';
 import '../../../core/widgets/ambient_background.dart';
 import '../../../core/widgets/app_bottom_nav.dart';
+import '../../../core/widgets/delete_helpers.dart';
 import '../../../core/widgets/glass_panel.dart';
 import '../../../core/widgets/in_app_notice.dart';
 import '../../analysis/screens/analysis_screen.dart';
@@ -34,10 +35,10 @@ class QuickAddScreen extends StatelessWidget {
             valueListenable: repository.mockExams,
             builder: (context, mockExams, __) {
               final recentEntry = questionEntries.isNotEmpty
-                  ? questionEntries.last
+                  ? questionEntries.first
                   : null;
               final recentExam =
-                  mockExams.isNotEmpty ? mockExams.last : null;
+                  mockExams.isNotEmpty ? mockExams.first : null;
               final todayItems = _buildTodayItems(
                 context,
                 questionEntries,
@@ -98,7 +99,7 @@ class QuickAddScreen extends StatelessWidget {
                             .textTheme
                             .titleMedium
                             ?.copyWith(
-                              color: Colors.white,
+                              color: AppColors.of(context).textPrimary,
                               fontWeight: FontWeight.w700,
                             ),
                       ),
@@ -138,18 +139,17 @@ class _AiSmartAddButton extends StatelessWidget {
         decoration: BoxDecoration(
           gradient: LinearGradient(
             colors: [
-              AppColors.of(context).primary.withOpacity(0.8),
-              AppColors.of(context).primary.withOpacity(0.4),
+              AppColors.of(context).primary,
+              AppColors.of(context).primaryDark,
             ],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: Colors.white.withOpacity(0.2)),
           boxShadow: [
             BoxShadow(
-              color: AppColors.of(context).primary.withOpacity(0.3),
-              blurRadius: 12,
+              color: AppColors.of(context).primary.withValues(alpha: 0.24),
+              blurRadius: 14,
               offset: const Offset(0, 6),
             ),
           ],
@@ -207,7 +207,7 @@ Future<void> _openSmartAdd(BuildContext context) async {
           children: [
             Text(
               'Çalışmanı doğal dille anlat, AI verileri ayıklayıp forma doldursun.',
-              style: TextStyle(color: Colors.white70, fontSize: 13),
+              style: TextStyle(color: AppColors.of(context).textSecondary, fontSize: 13),
             ),
             SizedBox(height: 16),
             TextField(
@@ -255,12 +255,16 @@ Future<void> _openSmartAdd(BuildContext context) async {
         ? 'gemini-1.5-flash-latest'
         : repository.geminiModel.value;
 
+    final activeSubjects = repository.subjectsForTag(null);
+    final activeTags = repository.availableTags;
     final prompt = '''
 Extract study data from this text into JSON: "$result".
+User's known subjects: ${activeSubjects.isEmpty ? 'Any' : activeSubjects.join(', ')}
+User's known exam/category tags: ${activeTags.isEmpty ? 'Genel' : activeTags.join(', ')}
 JSON Schema:
 {
-  "topic": "string (infer closest topic name, e.g. Matematik, Tarih, Coğrafya)",
-  "tag": "string (infer exam type if mentioned, e.g. KPSS, YKS, DGS. Default to 'Genel')",
+  "topic": "string (infer closest topic or subject name from user's known subjects or text)",
+  "tag": "string (infer exam/category tag if mentioned or matching user's tags. Default to 'Genel')",
   "total": int (total questions),
   "correct": int (if mentioned),
   "wrong": int (if mentioned),
@@ -368,28 +372,36 @@ class _Header extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 18, 20, 12),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Hoş geldin, Öğrenci',
-            style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                  color: Colors.white54,
-                  letterSpacing: 1,
-                ),
+    final repository = AppRepositoryScope.of(context);
+    return ValueListenableBuilder<String>(
+      valueListenable: repository.userName,
+      builder: (context, name, _) {
+        final greeting =
+            name.trim().isEmpty ? 'Çalışmaya hazır mısın?' : 'Hoş geldin, $name';
+        return Padding(
+          padding: const EdgeInsets.fromLTRB(20, 18, 20, 12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                greeting,
+                style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                      color: AppColors.of(context).textSecondary,
+                      letterSpacing: 0.6,
+                    ),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                'Bugünkü hedeflerini\ntamamla.',
+                style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                      fontWeight: FontWeight.w800,
+                      color: AppColors.of(context).textPrimary,
+                    ),
+              ),
+            ],
           ),
-          SizedBox(height: 8),
-          Text(
-            'Bugünkü hedeflerini\ntamamla.',
-            style: Theme.of(context).textTheme.displaySmall?.copyWith(
-                  fontWeight: FontWeight.w800,
-                  color: Colors.white,
-                ),
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 }
@@ -457,7 +469,7 @@ class _QuickCard extends StatelessWidget {
         padding: const EdgeInsets.all(16),
         radius: BorderRadius.circular(24),
         child: SizedBox(
-          height: 190,
+          height: 136,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -474,7 +486,7 @@ class _QuickCard extends StatelessWidget {
               Text(
                 title,
                 style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      color: Colors.white,
+                      color: AppColors.of(context).textPrimary,
                       fontWeight: FontWeight.w800,
                     ),
               ),
@@ -482,7 +494,7 @@ class _QuickCard extends StatelessWidget {
               Text(
                 subtitle,
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: Colors.white54,
+                      color: AppColors.of(context).textSecondary,
                     ),
               ),
             ],
@@ -514,7 +526,7 @@ class _SectionHeader extends StatelessWidget {
           Text(
             title,
             style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  color: Colors.white,
+                  color: AppColors.of(context).textPrimary,
                   fontWeight: FontWeight.w700,
                 ),
           ),
@@ -568,7 +580,8 @@ class _SuggestionsRow extends StatelessWidget {
           title: recentExam!.title.isEmpty
               ? 'Son Deneme'
               : recentExam!.title,
-          subtitle: '${recentExam!.totalNet.toStringAsFixed(1)} net',
+          subtitle:
+              '${recentExam!.scopeSummary} • ${recentExam!.totalNet.toStringAsFixed(1)} net',
           label: 'Son Deneme',
           accent: AppColors.of(context).primaryLight,
           onTap: () => onExamTap(recentExam!),
@@ -578,11 +591,11 @@ class _SuggestionsRow extends StatelessWidget {
 
     if (items.isEmpty) {
       items.add(
-        const _SuggestionItem(
+        _SuggestionItem(
           title: 'Henüz kayıt yok',
           subtitle: 'İlk kaydın burada görünecek.',
           label: 'Başlangıç',
-          accent: Colors.white54,
+          accent: AppColors.of(context).textSecondary,
           onTap: null,
         ),
       );
@@ -634,7 +647,7 @@ class _SuggestionCard extends StatelessWidget {
         decoration: BoxDecoration(
           color: AppColors.of(context).surface,
           borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: Colors.white.withOpacity(0.05)),
+          border: Border.all(color: AppColors.of(context).border),
         ),
         child: Row(
           children: [
@@ -664,7 +677,7 @@ class _SuggestionCard extends StatelessWidget {
                   Text(
                     item.title,
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: Colors.white,
+                          color: AppColors.of(context).textPrimary,
                           fontWeight: FontWeight.w700,
                         ),
                     overflow: TextOverflow.ellipsis,
@@ -672,7 +685,7 @@ class _SuggestionCard extends StatelessWidget {
                   Text(
                     item.subtitle,
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: Colors.white54,
+                          color: AppColors.of(context).textSecondary,
                         ),
                   ),
                 ],
@@ -713,7 +726,7 @@ class _TodayList extends StatelessWidget {
                 child: Text(
                   'Bugün henüz kayıt yok.',
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: Colors.white54,
+                        color: AppColors.of(context).textSecondary,
                       ),
                 ),
               )
@@ -765,10 +778,10 @@ class _TodayTile extends StatelessWidget {
     return GestureDetector(
       onTap: () => _showTodayDetailSheet(context, item),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        padding: const EdgeInsets.fromLTRB(16, 12, 8, 12),
         decoration: BoxDecoration(
           border: Border(
-            bottom: BorderSide(color: Colors.white.withOpacity(0.05)),
+            bottom: BorderSide(color: AppColors.of(context).border),
           ),
         ),
         child: Row(
@@ -777,37 +790,60 @@ class _TodayTile extends StatelessWidget {
               width: 36,
               height: 36,
               decoration: BoxDecoration(
-                color: item.accent.withOpacity(0.2),
+                color: item.accent.withValues(alpha: 0.2),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Icon(item.icon, color: item.accent, size: 20),
             ),
-            SizedBox(width: 12),
+            const SizedBox(width: 12),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
                     item.title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: Colors.white,
+                          color: AppColors.of(context).textPrimary,
                           fontWeight: FontWeight.w600,
                         ),
                   ),
                   Text(
                     item.subtitle,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: Colors.white54,
+                          color: AppColors.of(context).textSecondary,
                         ),
                   ),
                 ],
               ),
             ),
+            const SizedBox(width: 6),
             Text(
               item.timeLabel,
               style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                    color: Colors.white38,
+                    color: AppColors.of(context).textMuted,
                   ),
+            ),
+            IconButton(
+              tooltip: 'Kaydı Sil',
+              visualDensity: VisualDensity.compact,
+              constraints: const BoxConstraints(minWidth: 34, minHeight: 34),
+              padding: EdgeInsets.zero,
+              icon: Icon(
+                Icons.delete_outline,
+                size: 19,
+                color: AppColors.of(context).textMuted,
+              ),
+              onPressed: () {
+                if (item.questionEntry != null) {
+                  deleteQuestionEntryWithUndo(context, item.questionEntry!);
+                } else if (item.mockExam != null) {
+                  deleteMockExamWithUndo(context, item.mockExam!);
+                }
+              },
             ),
           ],
         ),
@@ -851,7 +887,8 @@ List<_TodayItem> _buildTodayItems(
       items.add(
         _TodayItem(
           title: exam.title.isEmpty ? 'Deneme' : exam.title,
-          subtitle: '${exam.totalNet.toStringAsFixed(1)} net',
+          subtitle:
+              '${exam.scopeSummary} • ${exam.totalNet.toStringAsFixed(1)} net',
           timeLabel: _formatTime(exam.createdAt),
           icon: Icons.assignment,
           accent: AppColors.of(context).primaryLight,
@@ -913,14 +950,11 @@ TopicSummary? _findTopic(List<TopicSummary> topics, QuestionEntry entry) {
 
 void _showQuickSelectionsSheet(
   BuildContext context,
-  List<QuestionEntry> questionEntries,
-  List<MockExam> mockExams,
+  List<QuestionEntry> _,
+  List<MockExam> __,
   List<TopicSummary> topics,
 ) {
-  final recentQuestions = [...questionEntries]
-    ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
-  final recentExams = [...mockExams]
-    ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+  final repository = AppRepositoryScope.of(context);
 
   showModalBottomSheet(
     context: context,
@@ -932,118 +966,153 @@ void _showQuickSelectionsSheet(
         minChildSize: 0.45,
         maxChildSize: 0.95,
         builder: (context, controller) {
-          return Container(
-            decoration: BoxDecoration(
-              color: AppColors.of(context).surface,
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-              border: Border.all(color: Colors.white.withOpacity(0.08)),
-            ),
-            child: ListView(
-              controller: controller,
-              padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
-              children: [
-                Center(
-                  child: Container(
-                    width: 44,
-                    height: 4,
+          return ValueListenableBuilder<List<QuestionEntry>>(
+            valueListenable: repository.questionEntries,
+            builder: (context, liveQuestions, _) {
+              return ValueListenableBuilder<List<MockExam>>(
+                valueListenable: repository.mockExams,
+                builder: (context, liveExams, __) {
+                  final recentQuestions = [...liveQuestions]
+                    ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+                  final recentExams = [...liveExams]
+                    ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+
+                  return Container(
                     decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.2),
-                      borderRadius: BorderRadius.circular(999),
-                    ),
-                  ),
-                ),
-                SizedBox(height: 14),
-                Text(
-                  'Hızlı Seçimler',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w700,
+                      color: AppColors.of(context).surface,
+                      borderRadius: const BorderRadius.vertical(
+                        top: Radius.circular(24),
                       ),
-                ),
-                SizedBox(height: 12),
-                Row(
-                  children: [
-                    Expanded(
-                      child: _QuickActionButton(
-                        label: 'Soru Ekle',
-                        icon: Icons.edit_note,
-                        onTap: () {
-                          Navigator.of(sheetContext).pop();
-                          Navigator.of(context, rootNavigator: true).push(
-                            MaterialPageRoute(
-                              builder: (_) => const EntryWizardScreen(
-                                type: EntryType.question,
-                              ),
+                      border: Border.all(
+                        color: AppColors.of(context).subtleFill,
+                      ),
+                    ),
+                    child: ListView(
+                      controller: controller,
+                      padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+                      children: [
+                        Center(
+                          child: Container(
+                            width: 44,
+                            height: 4,
+                            decoration: BoxDecoration(
+                              color: AppColors.of(context).subtleFill,
+                              borderRadius: BorderRadius.circular(999),
                             ),
-                          );
-                        },
-                      ),
-                    ),
-                    SizedBox(width: 12),
-                    Expanded(
-                      child: _QuickActionButton(
-                        label: 'Deneme Ekle',
-                        icon: Icons.timer,
-                        onTap: () {
-                          Navigator.of(sheetContext).pop();
-                          Navigator.of(context, rootNavigator: true).push(
-                            MaterialPageRoute(
-                              builder: (_) => const EntryWizardScreen(
-                                type: EntryType.mockExam,
-                              ),
-                            ),
-                          );
-                        },
-                      ),
-                    ),
-                  ],
-                ),
-                SizedBox(height: 20),
-                _QuickSectionTitle(title: 'Son Soru Kayıtları'),
-                if (recentQuestions.isEmpty)
-                  _EmptyHint(text: 'Henüz soru kaydı yok.')
-                else
-                  ...recentQuestions.take(6).map(
-                    (entry) {
-                      final hasBook = entry.bookName.isNotEmpty;
-                      return _QuickSelectionTile(
-                        title: hasBook
-                            ? entry.bookName
-                            : (entry.topic.isEmpty ? 'Soru Kaydı' : entry.topic),
-                        subtitle: hasBook
-                            ? '${entry.subject} • ${entry.topic} • ${entry.total} soru'
-                            : '${entry.subject} • ${entry.total} soru',
-                        trailing: _formatTime(entry.createdAt),
-                        icon: Icons.school,
-                        accent: AppColors.of(context).primary,
-                        onTap: () {
-                          Navigator.of(sheetContext).pop();
-                          _openQuestionFromEntry(context, entry, topics);
-                        },
-                      );
-                    },
-                  ),
-                SizedBox(height: 18),
-                _QuickSectionTitle(title: 'Son Denemeler'),
-                if (recentExams.isEmpty)
-                  _EmptyHint(text: 'Henüz deneme kaydı yok.')
-                else
-                  ...recentExams.take(6).map(
-                        (exam) => _QuickSelectionTile(
-                          title: exam.title.isEmpty ? 'Deneme' : exam.title,
-                          subtitle:
-                              '${exam.totalNet.toStringAsFixed(1)} net • ${exam.minutes} dk',
-                          trailing: _formatTime(exam.createdAt),
-                          icon: Icons.assignment,
-                          accent: AppColors.of(context).primaryLight,
-                          onTap: () {
-                            Navigator.of(sheetContext).pop();
-                            _openExamFromEntry(context, exam);
-                          },
+                          ),
                         ),
-                      ),
-              ],
-            ),
+                        const SizedBox(height: 14),
+                        Text(
+                          'Hızlı Seçimler',
+                          style: Theme.of(context)
+                              .textTheme
+                              .titleMedium
+                              ?.copyWith(
+                                color: AppColors.of(context).textPrimary,
+                                fontWeight: FontWeight.w700,
+                              ),
+                        ),
+                        const SizedBox(height: 12),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: _QuickActionButton(
+                                label: 'Soru Ekle',
+                                icon: Icons.edit_note,
+                                onTap: () {
+                                  Navigator.of(sheetContext).pop();
+                                  Navigator.of(context, rootNavigator: true)
+                                      .push(
+                                    MaterialPageRoute(
+                                      builder: (_) => const EntryWizardScreen(
+                                        type: EntryType.question,
+                                      ),
+                                    ),
+                                  );
+                                },
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: _QuickActionButton(
+                                label: 'Deneme Ekle',
+                                icon: Icons.timer,
+                                onTap: () {
+                                  Navigator.of(sheetContext).pop();
+                                  Navigator.of(context, rootNavigator: true)
+                                      .push(
+                                    MaterialPageRoute(
+                                      builder: (_) => const EntryWizardScreen(
+                                        type: EntryType.mockExam,
+                                      ),
+                                    ),
+                                  );
+                                },
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 20),
+                        const _QuickSectionTitle(title: 'Son Soru Kayıtları'),
+                        if (recentQuestions.isEmpty)
+                          const _EmptyHint(text: 'Henüz soru kaydı yok.')
+                        else
+                          ...recentQuestions.take(10).map(
+                            (entry) {
+                              final hasBook = entry.bookName.isNotEmpty;
+                              return _QuickSelectionTile(
+                                title: hasBook
+                                    ? entry.bookName
+                                    : (entry.topic.isEmpty
+                                        ? 'Soru Kaydı'
+                                        : entry.topic),
+                                subtitle: hasBook
+                                    ? '${entry.subject} • ${entry.topic} • ${entry.total} soru'
+                                    : '${entry.subject} • ${entry.total} soru',
+                                trailing: _formatTime(entry.createdAt),
+                                icon: Icons.school,
+                                accent: AppColors.of(context).primary,
+                                onTap: () {
+                                  Navigator.of(sheetContext).pop();
+                                  _openQuestionFromEntry(
+                                    context,
+                                    entry,
+                                    topics,
+                                  );
+                                },
+                                onDelete: () =>
+                                    deleteQuestionEntryWithUndo(context, entry),
+                              );
+                            },
+                          ),
+                        const SizedBox(height: 18),
+                        const _QuickSectionTitle(title: 'Son Denemeler'),
+                        if (recentExams.isEmpty)
+                          const _EmptyHint(text: 'Henüz deneme kaydı yok.')
+                        else
+                          ...recentExams.take(10).map(
+                            (exam) => _QuickSelectionTile(
+                              title:
+                                  exam.title.isEmpty ? 'Deneme' : exam.title,
+                              subtitle:
+                                  '${exam.scopeSummary} • ${exam.totalNet.toStringAsFixed(1)} net • ${exam.minutes} dk',
+                              trailing: _formatTime(exam.createdAt),
+                              icon: Icons.assignment,
+                              accent: AppColors.of(context).primaryLight,
+                              onTap: () {
+                                Navigator.of(sheetContext).pop();
+                                _openExamFromEntry(context, exam);
+                              },
+                              onDelete: () =>
+                                  deleteMockExamWithUndo(context, exam),
+                            ),
+                          ),
+                      ],
+                    ),
+                  );
+                },
+              );
+            },
           );
         },
       );
@@ -1069,9 +1138,9 @@ class _QuickActionButton extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 14),
         decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.05),
+          color: AppColors.of(context).subtleFill,
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: Colors.white.withOpacity(0.08)),
+          border: Border.all(color: AppColors.of(context).border),
         ),
         child: Column(
           children: [
@@ -1080,7 +1149,7 @@ class _QuickActionButton extends StatelessWidget {
             Text(
               label,
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: Colors.white,
+                    color: AppColors.of(context).textPrimary,
                     fontWeight: FontWeight.w600,
                   ),
             ),
@@ -1103,7 +1172,7 @@ class _QuickSectionTitle extends StatelessWidget {
       child: Text(
         title,
         style: Theme.of(context).textTheme.titleSmall?.copyWith(
-              color: Colors.white70,
+              color: AppColors.of(context).textSecondary,
               fontWeight: FontWeight.w700,
             ),
       ),
@@ -1123,7 +1192,7 @@ class _EmptyHint extends StatelessWidget {
       child: Text(
         text,
         style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: Colors.white54,
+              color: AppColors.of(context).textSecondary,
             ),
       ),
     );
@@ -1138,6 +1207,7 @@ class _QuickSelectionTile extends StatelessWidget {
     required this.icon,
     required this.accent,
     required this.onTap,
+    this.onDelete,
   });
 
   final String title;
@@ -1146,45 +1216,71 @@ class _QuickSelectionTile extends StatelessWidget {
   final IconData icon;
   final Color accent;
   final VoidCallback onTap;
+  final VoidCallback? onDelete;
 
   @override
   Widget build(BuildContext context) {
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.04),
+        color: AppColors.of(context).subtleFill,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white.withOpacity(0.05)),
+        border: Border.all(color: AppColors.of(context).border),
       ),
       child: ListTile(
         onTap: onTap,
+        contentPadding: const EdgeInsets.fromLTRB(14, 2, 8, 2),
         leading: Container(
           width: 36,
           height: 36,
           decoration: BoxDecoration(
-            color: accent.withOpacity(0.18),
+            color: accent.withValues(alpha: 0.18),
             borderRadius: BorderRadius.circular(12),
           ),
           child: Icon(icon, color: accent, size: 20),
         ),
         title: Text(
           title,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
           style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: Colors.white,
+                color: AppColors.of(context).textPrimary,
                 fontWeight: FontWeight.w600,
               ),
         ),
         subtitle: Text(
           subtitle,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
           style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: Colors.white54,
+                color: AppColors.of(context).textSecondary,
               ),
         ),
-        trailing: Text(
-          trailing,
-          style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                color: Colors.white38,
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              trailing,
+              style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                    color: AppColors.of(context).textMuted,
+                  ),
+            ),
+            if (onDelete != null) ...[
+              const SizedBox(width: 2),
+              IconButton(
+                tooltip: 'Kaydı Sil',
+                visualDensity: VisualDensity.compact,
+                constraints: const BoxConstraints(minWidth: 34, minHeight: 34),
+                padding: EdgeInsets.zero,
+                icon: const Icon(
+                  Icons.delete_outline,
+                  size: 19,
+                  color: Colors.redAccent,
+                ),
+                onPressed: onDelete,
               ),
+            ],
+          ],
         ),
       ),
     );
@@ -1208,7 +1304,7 @@ void _showTodayDetailSheet(BuildContext context, _TodayItem item) {
             decoration: BoxDecoration(
               color: AppColors.of(context).surface,
               borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-              border: Border.all(color: Colors.white.withOpacity(0.08)),
+              border: Border.all(color: AppColors.of(context).border),
             ),
             child: ListView(
               controller: controller,
@@ -1219,27 +1315,27 @@ void _showTodayDetailSheet(BuildContext context, _TodayItem item) {
                     width: 44,
                     height: 4,
                     decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.2),
+                      color: AppColors.of(context).subtleFill,
                       borderRadius: BorderRadius.circular(999),
                     ),
                   ),
                 ),
-                SizedBox(height: 14),
+                const SizedBox(height: 14),
                 Text(
                   item.title,
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        color: Colors.white,
+                        color: AppColors.of(context).textPrimary,
                         fontWeight: FontWeight.w700,
                       ),
                 ),
-                SizedBox(height: 6),
+                const SizedBox(height: 6),
                 Text(
                   '${item.subtitle} • ${item.timeLabel}',
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: Colors.white54,
+                        color: AppColors.of(context).textSecondary,
                       ),
                 ),
-                SizedBox(height: 16),
+                const SizedBox(height: 16),
                 if (item.type == _TodayItemType.question &&
                     item.questionEntry != null)
                   _QuestionDetailBlock(
@@ -1257,9 +1353,29 @@ void _showTodayDetailSheet(BuildContext context, _TodayItem item) {
                         ),
                       );
                     },
+                    onDelete: () async {
+                      final deleted = await deleteQuestionEntryWithUndo(
+                        context,
+                        item.questionEntry!,
+                      );
+                      if (deleted && sheetContext.mounted) {
+                        Navigator.of(sheetContext).pop();
+                      }
+                    },
                   ),
                 if (item.type == _TodayItemType.exam && item.mockExam != null)
-                  _ExamDetailBlock(exam: item.mockExam!),
+                  _ExamDetailBlock(
+                    exam: item.mockExam!,
+                    onDelete: () async {
+                      final deleted = await deleteMockExamWithUndo(
+                        context,
+                        item.mockExam!,
+                      );
+                      if (deleted && sheetContext.mounted) {
+                        Navigator.of(sheetContext).pop();
+                      }
+                    },
+                  ),
               ],
             ),
           );
@@ -1273,10 +1389,12 @@ class _QuestionDetailBlock extends StatelessWidget {
   const _QuestionDetailBlock({
     required this.entry,
     required this.onOpenTopic,
+    required this.onDelete,
   });
 
   final QuestionEntry entry;
   final VoidCallback onOpenTopic;
+  final VoidCallback onDelete;
 
   @override
   Widget build(BuildContext context) {
@@ -1293,16 +1411,16 @@ class _QuestionDetailBlock extends StatelessWidget {
             _DetailStat(label: 'Süre', value: '${entry.minutes} dk'),
           ],
         ),
-        SizedBox(height: 16),
+        const SizedBox(height: 16),
         Row(
           children: [
             Expanded(
               child: OutlinedButton(
                 onPressed: onOpenTopic,
-                child: Text('Konu Analizi'),
+                child: const Text('Konu Analizi'),
               ),
             ),
-            SizedBox(width: 12),
+            const SizedBox(width: 12),
             Expanded(
               child: ElevatedButton(
                 onPressed: () {
@@ -1318,10 +1436,23 @@ class _QuestionDetailBlock extends StatelessWidget {
                     ),
                   );
                 },
-                child: Text('Soru Ekle'),
+                child: const Text('Soru Ekle'),
               ),
             ),
           ],
+        ),
+        const SizedBox(height: 10),
+        SizedBox(
+          width: double.infinity,
+          child: OutlinedButton.icon(
+            onPressed: onDelete,
+            style: OutlinedButton.styleFrom(
+              foregroundColor: Colors.redAccent,
+              side: BorderSide(color: Colors.redAccent.withValues(alpha: 0.45)),
+            ),
+            icon: const Icon(Icons.delete_outline, size: 18),
+            label: const Text('Kaydı Sil'),
+          ),
         ),
       ],
     );
@@ -1329,9 +1460,13 @@ class _QuestionDetailBlock extends StatelessWidget {
 }
 
 class _ExamDetailBlock extends StatelessWidget {
-  const _ExamDetailBlock({required this.exam});
+  const _ExamDetailBlock({
+    required this.exam,
+    required this.onDelete,
+  });
 
   final MockExam exam;
+  final VoidCallback onDelete;
 
   @override
   Widget build(BuildContext context) {
@@ -1349,16 +1484,34 @@ class _ExamDetailBlock extends StatelessWidget {
             _DetailStat(label: 'Süre', value: '${exam.minutes} dk'),
           ],
         ),
-        SizedBox(height: 16),
+        const SizedBox(height: 16),
         SizedBox(
           width: double.infinity,
           child: ElevatedButton(
             onPressed: () {
               Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => AnalysisScreen()),
+                MaterialPageRoute(
+                  builder: (_) => Scaffold(
+                    backgroundColor: AppColors.of(context).background,
+                    body: const AnalysisScreen(),
+                  ),
+                ),
               );
             },
-            child: Text('Analize Git'),
+            child: const Text('Analize Git'),
+          ),
+        ),
+        const SizedBox(height: 10),
+        SizedBox(
+          width: double.infinity,
+          child: OutlinedButton.icon(
+            onPressed: onDelete,
+            style: OutlinedButton.styleFrom(
+              foregroundColor: Colors.redAccent,
+              side: BorderSide(color: Colors.redAccent.withValues(alpha: 0.45)),
+            ),
+            icon: const Icon(Icons.delete_outline, size: 18),
+            label: const Text('Denemeyi Sil'),
           ),
         ),
       ],
@@ -1377,9 +1530,9 @@ class _DetailStat extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.05),
+        color: AppColors.of(context).subtleFill,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.white.withOpacity(0.08)),
+        border: Border.all(color: AppColors.of(context).border),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -1387,14 +1540,14 @@ class _DetailStat extends StatelessWidget {
           Text(
             label,
             style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                  color: Colors.white54,
+                  color: AppColors.of(context).textSecondary,
                 ),
           ),
           SizedBox(height: 4),
           Text(
             value,
             style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  color: Colors.white,
+                  color: AppColors.of(context).textPrimary,
                   fontWeight: FontWeight.w700,
                 ),
           ),

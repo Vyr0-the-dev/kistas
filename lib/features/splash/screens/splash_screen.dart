@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import '../../../core/theme/app_colors.dart';
 import '../../dashboard/screens/main_screen.dart';
 
 class SplashScreen extends StatefulWidget {
@@ -14,77 +15,74 @@ class SplashScreen extends StatefulWidget {
 class _SplashScreenState extends State<SplashScreen> {
   @override
   Widget build(BuildContext context) {
+    final colors = AppColors.of(context);
     return Scaffold(
-      backgroundColor: const Color(0xFF262836),
-      body: Stack(
-        children: [
-          Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                // 1. LOGO
-                Animate(
-                  child: SvgPicture.asset(
-                    'assets/images/KISTAS.svg',
-                    width: 240,
-                    fit: BoxFit.contain,
-                  ),
-                )
-                .fadeIn(duration: 1000.ms)
+      backgroundColor: colors.background,
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Animate(
+              child: SvgPicture.asset(
+                'assets/images/KISTAS.svg',
+                width: 220,
+                fit: BoxFit.contain,
+                colorFilter: ColorFilter.mode(
+                  colors.isDark ? colors.textPrimary : colors.primary,
+                  BlendMode.srcIn,
+                ),
+              ),
+            )
+                .fadeIn(duration: 750.ms)
                 .scale(
                   begin: const Offset(0.95, 0.95),
                   end: const Offset(1, 1),
-                  duration: 1000.ms,
+                  duration: 750.ms,
                   curve: Curves.easeOut,
                 ),
-
-                // 2. TAM KONTROL METNİ
-                Transform.translate(
-                  offset: const Offset(0, -80), 
-                  child: const Text(
-                    'TAM KONTROL',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: Colors.white70,
-                      fontSize: 18,
-                      fontWeight: FontWeight.w200,
-                      letterSpacing: 10,
-                      fontFamily: 'Roboto',
+            Transform.translate(
+              offset: const Offset(0, -72),
+              child: Text(
+                'ÇALIŞMA ASİSTANI',
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                      color: colors.textSecondary,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 4.5,
                     ),
-                  ),
-                )
+              ),
+            )
                 .animate(
                   onComplete: (controller) async {
-                    // Toplam süreyi 1.25sn (1250ms) yapacak şekilde ayarlandı
-                    await Future.delayed(const Duration(milliseconds: 250));
+                    await Future.delayed(const Duration(milliseconds: 220));
                     if (mounted) {
-                                        Navigator.of(context).pushReplacement(
-                                          PageRouteBuilder(
-                                            pageBuilder: (context, animation, secondaryAnimation) =>
-                                                widget.onInitializationComplete ?? const MainScreen(),
-                                            transitionsBuilder: (context, animation, secondaryAnimation, child) {
-                                              return FadeTransition(
-                                                opacity: animation,
-                                                child: child,
-                                              );
-                                            },
-                                            transitionDuration: const Duration(milliseconds: 250),
-                                          ),
-                                        );                    }
+                      Navigator.of(context).pushReplacement(
+                        PageRouteBuilder(
+                          pageBuilder: (context, animation, secondaryAnimation) =>
+                              widget.onInitializationComplete ?? const MainScreen(),
+                          transitionsBuilder:
+                              (context, animation, secondaryAnimation, child) {
+                            return FadeTransition(
+                              opacity: animation,
+                              child: child,
+                            );
+                          },
+                          transitionDuration: const Duration(milliseconds: 240),
+                        ),
+                      );
+                    }
                   },
                 )
-                .fadeIn(delay: 300.ms, duration: 700.ms)
+                .fadeIn(delay: 220.ms, duration: 550.ms)
                 .moveY(
-                  begin: 10, 
-                  end: 0, 
-                  delay: 300.ms, 
-                  duration: 700.ms, 
-                  curve: Curves.easeOut
+                  begin: 8,
+                  end: 0,
+                  delay: 220.ms,
+                  duration: 550.ms,
+                  curve: Curves.easeOut,
                 ),
-              ],
-            ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

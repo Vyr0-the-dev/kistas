@@ -40,7 +40,7 @@ class TopicSummary {
     this.notes = const [],
     this.importance = 3, // 1: Low, 5: Critical
     this.aiInsights = const [],
-    this.tag = 'KPSS',
+    this.tag = 'Genel',
   });
 
   final String id;
@@ -80,7 +80,7 @@ class TopicSummary {
               ?.map((e) => TopicInsight.fromJson(e as Map<String, dynamic>))
               .toList() ??
           [],
-      tag: json['tag'] as String? ?? 'KPSS',
+      tag: json['tag'] as String? ?? 'Genel',
     );
   }
 

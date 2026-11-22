@@ -133,4 +133,41 @@ class DatabaseService {
   Future<void> clearNotifications() async {
     await isar.writeTxn(() => isar.notificationEntitys.clear());
   }
+
+  Future<void> deleteMockExam(String originalId) async {
+    await isar.writeTxn(() async {
+      final exam = await isar.mockExamEntitys
+          .filter()
+          .originalIdEqualTo(originalId)
+          .findFirst();
+      if (exam != null) {
+        await isar.mockExamEntitys.delete(exam.id);
+      }
+    });
+  }
+
+  Future<void> deleteTopicsByIds(List<String> originalIds) async {
+    if (originalIds.isEmpty) return;
+    await isar.writeTxn(() async {
+      for (final originalId in originalIds) {
+        final topic = await isar.topicEntitys
+            .filter()
+            .originalIdEqualTo(originalId)
+            .findFirst();
+        if (topic != null) {
+          await isar.topicEntitys.delete(topic.id);
+        }
+      }
+    });
+  }
+
+  Future<void> clearAllData() async {
+    await isar.writeTxn(() async {
+      await isar.questionEntitys.clear();
+      await isar.mockExamEntitys.clear();
+      await isar.topicEntitys.clear();
+      await isar.flashcardEntitys.clear();
+      await isar.notificationEntitys.clear();
+    });
+  }
 }

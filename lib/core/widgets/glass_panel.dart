@@ -1,38 +1,48 @@
-import 'dart:ui';
-
 import 'package:flutter/material.dart';
 
 import '../theme/app_colors.dart';
 
+/// Clean matte study card container.
+/// Keeps the `GlassPanel` name for backward compatibility across screens while
+/// rendering crisp, glare-free paper/slate surfaces without heavy BackdropFilter.
 class GlassPanel extends StatelessWidget {
   const GlassPanel({
     super.key,
     required this.child,
     this.padding = const EdgeInsets.all(16),
-    this.radius = const BorderRadius.all(Radius.circular(22)),
+    this.radius = const BorderRadius.all(Radius.circular(20)),
     this.color,
+    this.borderColor,
   });
 
   final Widget child;
   final EdgeInsets padding;
   final BorderRadius radius;
   final Color? color;
+  final Color? borderColor;
 
   @override
   Widget build(BuildContext context) {
-    return ClipRRect(
-      borderRadius: radius,
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-        child: Container(
-          padding: padding,
-          decoration: BoxDecoration(
-            color: color ?? AppColors.of(context).glass,
-            borderRadius: radius,
-            border: Border.all(color: Colors.white.withOpacity(0.08)),
-          ),
-          child: child,
-        ),
+    final colors = AppColors.of(context);
+    return Container(
+      padding: padding,
+      decoration: BoxDecoration(
+        color: color ?? colors.surface,
+        borderRadius: radius,
+        border: Border.all(color: borderColor ?? colors.border),
+        boxShadow: colors.isDark
+            ? const []
+            : [
+                BoxShadow(
+                  color: colors.cardShadow,
+                  blurRadius: 16,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+      ),
+      child: Material(
+        type: MaterialType.transparency,
+        child: child,
       ),
     );
   }

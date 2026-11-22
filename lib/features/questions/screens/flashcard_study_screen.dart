@@ -173,7 +173,7 @@ class _Header extends StatelessWidget {
         children: [
           IconButton(
             onPressed: () => Navigator.of(context).pop(),
-            icon: const Icon(Icons.close, color: Colors.white54),
+            icon: Icon(Icons.close, color: AppColors.of(context).textSecondary),
           ),
           Expanded(
             child: Column(
@@ -182,7 +182,7 @@ class _Header extends StatelessWidget {
                 Text(
                   title,
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        color: Colors.white,
+                        color: AppColors.of(context).textPrimary,
                         fontWeight: FontWeight.w700,
                       ),
                   overflow: TextOverflow.ellipsis,
@@ -190,7 +190,7 @@ class _Header extends StatelessWidget {
                 Text(
                   'Bilgi Kartları',
                   style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                        color: Colors.white38,
+                        color: AppColors.of(context).textMuted,
                       ),
                 ),
               ],
@@ -199,7 +199,7 @@ class _Header extends StatelessWidget {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.05),
+              color: AppColors.of(context).subtleFill,
               borderRadius: BorderRadius.circular(12),
             ),
             child: Text(
@@ -267,7 +267,7 @@ class _FlashcardItem extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.help_outline, size: 48, color: Colors.white24),
+            Icon(Icons.help_outline, size: 48, color: AppColors.of(context).textMuted),
             const SizedBox(height: 24),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 24),
@@ -275,7 +275,7 @@ class _FlashcardItem extends StatelessWidget {
                 data: _sanitizeMath(card.question),
                 styleSheet: MarkdownStyleSheet(
                   p: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                        color: Colors.white,
+                        color: AppColors.of(context).textPrimary,
                         fontWeight: FontWeight.w700,
                       ),
                   textAlign: WrapAlignment.center,
@@ -286,7 +286,7 @@ class _FlashcardItem extends StatelessWidget {
             Text(
               'Cevabı görmek için tıkla',
               style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                    color: Colors.white38,
+                    color: AppColors.of(context).textMuted,
                   ),
             ),
           ],
@@ -313,7 +313,7 @@ class _FlashcardItem extends StatelessWidget {
                 data: _sanitizeMath(card.answer),
                 styleSheet: MarkdownStyleSheet(
                   p: Theme.of(context).textTheme.titleLarge?.copyWith(
-                        color: Colors.white,
+                        color: AppColors.of(context).textPrimary,
                         fontWeight: FontWeight.w600,
                         height: 1.4,
                       ),
@@ -333,7 +333,7 @@ class _FlashcardItem extends StatelessWidget {
                 child: Text(
                   'İpucu: ${card.hint}',
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: Colors.white54,
+                        color: AppColors.of(context).textSecondary,
                         fontStyle: FontStyle.italic,
                       ),
                 ),
@@ -373,7 +373,7 @@ class _CardBase extends StatelessWidget {
             height: double.infinity,
             decoration: BoxDecoration(
               color: color,
-              border: Border.all(color: borderColor ?? Colors.white.withOpacity(0.05)),
+              border: Border.all(color: borderColor ?? AppColors.of(context).border),
               borderRadius: BorderRadius.circular(32),
             ),
             child: child,
@@ -429,8 +429,8 @@ class _ControlButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final backgroundColor = isPrimary ? AppColors.of(context).primary : Colors.white12;
-    final foregroundColor = isPrimary ? AppColors.of(context).onPrimary : Colors.white;
+    final backgroundColor = isPrimary ? AppColors.of(context).primary : AppColors.of(context).subtleFill;
+    final foregroundColor = isPrimary ? AppColors.of(context).onPrimary : AppColors.of(context).textPrimary;
     return Opacity(
       opacity: onTap == null ? 0.4 : 1.0,
       child: ElevatedButton.icon(

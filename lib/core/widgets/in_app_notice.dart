@@ -116,20 +116,22 @@ class _TopNoticeState extends State<_TopNotice>
                       color: AppColors.of(context).surface,
                       borderRadius: BorderRadius.circular(18),
                       border: Border.all(
-                        color: Colors.white.withOpacity(0.08),
+                        color: AppColors.of(context).border,
                       ),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withOpacity(0.3),
-                          blurRadius: 16,
-                          offset: const Offset(0, 10),
+                          color: Colors.black.withValues(
+                            alpha: AppColors.of(context).isDark ? 0.35 : 0.12,
+                          ),
+                          blurRadius: 18,
+                          offset: const Offset(0, 8),
                         ),
                       ],
                     ),
                     child: Text(
                       widget.message,
                       style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            color: Colors.white,
+                            color: AppColors.of(context).textPrimary,
                             fontWeight: FontWeight.w600,
                           ),
                       textAlign: TextAlign.center,

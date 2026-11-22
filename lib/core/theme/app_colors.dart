@@ -1,161 +1,241 @@
 import 'package:flutter/material.dart';
 
 class AppColors {
-  // --- Palettes ---
+  // --- Curated Modern Student Palettes ---
 
-  // 1. Midnight Pro (Slate/Indigo) - Varsayılan
-  static const midnight = AppPalette(
-    background: Color(0xFF0F172A),
-    backgroundAlt: Color(0xFF020617),
-    surface: Color(0xFF1E293B),
-    surfaceLight: Color(0xFF334155),
-    primary: Color(0xFF818CF8),
-    primaryLight: Color(0xFFA5B4FC),
-    primaryDark: Color(0xFF6366F1),
-    glass: Color(0x1A1E293B),
-    glassBorder: Color(0x1FFFFFFF),
+  // 1. Ferah (Crisp Porcelain + Calm Deep Teal) - Varsayılan
+  static const paper = AppPalette(
+    key: 'paper',
+    name: 'Ferah',
+    subtitle: 'Sade açık & deniz yeşili',
+    brightness: Brightness.light,
+    background: Color(0xFFF5F7FA),
+    backgroundAlt: Color(0xFFEAEFF5),
+    surface: Color(0xFFFFFFFF),
+    surfaceLight: Color(0xFFEEF2F7),
+    primary: Color(0xFF0F766E),
+    primaryLight: Color(0xFF14B8A6),
+    primaryDark: Color(0xFF115E59),
+    onPrimary: Color(0xFFFFFFFF),
+    glass: Color(0xFFFFFFFF),
+    glassBorder: Color(0xFFE5EAF1),
+    border: Color(0xFFE5EAF1),
+    divider: Color(0xFFEDF1F6),
+    subtleFill: Color(0xFFF1F4F9),
+    cardShadow: Color(0x0A0F172A),
+    textPrimary: Color(0xFF0F172A),
+    textSecondary: Color(0xFF475569),
+    textMuted: Color(0xFF94A3B8),
+    success: Color(0xFF16A34A),
+    warning: Color(0xFFD97706),
+    danger: Color(0xFFDC2626),
   );
 
-  // 2. Deep Ocean (Navy/Teal) - Okyanus
-  static const ocean = AppPalette(
-    background: Color(0xFF05111A),
-    backgroundAlt: Color(0xFF02080D),
-    surface: Color(0xFF0D2137),
-    surfaceLight: Color(0xFF163252),
-    primary: Color(0xFF2DD4BF), // Teal 400
-    primaryLight: Color(0xFF5EEAD4), // Teal 300
-    primaryDark: Color(0xFF14B8A6), // Teal 500
-    glass: Color(0x1A0D2137),
-    glassBorder: Color(0x1F2DD4BF),
+  // 2. Saf Mavi (Crisp White + Clean Cobalt Blue)
+  static const sage = AppPalette(
+    key: 'sage',
+    name: 'Saf Mavi',
+    subtitle: 'Temiz mavi & beyaz',
+    brightness: Brightness.light,
+    background: Color(0xFFF6F8FC),
+    backgroundAlt: Color(0xFFEAF0FA),
+    surface: Color(0xFFFFFFFF),
+    surfaceLight: Color(0xFFEEF2FA),
+    primary: Color(0xFF2563EB),
+    primaryLight: Color(0xFF3B82F6),
+    primaryDark: Color(0xFF1D4ED8),
+    onPrimary: Color(0xFFFFFFFF),
+    glass: Color(0xFFFFFFFF),
+    glassBorder: Color(0xFFE2E8F4),
+    border: Color(0xFFE2E8F4),
+    divider: Color(0xFFEBF0F8),
+    subtleFill: Color(0xFFF1F5FC),
+    cardShadow: Color(0x0A0F172A),
+    textPrimary: Color(0xFF0F172A),
+    textSecondary: Color(0xFF475569),
+    textMuted: Color(0xFF94A3B8),
+    success: Color(0xFF16A34A),
+    warning: Color(0xFFD97706),
+    danger: Color(0xFFDC2626),
   );
 
-  // 3. Volcanic Ash (Charcoal/Orange) - Sıcak
-  static const volcanic = AppPalette(
-    background: Color(0xFF18181B), // Zinc 900
-    backgroundAlt: Color(0xFF09090B), // Zinc 950
-    surface: Color(0xFF27272A), // Zinc 800
-    surfaceLight: Color(0xFF3F3F46), // Zinc 700
-    primary: Color(0xFFFB923C), // Orange 400
-    primaryLight: Color(0xFFFDBA74), // Orange 300
-    primaryDark: Color(0xFFF97316), // Orange 500
-    glass: Color(0x1A27272A),
-    glassBorder: Color(0x1FFB923C),
+  // 3. Kömür (Ultra-Minimal Monochrome Light)
+  static const lavender = AppPalette(
+    key: 'lavender',
+    name: 'Kömür',
+    subtitle: 'Minimal siyah-beyaz',
+    brightness: Brightness.light,
+    background: Color(0xFFF7F7F8),
+    backgroundAlt: Color(0xFFECECEF),
+    surface: Color(0xFFFFFFFF),
+    surfaceLight: Color(0xFFEFEFF1),
+    primary: Color(0xFF18181B),
+    primaryLight: Color(0xFF3F3F46),
+    primaryDark: Color(0xFF09090B),
+    onPrimary: Color(0xFFFFFFFF),
+    glass: Color(0xFFFFFFFF),
+    glassBorder: Color(0xFFE4E4E7),
+    border: Color(0xFFE4E4E7),
+    divider: Color(0xFFECECEF),
+    subtleFill: Color(0xFFF2F2F4),
+    cardShadow: Color(0x0A18181B),
+    textPrimary: Color(0xFF18181B),
+    textSecondary: Color(0xFF52525B),
+    textMuted: Color(0xFFA1A1AA),
+    success: Color(0xFF16A34A),
+    warning: Color(0xFFD97706),
+    danger: Color(0xFFDC2626),
   );
 
-  // 4. Forest (Green/Dark Green) - Neon Orman
-  static const forest = AppPalette(
-    background: Color(0xFF020A05), // Very Dark Green Black
+  // 4. Gece (Crisp Charcoal Dark + Calm Teal)
+  static const night = AppPalette(
+    key: 'night',
+    name: 'Gece',
+    subtitle: 'Koyu arduvaz & turkuaz',
+    brightness: Brightness.dark,
+    background: Color(0xFF0D1117),
+    backgroundAlt: Color(0xFF090C10),
+    surface: Color(0xFF161B22),
+    surfaceLight: Color(0xFF21262D),
+    primary: Color(0xFF2DD4BF),
+    primaryLight: Color(0xFF5EEAD4),
+    primaryDark: Color(0xFF14B8A6),
+    onPrimary: Color(0xFF062420),
+    glass: Color(0xFF161B22),
+    glassBorder: Color(0xFF2B313B),
+    border: Color(0xFF2B313B),
+    divider: Color(0xFF242A33),
+    subtleFill: Color(0xFF1C2128),
+    cardShadow: Color(0x00000000),
+    textPrimary: Color(0xFFF0F6FC),
+    textSecondary: Color(0xFF8B949E),
+    textMuted: Color(0xFF6E7681),
+    success: Color(0xFF34D399),
+    warning: Color(0xFFFBBF24),
+    danger: Color(0xFFF87171),
+  );
+
+  // 5. Gece Mavi (Deep Slate Dark + Soft Sky Blue)
+  static const forestDark = AppPalette(
+    key: 'forest_dark',
+    name: 'Gece Mavi',
+    subtitle: 'Derin lacivert & gök',
+    brightness: Brightness.dark,
+    background: Color(0xFF0B1120),
+    backgroundAlt: Color(0xFF070B14),
+    surface: Color(0xFF131C31),
+    surfaceLight: Color(0xFF1E293B),
+    primary: Color(0xFF60A5FA),
+    primaryLight: Color(0xFF93C5FD),
+    primaryDark: Color(0xFF3B82F6),
+    onPrimary: Color(0xFF081730),
+    glass: Color(0xFF131C31),
+    glassBorder: Color(0xFF26344E),
+    border: Color(0xFF26344E),
+    divider: Color(0xFF1F2C44),
+    subtleFill: Color(0xFF172238),
+    cardShadow: Color(0x00000000),
+    textPrimary: Color(0xFFF1F5F9),
+    textSecondary: Color(0xFF94A3B8),
+    textMuted: Color(0xFF64748B),
+    success: Color(0xFF34D399),
+    warning: Color(0xFFFBBF24),
+    danger: Color(0xFFF87171),
+  );
+
+  // 6. Gece Siyah (Pure Minimal AMOLED Monochrome Dark)
+  static const oceanDark = AppPalette(
+    key: 'ocean_dark',
+    name: 'Gece Siyah',
+    subtitle: 'Minimal AMOLED koyu',
+    brightness: Brightness.dark,
+    background: Color(0xFF09090B),
     backgroundAlt: Color(0xFF000000),
-    surface: Color(0xFF0A1F12), // Deep Green Surface
-    surfaceLight: Color(0xFF143320),
-    primary: Color(0xFF39EF7B), // Neon Green
-    primaryLight: Color(0xFF86EFAC), // Lighter Green
-    primaryDark: Color(0xFF22C55E), // Emerald 500
-    glass: Color(0x1A0A1F12),
-    glassBorder: Color(0x1F39EF7B),
-    onPrimary: Color(0xFF000000), // Black text on Neon Green
+    surface: Color(0xFF141417),
+    surfaceLight: Color(0xFF1F1F24),
+    primary: Color(0xFFF4F4F5),
+    primaryLight: Color(0xFFFFFFFF),
+    primaryDark: Color(0xFFD4D4D8),
+    onPrimary: Color(0xFF09090B),
+    glass: Color(0xFF141417),
+    glassBorder: Color(0xFF27272D),
+    border: Color(0xFF27272D),
+    divider: Color(0xFF212126),
+    subtleFill: Color(0xFF1A1A1F),
+    cardShadow: Color(0x00000000),
+    textPrimary: Color(0xFFFAFAFA),
+    textSecondary: Color(0xFFA1A1AA),
+    textMuted: Color(0xFF71717A),
+    success: Color(0xFF34D399),
+    warning: Color(0xFFFBBF24),
+    danger: Color(0xFFF87171),
   );
 
-  // 5. Royal (Purple/Violet) - Asil
-  static const royal = AppPalette(
-    background: Color(0xFF0B0515), // Deep Purple Black
-    backgroundAlt: Color(0xFF05020A),
-    surface: Color(0xFF1A102E), // Deep Violet
-    surfaceLight: Color(0xFF2D1B4E),
-    primary: Color(0xFFA855F7), // Purple 500
-    primaryLight: Color(0xFFC084FC), // Purple 400
-    primaryDark: Color(0xFF9333EA), // Purple 600
-    glass: Color(0x1A1A102E),
-    glassBorder: Color(0x1FA855F7),
-  );
+  // Legacy aliases for backward compatibility with older code/tests.
+  static const midnight = night;
+  static const ocean = forestDark;
+  static const forest = night;
+  static const graphite = oceanDark;
 
-  // 6. Sunset (Rose/Pink) - Günbatımı
-  static const sunset = AppPalette(
-    background: Color(0xFF120306), // Deep Rose Black
-    backgroundAlt: Color(0xFF0A0103),
-    surface: Color(0xFF240A12), // Deep Rose
-    surfaceLight: Color(0xFF3D121F),
-    primary: Color(0xFFFB7185), // Rose 400
-    primaryLight: Color(0xFFFDA4AF), // Rose 300
-    primaryDark: Color(0xFFF43F5E), // Rose 500
-    glass: Color(0x1A240A12),
-    glassBorder: Color(0x1FFB7185),
-  );
+  static const textPrimary = Color(0xFF0F172A);
+  static const textSecondary = Color(0xFF475569);
+  static const success = Color(0xFF16A34A);
+  static const warning = Color(0xFFD97706);
+  static const danger = Color(0xFFDC2626);
 
-  // 7. Glacier (Cyan/Ice) - Buzul
-  static const glacier = AppPalette(
-    background: Color(0xFF041016), // Dark Cyan Black
-    backgroundAlt: Color(0xFF010608),
-    surface: Color(0xFF0B222C), // Dark Cyan Surface
-    surfaceLight: Color(0xFF153847),
-    primary: Color(0xFF22D3EE), // Cyan 400
-    primaryLight: Color(0xFF67E8F9), // Cyan 300
-    primaryDark: Color(0xFF06B6D4), // Cyan 500
-    glass: Color(0x1A0B222C),
-    glassBorder: Color(0x1F22D3EE),
-  );
-
-  // 8. Crimson (Red/Dark Red) - Lal
-  static const crimson = AppPalette(
-    background: Color(0xFF170505), // Dark Red Black
-    backgroundAlt: Color(0xFF0A0101),
-    surface: Color(0xFF2D0B0B), // Dark Red Surface
-    surfaceLight: Color(0xFF4A1212),
-    primary: Color(0xFFEF4444), // Red 500
-    primaryLight: Color(0xFFF87171), // Red 400
-    primaryDark: Color(0xFFDC2626), // Red 600
-    glass: Color(0x1A2D0B0B),
-    glassBorder: Color(0x1FEF4444),
-  );
-
-  // 9. Amber (Yellow/Gold) - Kehribar
-  static const amber = AppPalette(
-    background: Color(0xFF160E02), // Dark Amber Black
-    backgroundAlt: Color(0xFF080500),
-    surface: Color(0xFF2B1C05), // Dark Amber Surface
-    surfaceLight: Color(0xFF452D0A),
-    primary: Color(0xFFFBBF24), // Amber 400
-    primaryLight: Color(0xFFFCD34D), // Amber 300
-    primaryDark: Color(0xFFF59E0B), // Amber 500
-    glass: Color(0x1A2B1C05),
-    glassBorder: Color(0x1FFBBF24),
-  );
-
-  // 10. Graphite (Grey/Silver) - Grafit (Monokrom)
-  static const graphite = AppPalette(
-    background: Color(0xFF0A0A0A), // Near Black
-    backgroundAlt: Color(0xFF000000),
-    surface: Color(0xFF171717), // Neutral 900
-    surfaceLight: Color(0xFF262626), // Neutral 800
-    primary: Color(0xFFE5E5E5), // Neutral 200
-    primaryLight: Color(0xFFFFFFFF), // White
-    primaryDark: Color(0xFFA3A3A3), // Neutral 400
-    glass: Color(0x1A171717),
-    glassBorder: Color(0x1FE5E5E5),
-    onPrimary: Color(0xFF000000),
-  );
-
-  // Common Text & Status Colors
-  static const textPrimary = Color(0xFFF8FAFC);
-  static const textSecondary = Color(0xFF94A3B8);
-  static const success = Color(0xFF34D399);
-  static const warning = Color(0xFFFBBF24);
-  static const danger = Color(0xFFF87171);
+  static const String defaultThemeKey = 'paper';
 
   static const Map<String, AppPalette> palettes = {
-    'midnight': midnight,
-    'ocean': ocean,
-    'volcanic': volcanic,
-    'forest': forest,
-    'royal': royal,
-    'sunset': sunset,
-    'glacier': glacier,
-    'crimson': crimson,
-    'amber': amber,
-    'graphite': graphite,
+    'paper': paper,
+    'sage': sage,
+    'lavender': lavender,
+    'night': night,
+    'forest_dark': forestDark,
+    'ocean_dark': oceanDark,
   };
 
-  // Helper to access colors from context
+  static const Map<String, String> _legacyMapping = {
+    'midnight': 'night',
+    'graphite': 'ocean_dark',
+    'volcanic': 'night',
+    'crimson': 'night',
+    'amber': 'night',
+    'sunset': 'night',
+    'royal': 'forest_dark',
+    'forest': 'night',
+    'ocean': 'forest_dark',
+    'glacier': 'forest_dark',
+  };
+
+  static String resolveKey(String rawKey) {
+    if (palettes.containsKey(rawKey)) return rawKey;
+    return _legacyMapping[rawKey] ?? defaultThemeKey;
+  }
+
+  static AppPalette resolvePalette(String rawKey) {
+    return palettes[resolveKey(rawKey)] ?? paper;
+  }
+
+  static String toggleLightDarkKey(String currentKey) {
+    final resolved = resolveKey(currentKey);
+    switch (resolved) {
+      case 'paper':
+        return 'night';
+      case 'sage':
+        return 'forest_dark';
+      case 'lavender':
+        return 'ocean_dark';
+      case 'night':
+        return 'paper';
+      case 'forest_dark':
+        return 'sage';
+      case 'ocean_dark':
+        return 'lavender';
+      default:
+        return 'paper';
+    }
+  }
+
   static AppColorsExtension of(BuildContext context) {
     return Theme.of(context).extension<AppColorsExtension>()!;
   }
@@ -163,6 +243,10 @@ class AppColors {
 
 class AppPalette {
   const AppPalette({
+    required this.key,
+    required this.name,
+    required this.subtitle,
+    required this.brightness,
     required this.background,
     required this.backgroundAlt,
     required this.surface,
@@ -170,11 +254,25 @@ class AppPalette {
     required this.primary,
     required this.primaryLight,
     required this.primaryDark,
+    required this.onPrimary,
     required this.glass,
     required this.glassBorder,
-    this.onPrimary = Colors.white,
+    required this.border,
+    required this.divider,
+    required this.subtleFill,
+    required this.cardShadow,
+    required this.textPrimary,
+    required this.textSecondary,
+    required this.textMuted,
+    required this.success,
+    required this.warning,
+    required this.danger,
   });
 
+  final String key;
+  final String name;
+  final String subtitle;
+  final Brightness brightness;
   final Color background;
   final Color backgroundAlt;
   final Color surface;
@@ -182,14 +280,27 @@ class AppPalette {
   final Color primary;
   final Color primaryLight;
   final Color primaryDark;
+  final Color onPrimary;
   final Color glass;
   final Color glassBorder;
-  final Color onPrimary;
+  final Color border;
+  final Color divider;
+  final Color subtleFill;
+  final Color cardShadow;
+  final Color textPrimary;
+  final Color textSecondary;
+  final Color textMuted;
+  final Color success;
+  final Color warning;
+  final Color danger;
+
+  bool get isDark => brightness == Brightness.dark;
 }
 
 @immutable
 class AppColorsExtension extends ThemeExtension<AppColorsExtension> {
   const AppColorsExtension({
+    required this.brightness,
     required this.background,
     required this.backgroundAlt,
     required this.surface,
@@ -199,14 +310,20 @@ class AppColorsExtension extends ThemeExtension<AppColorsExtension> {
     required this.primaryDark,
     required this.glass,
     required this.glassBorder,
+    required this.border,
+    required this.divider,
+    required this.subtleFill,
+    required this.cardShadow,
     required this.textPrimary,
     required this.textSecondary,
+    required this.textMuted,
     required this.success,
     required this.warning,
     required this.danger,
     required this.onPrimary,
   });
 
+  final Brightness brightness;
   final Color background;
   final Color backgroundAlt;
   final Color surface;
@@ -216,15 +333,23 @@ class AppColorsExtension extends ThemeExtension<AppColorsExtension> {
   final Color primaryDark;
   final Color glass;
   final Color glassBorder;
+  final Color border;
+  final Color divider;
+  final Color subtleFill;
+  final Color cardShadow;
   final Color textPrimary;
   final Color textSecondary;
+  final Color textMuted;
   final Color success;
   final Color warning;
   final Color danger;
   final Color onPrimary;
 
+  bool get isDark => brightness == Brightness.dark;
+
   factory AppColorsExtension.fromPalette(AppPalette palette) {
     return AppColorsExtension(
+      brightness: palette.brightness,
       background: palette.background,
       backgroundAlt: palette.backgroundAlt,
       surface: palette.surface,
@@ -234,17 +359,23 @@ class AppColorsExtension extends ThemeExtension<AppColorsExtension> {
       primaryDark: palette.primaryDark,
       glass: palette.glass,
       glassBorder: palette.glassBorder,
-      textPrimary: AppColors.textPrimary,
-      textSecondary: AppColors.textSecondary,
-      success: AppColors.success,
-      warning: AppColors.warning,
-      danger: AppColors.danger,
+      border: palette.border,
+      divider: palette.divider,
+      subtleFill: palette.subtleFill,
+      cardShadow: palette.cardShadow,
+      textPrimary: palette.textPrimary,
+      textSecondary: palette.textSecondary,
+      textMuted: palette.textMuted,
+      success: palette.success,
+      warning: palette.warning,
+      danger: palette.danger,
       onPrimary: palette.onPrimary,
     );
   }
 
   @override
-  ThemeExtension<AppColorsExtension> copyWith({
+  AppColorsExtension copyWith({
+    Brightness? brightness,
     Color? background,
     Color? backgroundAlt,
     Color? surface,
@@ -254,14 +385,20 @@ class AppColorsExtension extends ThemeExtension<AppColorsExtension> {
     Color? primaryDark,
     Color? glass,
     Color? glassBorder,
+    Color? border,
+    Color? divider,
+    Color? subtleFill,
+    Color? cardShadow,
     Color? textPrimary,
     Color? textSecondary,
+    Color? textMuted,
     Color? success,
     Color? warning,
     Color? danger,
     Color? onPrimary,
   }) {
     return AppColorsExtension(
+      brightness: brightness ?? this.brightness,
       background: background ?? this.background,
       backgroundAlt: backgroundAlt ?? this.backgroundAlt,
       surface: surface ?? this.surface,
@@ -271,8 +408,13 @@ class AppColorsExtension extends ThemeExtension<AppColorsExtension> {
       primaryDark: primaryDark ?? this.primaryDark,
       glass: glass ?? this.glass,
       glassBorder: glassBorder ?? this.glassBorder,
+      border: border ?? this.border,
+      divider: divider ?? this.divider,
+      subtleFill: subtleFill ?? this.subtleFill,
+      cardShadow: cardShadow ?? this.cardShadow,
       textPrimary: textPrimary ?? this.textPrimary,
       textSecondary: textSecondary ?? this.textSecondary,
+      textMuted: textMuted ?? this.textMuted,
       success: success ?? this.success,
       warning: warning ?? this.warning,
       danger: danger ?? this.danger,
@@ -281,14 +423,10 @@ class AppColorsExtension extends ThemeExtension<AppColorsExtension> {
   }
 
   @override
-  ThemeExtension<AppColorsExtension> lerp(
-    covariant ThemeExtension<AppColorsExtension>? other,
-    double t,
-  ) {
-    if (other is! AppColorsExtension) {
-      return this;
-    }
+  AppColorsExtension lerp(ThemeExtension<AppColorsExtension>? other, double t) {
+    if (other is! AppColorsExtension) return this;
     return AppColorsExtension(
+      brightness: t < 0.5 ? brightness : other.brightness,
       background: Color.lerp(background, other.background, t)!,
       backgroundAlt: Color.lerp(backgroundAlt, other.backgroundAlt, t)!,
       surface: Color.lerp(surface, other.surface, t)!,
@@ -298,8 +436,13 @@ class AppColorsExtension extends ThemeExtension<AppColorsExtension> {
       primaryDark: Color.lerp(primaryDark, other.primaryDark, t)!,
       glass: Color.lerp(glass, other.glass, t)!,
       glassBorder: Color.lerp(glassBorder, other.glassBorder, t)!,
+      border: Color.lerp(border, other.border, t)!,
+      divider: Color.lerp(divider, other.divider, t)!,
+      subtleFill: Color.lerp(subtleFill, other.subtleFill, t)!,
+      cardShadow: Color.lerp(cardShadow, other.cardShadow, t)!,
       textPrimary: Color.lerp(textPrimary, other.textPrimary, t)!,
       textSecondary: Color.lerp(textSecondary, other.textSecondary, t)!,
+      textMuted: Color.lerp(textMuted, other.textMuted, t)!,
       success: Color.lerp(success, other.success, t)!,
       warning: Color.lerp(warning, other.warning, t)!,
       danger: Color.lerp(danger, other.danger, t)!,

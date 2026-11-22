@@ -1,5 +1,3 @@
-import 'dart:ui';
-
 import 'package:flutter/material.dart';
 
 import '../theme/app_colors.dart';
@@ -16,55 +14,68 @@ class AppBottomNav extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = AppColors.of(context);
     return SafeArea(
+      top: false,
       child: Stack(
         alignment: Alignment.bottomCenter,
         clipBehavior: Clip.none,
         children: [
-          ClipRRect(
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(26)),
-            child: BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-              child: Container(
-                padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
-                decoration: BoxDecoration(
-                  color: AppColors.of(context).background.withOpacity(0.85),
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    _NavItem(
-                      label: 'Panel',
-                      icon: Icons.dashboard,
-                      active: activeIndex == 0,
-                      onTap: () => onSelect(0),
-                    ),
-                    _NavItem(
-                      label: 'Konular',
-                      icon: Icons.menu_book,
-                      active: activeIndex == 1,
-                      onTap: () => onSelect(1),
-                    ),
-                    const SizedBox(width: 60),
-                    _NavItem(
-                      label: 'Analiz',
-                      icon: Icons.bar_chart,
-                      active: activeIndex == 3,
-                      onTap: () => onSelect(3),
-                    ),
-                    _NavItem(
-                      label: 'Profil',
-                      icon: Icons.person,
-                      active: activeIndex == 4,
-                      onTap: () => onSelect(4),
-                    ),
-                  ],
-                ),
+          Container(
+            padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
+            decoration: BoxDecoration(
+              color: colors.surface,
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+              border: Border(
+                top: BorderSide(color: colors.border),
               ),
+              boxShadow: colors.isDark
+                  ? const []
+                  : [
+                      BoxShadow(
+                        color: colors.cardShadow,
+                        blurRadius: 20,
+                        offset: const Offset(0, -4),
+                      ),
+                    ],
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                _NavItem(
+                  label: 'Panel',
+                  icon: Icons.home_rounded,
+                  outlinedIcon: Icons.home_outlined,
+                  active: activeIndex == 0,
+                  onTap: () => onSelect(0),
+                ),
+                _NavItem(
+                  label: 'Konular',
+                  icon: Icons.menu_book_rounded,
+                  outlinedIcon: Icons.menu_book_outlined,
+                  active: activeIndex == 1,
+                  onTap: () => onSelect(1),
+                ),
+                const SizedBox(width: 64),
+                _NavItem(
+                  label: 'Analiz',
+                  icon: Icons.insights_rounded,
+                  outlinedIcon: Icons.insights_outlined,
+                  active: activeIndex == 3,
+                  onTap: () => onSelect(3),
+                ),
+                _NavItem(
+                  label: 'Profil',
+                  icon: Icons.person_rounded,
+                  outlinedIcon: Icons.person_outline_rounded,
+                  active: activeIndex == 4,
+                  onTap: () => onSelect(4),
+                ),
+              ],
             ),
           ),
           Positioned(
-            bottom: 8,
+            bottom: 12,
             child: _CenterAction(
               active: activeIndex == 2,
               onTap: () => onSelect(2),
@@ -80,18 +91,21 @@ class _NavItem extends StatelessWidget {
   const _NavItem({
     required this.label,
     required this.icon,
+    required this.outlinedIcon,
     required this.active,
     required this.onTap,
   });
 
   final String label;
   final IconData icon;
+  final IconData outlinedIcon;
   final bool active;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    final color = active ? AppColors.of(context).primary : Colors.white54;
+    final colors = AppColors.of(context);
+    final color = active ? colors.primary : colors.textMuted;
     return Expanded(
       child: GestureDetector(
         onTap: onTap,
@@ -99,8 +113,22 @@ class _NavItem extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, color: color, size: 22),
-            const SizedBox(height: 4),
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 180),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+              decoration: BoxDecoration(
+                color: active
+                    ? colors.primary.withValues(alpha: colors.isDark ? 0.18 : 0.12)
+                    : Colors.transparent,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(
+                active ? icon : outlinedIcon,
+                color: color,
+                size: 22,
+              ),
+            ),
+            const SizedBox(height: 3),
             Text(
               label,
               style: Theme.of(context).textTheme.labelSmall?.copyWith(
@@ -123,40 +151,44 @@ class _CenterAction extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = AppColors.of(context);
     return GestureDetector(
       onTap: onTap,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Transform.translate(
-            offset: const Offset(0, -16),
-            child: Container(
-              width: 54,
-              height: 54,
-              decoration: BoxDecoration(
-                color: AppColors.of(context).primary,
-                borderRadius: BorderRadius.circular(18),
-                boxShadow: [
-                  BoxShadow(
-                    color: AppColors.of(context).primary.withOpacity(0.5),
-                    blurRadius: 18,
-                    offset: const Offset(0, 8),
-                  ),
-                ],
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 180),
+            width: 56,
+            height: 56,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: colors.primary,
+              border: Border.all(
+                color: colors.surface,
+                width: 3.5,
               ),
-              child: Icon(Icons.add, color: Theme.of(context).colorScheme.onPrimary, size: 24),
+              boxShadow: [
+                BoxShadow(
+                  color: colors.primary.withValues(alpha: colors.isDark ? 0.35 : 0.28),
+                  blurRadius: 16,
+                  offset: const Offset(0, 5),
+                ),
+              ],
+            ),
+            child: Icon(
+              Icons.add_rounded,
+              size: 28,
+              color: colors.onPrimary,
             ),
           ),
-          const SizedBox(height: 4),
-          Transform.translate(
-            offset: const Offset(0, -6),
-            child: Text(
-              'Ekle',
-              style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                    color: active ? AppColors.of(context).primary : Colors.white54,
-                    fontWeight: FontWeight.w700,
-                  ),
-            ),
+          const SizedBox(height: 2),
+          Text(
+            'Ekle',
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                  color: active ? colors.primary : colors.textMuted,
+                  fontWeight: active ? FontWeight.w700 : FontWeight.w600,
+                ),
           ),
         ],
       ),

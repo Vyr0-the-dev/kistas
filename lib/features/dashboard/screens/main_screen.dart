@@ -4,13 +4,18 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/widgets/ambient_background.dart';
 import '../../../core/widgets/app_bottom_nav.dart';
 import '../../analysis/screens/analysis_screen.dart';
-import 'home_screen.dart';
-import '../../settings/screens/profile_screen.dart';
 import '../../questions/screens/quick_add_screen.dart';
 import '../../questions/screens/topic_summaries_screen.dart';
+import '../../settings/screens/profile_screen.dart';
+import 'home_screen.dart';
 
 class MainScreen extends StatefulWidget {
   const MainScreen({super.key});
+
+  static void switchTab(BuildContext context, int index) {
+    final state = context.findAncestorStateOfType<_MainScreenState>();
+    state?._onTabSelect(index);
+  }
 
   @override
   State<MainScreen> createState() => _MainScreenState();
@@ -18,8 +23,7 @@ class MainScreen extends StatefulWidget {
 
 class _MainScreenState extends State<MainScreen> {
   int _currentIndex = 0;
-  late final PageController _pageController;
-  
+
   final _navigatorKeys = [
     GlobalKey<NavigatorState>(),
     GlobalKey<NavigatorState>(),
@@ -28,20 +32,9 @@ class _MainScreenState extends State<MainScreen> {
     GlobalKey<NavigatorState>(),
   ];
 
-  @override
-  void initState() {
-    super.initState();
-    _pageController = PageController(initialPage: _currentIndex);
-  }
-
-  @override
-  void dispose() {
-    _pageController.dispose();
-    super.dispose();
-  }
-
   Future<bool> _onWillPop() async {
-    final NavigatorState? currentState = _navigatorKeys[_currentIndex].currentState;
+    final NavigatorState? currentState =
+        _navigatorKeys[_currentIndex].currentState;
     if (currentState != null && await currentState.maybePop()) {
       return false;
     }
@@ -53,22 +46,12 @@ class _MainScreenState extends State<MainScreen> {
   }
 
   void _onTabSelect(int index) {
-    if (index == 1) {
-      // Konular sekmesine geçişte her zaman başa dön
-      _navigatorKeys[1].currentState?.popUntil((route) => route.isFirst);
+    final safeIndex = index.clamp(0, 4);
+    if (_currentIndex == safeIndex) {
+      _navigatorKeys[safeIndex].currentState?.popUntil((route) => route.isFirst);
+      return;
     }
-
-    if (_currentIndex == index) {
-      // Pop to first route if tapping active tab
-      _navigatorKeys[index].currentState?.popUntil((route) => route.isFirst);
-    } else {
-      setState(() => _currentIndex = index);
-      _pageController.animateToPage(
-        index,
-        duration: const Duration(milliseconds: 500),
-        curve: Curves.easeOutQuint,
-      );
-    }
+    setState(() => _currentIndex = safeIndex);
   }
 
   Widget _buildTab(int index, Widget child) {
@@ -95,12 +78,8 @@ class _MainScreenState extends State<MainScreen> {
       child: Scaffold(
         backgroundColor: AppColors.of(context).background,
         body: AmbientBackground(
-          child: PageView(
-            controller: _pageController,
-            physics: const BouncingScrollPhysics(),
-            onPageChanged: (index) {
-              setState(() => _currentIndex = index);
-            },
+          child: IndexedStack(
+            index: _currentIndex,
             children: [
               _buildTab(0, const HomeScreen()),
               _buildTab(1, const TopicSummariesScreen()),

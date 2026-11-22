@@ -65,3 +65,5 @@ __pycache__/
 **/GeneratedPluginRegistrant.*
 **/flutter_lldb*
 **/flutter_native_integration.env
+
+.context_state.md

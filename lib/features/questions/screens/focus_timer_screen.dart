@@ -34,7 +34,7 @@ class FocusTimerScreen extends StatelessWidget {
               top: 8,
               left: 8,
               child: IconButton(
-                icon: Icon(Icons.close, color: Colors.white54),
+                icon: Icon(Icons.close, color: AppColors.of(context).textSecondary),
                 onPressed: () => Navigator.of(context).pop(),
               ),
             ),
@@ -47,7 +47,7 @@ class FocusTimerScreen extends StatelessWidget {
                     Text(
                       'Odak Modu',
                       style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                            color: Colors.white70,
+                            color: AppColors.of(context).textSecondary,
                             fontWeight: FontWeight.w700,
                           ),
                     ),
@@ -61,7 +61,7 @@ class FocusTimerScreen extends StatelessWidget {
                               .textTheme
                               .displayLarge
                               ?.copyWith(
-                                color: Colors.white,
+                                color: AppColors.of(context).textPrimary,
                                 fontWeight: FontWeight.w800,
                                 letterSpacing: 1.5,
                               ),
@@ -105,7 +105,7 @@ class FocusTimerScreen extends StatelessWidget {
                     Text(
                       'Odaklanma Atmosferi',
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: Colors.white38,
+                            color: AppColors.of(context).textMuted,
                             fontWeight: FontWeight.w700,
                             letterSpacing: 1,
                           ),
@@ -122,14 +122,14 @@ class FocusTimerScreen extends StatelessWidget {
                             icon: Icons.headset,
                             url: 'https://www.youtube.com/watch?v=jfKfPfyJRdk',
                           ),
-                          const Divider(color: Colors.white10),
+                          Divider(color: AppColors.of(context).divider),
                           _AtmosphereTile(
                             label: 'Yağmur Sesi (Derin Odak)',
                             subtitle: 'Zihni sakinleştirir',
                             icon: Icons.umbrella,
                             url: 'https://www.youtube.com/watch?v=mPZkdNFkNps',
                           ),
-                          const Divider(color: Colors.white10),
+                          Divider(color: AppColors.of(context).divider),
                           _AtmosphereTile(
                             label: 'Kütüphane Ambiyansı',
                             subtitle: 'Sınav atmosferi yaratır',
@@ -171,20 +171,20 @@ class _AtmosphereTile extends StatelessWidget {
       leading: Container(
         padding: const EdgeInsets.all(8),
         decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.05),
+          color: AppColors.of(context).subtleFill,
           borderRadius: BorderRadius.circular(10),
         ),
         child: Icon(icon, color: AppColors.of(context).primary, size: 20),
       ),
       title: Text(
         label,
-        style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600),
+        style: TextStyle(color: AppColors.of(context).textPrimary, fontSize: 13, fontWeight: FontWeight.w600),
       ),
       subtitle: Text(
         subtitle,
-        style: const TextStyle(color: Colors.white38, fontSize: 11),
+        style: TextStyle(color: AppColors.of(context).textMuted, fontSize: 11),
       ),
-      trailing: const Icon(Icons.open_in_new, color: Colors.white24, size: 16),
+      trailing: Icon(Icons.open_in_new, color: AppColors.of(context).textMuted, size: 16),
     );
   }
 }

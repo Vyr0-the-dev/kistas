@@ -69,12 +69,12 @@ class StreakDetailScreen extends StatelessWidget {
       backgroundColor: Colors.transparent,
       elevation: 0,
       leading: IconButton(
-        icon: const Icon(Icons.arrow_back, color: Colors.white),
+        icon: Icon(Icons.arrow_back, color: AppColors.of(context).textPrimary),
         onPressed: () => Navigator.pop(context),
       ),
-      title: const Text(
+      title: Text(
         'Çalışma Serisi',
-        style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+        style: TextStyle(color: AppColors.of(context).textPrimary, fontWeight: FontWeight.bold),
       ),
       floating: true,
     );
@@ -88,7 +88,7 @@ class StreakDetailScreen extends StatelessWidget {
         Text(
           title,
           style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                color: Colors.white70,
+                color: AppColors.of(context).textSecondary,
                 fontWeight: FontWeight.bold,
                 letterSpacing: 0.5,
               ),
@@ -110,14 +110,14 @@ class StreakDetailScreen extends StatelessWidget {
                 Text(
                   'Harikasın!',
                   style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                        color: Colors.white,
+                        color: AppColors.of(context).textPrimary,
                         fontWeight: FontWeight.w800,
                       ),
                 ),
                 const SizedBox(height: 4),
                 Text(
                   '${data.currentStreak} gündür hiç aksatmadan çalışıyorsun.',
-                  style: const TextStyle(color: Colors.white60, height: 1.4),
+                  style: TextStyle(color: AppColors.of(context).textSecondary, height: 1.4),
                 ),
               ],
             ),
@@ -130,8 +130,8 @@ class StreakDetailScreen extends StatelessWidget {
                 bottom: 10,
                 child: Text(
                   '${data.currentStreak}',
-                  style: const TextStyle(
-                    color: Colors.white,
+                  style: TextStyle(
+                    color: AppColors.of(context).textPrimary,
                     fontSize: 20,
                     fontWeight: FontWeight.w900,
                   ),
@@ -213,19 +213,25 @@ class _HeatmapWidget extends StatelessWidget {
   }
 
   Widget _dayLabel(String label) {
-    return Container(
-      height: 12,
-      margin: const EdgeInsets.all(2),
-      alignment: Alignment.centerLeft,
-      child: Text(
-        label,
-        style: const TextStyle(color: Colors.white24, fontSize: 8, fontWeight: FontWeight.bold),
+    return Builder(
+      builder: (context) => Container(
+        height: 12,
+        margin: const EdgeInsets.all(2),
+        alignment: Alignment.centerLeft,
+        child: Text(
+          label,
+          style: TextStyle(
+            color: AppColors.of(context).textMuted,
+            fontSize: 8,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
       ),
     );
   }
 
   Color _getColorForCount(BuildContext context, int count) {
-    if (count == 0) return Colors.white.withOpacity(0.05);
+    if (count == 0) return AppColors.of(context).subtleFill;
     if (count < 50) return AppColors.of(context).primary.withOpacity(0.3);
     if (count < 150) return AppColors.of(context).primary.withOpacity(0.6);
     return AppColors.of(context).primary;
@@ -268,7 +274,7 @@ class _WeeklyBarChart extends StatelessWidget {
                 '${weeklyCounts[index]}',
                 style: TextStyle(
                   fontSize: 10,
-                  color: isToday ? AppColors.of(context).primaryLight : Colors.white38,
+                  color: isToday ? AppColors.of(context).primaryLight : AppColors.of(context).textMuted,
                   fontWeight: FontWeight.bold,
                 ),
               ),
@@ -293,7 +299,7 @@ class _WeeklyBarChart extends StatelessWidget {
                 _getWeekdayInitial(date.weekday),
                 style: TextStyle(
                   fontSize: 10,
-                  color: isToday ? Colors.white : Colors.white38,
+                  color: isToday ? AppColors.of(context).textPrimary : AppColors.of(context).textMuted,
                 ),
               ),
             ],
@@ -350,9 +356,9 @@ class _StatItem extends StatelessWidget {
           children: [
             Icon(icon, size: 20, color: AppColors.of(context).primaryLight),
             const SizedBox(height: 12),
-            Text(value, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18)),
+            Text(value, style: TextStyle(color: AppColors.of(context).textPrimary, fontWeight: FontWeight.bold, fontSize: 18)),
             const SizedBox(height: 4),
-            Text(label, style: const TextStyle(color: Colors.white38, fontSize: 12)),
+            Text(label, style: TextStyle(color: AppColors.of(context).textMuted, fontSize: 12)),
           ],
         ),
       ),

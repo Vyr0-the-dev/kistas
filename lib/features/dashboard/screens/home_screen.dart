@@ -1,33 +1,30 @@
 import 'dart:async';
-import 'dart:convert';
 import 'dart:math';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
-import '../../../core/models/app_notification.dart';
+import '../../../core/models/exam_profile.dart';
 import '../../../core/models/mock_exam.dart';
 import '../../../core/models/question_entry.dart';
+import '../../../core/models/study_schedule_block.dart';
+import '../../../core/models/topic_summary.dart';
 import '../../../core/repositories/app_repository.dart';
-import '../../../core/services/gemini_client.dart';
 import '../../../core/services/notification_service.dart';
 import '../../../core/theme/app_colors.dart';
-import '../../../core/widgets/ai_loading_dialog.dart';
-import '../../../core/widgets/ai_response_dialog.dart';
-import '../../../core/widgets/ambient_background.dart';
-import '../../../core/widgets/app_bottom_nav.dart';
+import '../../../core/theme/subject_colors.dart';
+import '../../../core/widgets/delete_helpers.dart';
 import '../../../core/widgets/glass_panel.dart';
 import '../../../core/widgets/in_app_notice.dart';
 import '../../../core/widgets/progress_ring.dart';
-import '../../analysis/screens/analysis_screen.dart';
+import '../../curriculum/screens/curriculum_hub_screen.dart';
+import '../../mistakes/screens/mistake_gallery_screen.dart';
 import '../../questions/screens/entry_wizard_screen.dart';
 import '../../questions/screens/focus_timer_screen.dart';
-import '../../settings/screens/profile_screen.dart';
-import '../../questions/screens/quick_add_screen.dart';
+import '../../schedule/screens/weekly_schedule_screen.dart';
+import 'main_screen.dart';
 import 'streak_detail_screen.dart';
-import '../../questions/screens/topic_summaries_screen.dart';
-import '../../mistakes/screens/mistake_gallery_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -37,13 +34,16 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  int _selectedRange = 0;
+  static const _platform = MethodChannel('com.kistas.app/alarm');
+  static Timer? _globalTimer;
+
+  int _rangeIndex = 0; // 0: Bugün, 1: Hafta, 2: 30 Gün
   int _lastSetMinutes = 25;
-  static const _platform = MethodChannel('com.example.app/alarm');
 
   @override
   Widget build(BuildContext context) {
     final repository = AppRepositoryScope.of(context);
+    final colors = AppColors.of(context);
 
     return SafeArea(
       child: ValueListenableBuilder<List<QuestionEntry>>(
@@ -55,120 +55,148 @@ class _HomeScreenState extends State<HomeScreen> {
               return ValueListenableBuilder<int>(
                 valueListenable: repository.dailyGoal,
                 builder: (context, dailyGoal, ___) {
-                  final avgNet = _averageNet(mockExams);
-                  final activity = _buildActivity(context, questionEntries, mockExams);
-                  final focusTopic = _pickFocusTopic(repository, questionEntries);
+                  final filteredQuestions = _filterQuestionsByRange(
+                    questionEntries,
+                    _rangeIndex,
+                  );
+                  final filteredExams = _filterExamsByRange(
+                    mockExams,
+                    _rangeIndex,
+                  );
+                  final rangeSolved = _totalQuestions(filteredQuestions);
+                  final rangeGoal = _rangeGoal(dailyGoal, _rangeIndex);
+                  final rangeLabel = _rangeIndex == 0
+                      ? 'Bugün'
+                      : _rangeIndex == 1
+                          ? '7 Gün'
+                          : '30 Gün';
+                  final avgNet = _averageNet(filteredExams);
+                  final accuracy = _overallAccuracy(filteredQuestions);
                   final isEmpty = questionEntries.isEmpty && mockExams.isEmpty;
-                  final todayTotal = _countTodayQuestions(questionEntries);
+                  final activity = _buildActivity(
+                    context,
+                    filteredQuestions,
+                    filteredExams,
+                  );
+                  final unsolvedMistakes = questionEntries
+                      .where((e) => e.imagePaths.isNotEmpty && !e.isSolved)
+                      .length;
 
                   return CustomScrollView(
+                    physics: const BouncingScrollPhysics(),
                     slivers: [
                       SliverToBoxAdapter(
-                        child: _Header(
-                          selectedRange: _selectedRange,
-                          onRangeChanged: (value) {
-                            setState(() => _selectedRange = value);
+                        child: ValueListenableBuilder<String>(
+                          valueListenable: repository.userName,
+                          builder: (context, name, _) {
+                            return ValueListenableBuilder(
+                              valueListenable: repository.notifications,
+                              builder: (context, notifs, __) {
+                                final hasUnread = notifs.any((n) => n.unread);
+                                return _StudentHeader(
+                                  userName: name,
+                                  dateLabel: _formatToday(DateTime.now()),
+                                  rangeIndex: _rangeIndex,
+                                  hasUnreadNotifications: hasUnread,
+                                  isDark: colors.isDark,
+                                  onRangeChange: (i) =>
+                                      setState(() => _rangeIndex = i),
+                                  onOpenSchedule: () =>
+                                      _openWeeklySchedule(context),
+                                  onToggleTheme: () =>
+                                      repository.toggleLightDarkTheme(),
+                                  onOpenNotifications: () =>
+                                      _showNotificationsSheet(
+                                    context,
+                                    repository,
+                                  ),
+                                );
+                              },
+                            );
                           },
-                          onNotificationsTap: () =>
-                              _showNotificationsSheet(context, repository),
                         ),
                       ),
+
+                      // Onboarding banner only when no subjects/topics exist yet
                       SliverToBoxAdapter(
-                        child: Padding(
-                          padding: const EdgeInsets.fromLTRB(20, 12, 20, 4),
-                          child: ValueListenableBuilder<DateTime>(
-                            valueListenable: repository.examDate,
-                            builder: (context, examDate, _) {
-                              return _ExamCountdownCard(examDate: examDate);
-                            },
-                          ),
-                        ),
-                      ),
-                      if (isEmpty)
-                        SliverToBoxAdapter(
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 20,
-                              vertical: 12,
-                            ),
-                            child: _EmptyStateHero(
-                              onQuickAdd: () => _openEntry(context),
-                            ),
-                          ),
-                        ),
-                      SliverToBoxAdapter(
-                        child: Padding(
-                          padding: const EdgeInsets.fromLTRB(20, 8, 20, 4),
-                          child: _MistakeNotebookCard(
-                            onTap: () => Navigator.of(context).push(
-                              MaterialPageRoute(
-                                builder: (_) => const MistakeGalleryScreen(),
+                        child: ValueListenableBuilder<List<TopicSummary>>(
+                          valueListenable: repository.userTopics,
+                          builder: (context, topics, _) {
+                            if (topics.isNotEmpty) {
+                              return const SizedBox.shrink();
+                            }
+                            return Padding(
+                              padding: const EdgeInsets.fromLTRB(20, 4, 20, 12),
+                              child: _SetupCurriculumBanner(
+                                onOpenHub: () => Navigator.of(
+                                  context,
+                                  rootNavigator: true,
+                                ).push(
+                                  MaterialPageRoute(
+                                    builder: (_) => const CurriculumHubScreen(),
+                                  ),
+                                ),
                               ),
-                            ),
-                          ),
+                            );
+                          },
                         ),
                       ),
+
+                      // BLOCK 1: Unified Student Hero Card (Countdown + Streak + Progress)
                       SliverToBoxAdapter(
                         child: Padding(
-                          padding: const EdgeInsets.fromLTRB(20, 8, 20, 4),
-                          child: _AiGoalPanel(
-                            repository: repository,
-                            onOpenProfile: () => Navigator.of(context).push(
-                              MaterialPageRoute(
-                                builder: (_) => const ProfileScreen(),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                      SliverToBoxAdapter(
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 20,
-                            vertical: 16,
-                          ),
-                          child: _PerformanceRow(
-                            todayTotal: todayTotal,
-                            dailyGoal: dailyGoal,
-                            avgNet: avgNet,
-                            accuracy: _overallAccuracy(questionEntries),
-                            totalQuestions: _totalQuestions(questionEntries),
-                          ),
-                        ),
-                      ),
-                      SliverToBoxAdapter(
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 20,
-                            vertical: 6,
-                          ),
-                          child: _StreakCard(
-                            streak: _calculateStreak(
-                              questionEntries,
-                              mockExams,
-                            ),
-                          ),
-                        ),
-                      ),
-                      SliverToBoxAdapter(
-                        child: Padding(
-                          padding: const EdgeInsets.fromLTRB(20, 8, 20, 4),
-                          child: ValueListenableBuilder<int>(
-                            valueListenable: repository.focusRemaining,
-                            builder: (context, focusRemaining, _) {
-                              return ValueListenableBuilder<bool>(
-                                valueListenable: repository.focusRunning,
-                                builder: (context, focusRunning, __) {
-                                  return _FocusTimerCard(
-                                    remainingSeconds: focusRemaining,
-                                    running: focusRunning,
-                                    onStart: () {
-                                      _startFocusTimer(repository);
-                                      _openFocusTimerScreen(repository);
+                          padding: const EdgeInsets.fromLTRB(20, 4, 20, 14),
+                          child: ValueListenableBuilder<List<ExamProfile>>(
+                            valueListenable: repository.examProfiles,
+                            builder: (context, profiles, _) {
+                              return ValueListenableBuilder<DateTime>(
+                                valueListenable: repository.examDate,
+                                builder: (context, fallbackDate, __) {
+                                  final target = _pickUpcomingCountdown(
+                                    profiles,
+                                    fallbackDate,
+                                  );
+                                  final daysLeft = target.date
+                                      .difference(DateTime.now())
+                                      .inDays;
+                                  final streak =
+                                      repository.calculateCurrentStreak();
+                                  return ValueListenableBuilder<Map<String, int>>(
+                                    valueListenable: repository.aiGoalTargets,
+                                    builder: (context, aiTargets, ___) {
+                                      return _DailyHeroCard(
+                                        countdownLabel: target.label,
+                                        daysLeft: daysLeft,
+                                        streak: streak,
+                                        solved: rangeSolved,
+                                        goal: rangeGoal,
+                                        rangeLabel: rangeLabel,
+                                        accuracy: accuracy,
+                                        avgNet: avgNet,
+                                        isEmpty: isEmpty,
+                                        aiTargetCount: aiTargets.isEmpty
+                                            ? null
+                                            : aiTargets.values
+                                                .fold<int>(0, (a, b) => a + b),
+                                        onTapCountdown: () =>
+                                            _pickCountdownDate(
+                                          context,
+                                          repository,
+                                          target.profile,
+                                          target.date,
+                                        ),
+                                        onTapStreak: () =>
+                                            Navigator.of(context).push(
+                                          MaterialPageRoute(
+                                            builder: (_) =>
+                                                const StreakDetailScreen(),
+                                          ),
+                                        ),
+                                        onQuickAdd: () => _openEntry(context),
+                                        onOpenAiGoals: () =>
+                                            MainScreen.switchTab(context, 4),
+                                      );
                                     },
-                                    onPause: () => _pauseFocusTimer(repository),
-                                    onReset: () => _resetFocusTimer(repository),
-                                    onOpen: () => _showFocusTimerSheet(context, repository),
                                   );
                                 },
                               );
@@ -176,10 +204,81 @@ class _HomeScreenState extends State<HomeScreen> {
                           ),
                         ),
                       ),
+
+                      // BLOCK 2: Today's Study Schedule
                       SliverToBoxAdapter(
                         child: Padding(
-                          padding:
-                              const EdgeInsets.symmetric(horizontal: 20),
+                          padding: const EdgeInsets.fromLTRB(20, 0, 20, 14),
+                          child: ValueListenableBuilder<List<StudyScheduleBlock>>(
+                            valueListenable: repository.weeklySchedule,
+                            builder: (context, _, __) {
+                              final now = DateTime.now();
+                              final weekKey = StudyScheduleBlock.weekKeyFor(now);
+                              final todayBlocks = repository.scheduleForDay(
+                                now.weekday,
+                                weekMonday: StudyScheduleBlock.mondayOf(now),
+                              );
+                              return _TodayScheduleCard(
+                                todayBlocks: todayBlocks,
+                                weekKey: weekKey,
+                                onToggleBlock: (id) =>
+                                    repository.toggleScheduleBlockCompleted(
+                                  id,
+                                  weekKey: weekKey,
+                                ),
+                                onOpenFullSchedule: () =>
+                                    _openWeeklySchedule(context),
+                              );
+                            },
+                          ),
+                        ),
+                      ),
+
+                      // BLOCK 3: Compact Study Tools Row (Focus Timer + Mistake Notebook)
+                      SliverToBoxAdapter(
+                        child: Padding(
+                          padding: const EdgeInsets.fromLTRB(20, 0, 20, 18),
+                          child: ValueListenableBuilder<int>(
+                            valueListenable: repository.focusRemaining,
+                            builder: (context, focusRemaining, _) {
+                              return ValueListenableBuilder<bool>(
+                                valueListenable: repository.focusRunning,
+                                builder: (context, focusRunning, __) {
+                                  return _StudyToolsRow(
+                                    remainingSeconds: focusRemaining,
+                                    timerRunning: focusRunning,
+                                    unsolvedMistakes: unsolvedMistakes,
+                                    onTapTimer: () => _showFocusTimerSheet(
+                                      context,
+                                      repository,
+                                    ),
+                                    onToggleTimer: () {
+                                      if (focusRunning) {
+                                        _pauseFocusTimer(repository);
+                                      } else {
+                                        _startFocusTimer(repository);
+                                        _openFocusTimerScreen(repository);
+                                      }
+                                    },
+                                    onOpenMistakes: () =>
+                                        Navigator.of(context).push(
+                                      MaterialPageRoute(
+                                        builder: (_) =>
+                                            const MistakeGalleryScreen(),
+                                      ),
+                                    ),
+                                  );
+                                },
+                              );
+                            },
+                          ),
+                        ),
+                      ),
+
+                      // BLOCK 4: Recent Activity (max 3, swipe-to-delete + tap detail)
+                      SliverToBoxAdapter(
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 20),
                           child: _ActivitySection(
                             activity: activity,
                             onShowAll: () => _showActivitySheet(
@@ -190,7 +289,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           ),
                         ),
                       ),
-                      const SliverToBoxAdapter(child: SizedBox(height: 140)),
+                      const SliverToBoxAdapter(child: SizedBox(height: 120)),
                     ],
                   );
                 },
@@ -203,7 +302,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _openEntry(BuildContext context) {
-    Navigator.of(context).push(
+    Navigator.of(context, rootNavigator: true).push(
       MaterialPageRoute(
         builder: (context) => const EntryWizardScreen(
           type: EntryType.question,
@@ -212,26 +311,68 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  static Timer? _globalTimer;
+  void _openWeeklySchedule(BuildContext context) {
+    Navigator.of(context, rootNavigator: true).push(
+      MaterialPageRoute(
+        builder: (_) => const WeeklyScheduleScreen(),
+      ),
+    );
+  }
+
+  Future<void> _pickCountdownDate(
+    BuildContext context,
+    AppRepository repository,
+    ExamProfile? profile,
+    DateTime currentDate,
+  ) async {
+    final now = DateTime.now();
+    final initial = currentDate.isBefore(now) ? now : currentDate;
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: initial,
+      firstDate: DateTime(now.year - 1),
+      lastDate: DateTime(now.year + 5),
+      helpText: profile != null
+          ? '${profile.name} Sınav Tarihi'
+          : 'Hedef Sınav Tarihi',
+    );
+    if (picked == null) return;
+    if (profile != null) {
+      await repository.upsertExamProfile(profile.copyWith(examDate: picked));
+    } else {
+      await repository.setExamDate(picked);
+    }
+    if (context.mounted) {
+      InAppNotice.show(context, 'Sınav tarihi güncellendi.');
+    }
+  }
+
+  Future<void> _invokeAlarmSafe(String method) async {
+    try {
+      await _platform.invokeMethod(method);
+    } on MissingPluginException {
+      // Ignored on platforms without native alarm channel
+    } catch (e) {
+      debugPrint('HomeScreen: Alarm channel error ($method): $e');
+    }
+  }
 
   void _startFocusTimer(AppRepository repository) {
     if (repository.focusRunning.value) return;
     repository.focusRunning.value = true;
-    
+
     if (repository.focusRemaining.value > 5) {
       NotificationService.scheduleFocusEnd(repository.focusRemaining.value);
     }
-    
+
     _globalTimer?.cancel();
     _globalTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (repository.focusRemaining.value <= 1) {
         timer.cancel();
         repository.focusRunning.value = false;
         repository.focusRemaining.value = 0;
-        _platform.invokeMethod('play');
+        _invokeAlarmSafe('play');
         NotificationService.showFocusEndNotification();
-        
-        // Auto-reset timer after 15 seconds (matching alarm duration)
         return;
       }
       repository.focusRemaining.value -= 1;
@@ -241,14 +382,14 @@ class _HomeScreenState extends State<HomeScreen> {
   void _pauseFocusTimer(AppRepository repository) {
     _globalTimer?.cancel();
     NotificationService.cancelFocusEnd();
-    _platform.invokeMethod('stop');
+    _invokeAlarmSafe('stop');
     repository.focusRunning.value = false;
   }
 
   void _resetFocusTimer(AppRepository repository) {
     _globalTimer?.cancel();
     NotificationService.cancelFocusEnd();
-    _platform.invokeMethod('stop');
+    _invokeAlarmSafe('stop');
     repository.focusRunning.value = false;
     repository.focusRemaining.value = _lastSetMinutes * 60;
   }
@@ -256,14 +397,14 @@ class _HomeScreenState extends State<HomeScreen> {
   void _setFocusDuration(AppRepository repository, int minutes) {
     _globalTimer?.cancel();
     NotificationService.cancelFocusEnd();
-    _platform.invokeMethod('stop');
+    _invokeAlarmSafe('stop');
     _lastSetMinutes = minutes;
     repository.focusRunning.value = false;
     repository.focusRemaining.value = minutes * 60;
   }
 
   void _openFocusTimerScreen(AppRepository repository) {
-    Navigator.of(context).push(
+    Navigator.of(context, rootNavigator: true).push(
       MaterialPageRoute(
         builder: (_) => FocusTimerScreen(
           remainingSeconds: repository.focusRemaining,
@@ -277,35 +418,59 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _showFocusTimerSheet(BuildContext context, AppRepository repository) {
-    final currentMinutes = max(1, (repository.focusRemaining.value / 60).round());
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (sheetContext) {
+        final colors = AppColors.of(sheetContext);
         return StatefulBuilder(
           builder: (context, setSheetState) {
-            final minutes = max(1, (repository.focusRemaining.value / 60).round());
+            final minutes =
+                max(1, (repository.focusRemaining.value / 60).round());
             return SafeArea(
               child: Container(
                 margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
                 padding: const EdgeInsets.all(20),
                 decoration: BoxDecoration(
-                  color: AppColors.of(context).surface,
-                  borderRadius: BorderRadius.circular(28),
-                  border: Border.all(color: Colors.white.withOpacity(0.08)),
+                  color: colors.surface,
+                  borderRadius: BorderRadius.circular(26),
+                  border: Border.all(color: colors.border),
                 ),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Container(width: 48, height: 4, decoration: BoxDecoration(color: Colors.white.withOpacity(0.2), borderRadius: BorderRadius.circular(999))),
+                    Container(
+                      width: 40,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: colors.border,
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                    ),
                     const SizedBox(height: 16),
-                    Text('Odak Zamanlayıcı', style: Theme.of(context).textTheme.titleMedium?.copyWith(color: Colors.white, fontWeight: FontWeight.w700)),
+                    Text(
+                      'Odak Zamanlayıcı',
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                            color: colors.textPrimary,
+                            fontWeight: FontWeight.w700,
+                          ),
+                    ),
                     const SizedBox(height: 6),
-                    Text(_formatTimer(repository.focusRemaining.value), style: Theme.of(context).textTheme.displaySmall?.copyWith(color: Colors.white, fontWeight: FontWeight.w700)),
+                    Text(
+                      _formatTimer(repository.focusRemaining.value),
+                      style: Theme.of(context).textTheme.displayLarge?.copyWith(
+                            color: colors.primary,
+                            fontWeight: FontWeight.w800,
+                          ),
+                    ),
                     const SizedBox(height: 12),
                     SliderTheme(
-                      data: SliderTheme.of(context).copyWith(activeTrackColor: AppColors.of(context).primary, inactiveTrackColor: Colors.white12, thumbColor: AppColors.of(context).primary),
+                      data: SliderTheme.of(context).copyWith(
+                        activeTrackColor: colors.primary,
+                        inactiveTrackColor: colors.subtleFill,
+                        thumbColor: colors.primary,
+                      ),
                       child: Slider(
                         value: minutes.toDouble(),
                         min: 1,
@@ -323,33 +488,59 @@ class _HomeScreenState extends State<HomeScreen> {
                     Wrap(
                       spacing: 8,
                       runSpacing: 8,
-                      children: [15, 25, 30, 45, 60, 90].map((preset) => _FocusPresetChip(
-                        minutes: preset,
-                        selected: minutes == preset,
-                        onTap: () {
-                          setSheetState(() {
-                            _setFocusDuration(repository, preset);
-                          });
-                        },
-                      )).toList(),
+                      children: [15, 25, 30, 45, 60, 90]
+                          .map(
+                            (preset) => ChoiceChip(
+                              label: Text('$preset dk'),
+                              selected: minutes == preset,
+                              onSelected: (_) {
+                                setSheetState(() {
+                                  _setFocusDuration(repository, preset);
+                                });
+                              },
+                            ),
+                          )
+                          .toList(),
                     ),
                     const SizedBox(height: 18),
                     Row(
                       children: [
-                        Expanded(child: OutlinedButton(onPressed: () => Navigator.of(sheetContext).pop(), child: const Text('Süreyi Uygula'))),
+                        Expanded(
+                          child: OutlinedButton(
+                            onPressed: () => Navigator.of(sheetContext).pop(),
+                            child: const Text('Kaydet'),
+                          ),
+                        ),
                         const SizedBox(width: 12),
-                        Expanded(child: ElevatedButton(onPressed: () {
-                          _startFocusTimer(repository);
-                          Navigator.of(sheetContext).pop();
-                          _openFocusTimerScreen(repository);
-                        }, child: const Text('Başlat'))),
+                        Expanded(
+                          child: ElevatedButton(
+                            onPressed: () {
+                              _startFocusTimer(repository);
+                              Navigator.of(sheetContext).pop();
+                              _openFocusTimerScreen(repository);
+                            },
+                            child: const Text('Başlat'),
+                          ),
+                        ),
                       ],
                     ),
-                    const SizedBox(height: 10),
+                    const SizedBox(height: 8),
                     Row(
                       children: [
-                        Expanded(child: TextButton(onPressed: repository.focusRunning.value ? () => _pauseFocusTimer(repository) : null, child: const Text('Duraklat'))),
-                        Expanded(child: TextButton(onPressed: () => _resetFocusTimer(repository), child: const Text('Sıfırla'))),
+                        Expanded(
+                          child: TextButton(
+                            onPressed: repository.focusRunning.value
+                                ? () => _pauseFocusTimer(repository)
+                                : null,
+                            child: const Text('Duraklat'),
+                          ),
+                        ),
+                        Expanded(
+                          child: TextButton(
+                            onPressed: () => _resetFocusTimer(repository),
+                            child: const Text('Sıfırla'),
+                          ),
+                        ),
                       ],
                     ),
                   ],
@@ -363,334 +554,934 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 }
 
-class _MistakeNotebookCard extends StatelessWidget {
-  const _MistakeNotebookCard({required this.onTap});
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: GlassPanel(
-        padding: const EdgeInsets.all(16),
-        radius: BorderRadius.circular(20),
-        child: Row(
-          children: [
-            Container(
-              width: 40,
-              height: 40,
-              decoration: BoxDecoration(
-                color: Colors.orangeAccent.withOpacity(0.18),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: const Icon(Icons.auto_stories, color: Colors.orangeAccent),
-            ),
-            const SizedBox(width: 12),
-            const Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('Hata Defteri', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15)),
-                  Text('Fotoğraflı yanlış sorularını yönet.', style: TextStyle(color: Colors.white54, fontSize: 11)),
-                ],
-              ),
-            ),
-            const Icon(Icons.chevron_right, color: Colors.white24),
-          ],
-        ),
-      ),
-    );
+({String label, DateTime date, ExamProfile? profile}) _pickUpcomingCountdown(
+  List<ExamProfile> profiles,
+  DateTime fallbackDate,
+) {
+  final now = DateTime.now();
+  final withDates = profiles.where((p) => p.examDate != null).toList();
+  if (withDates.isEmpty) {
+    return (label: 'Hedef Sınav', date: fallbackDate, profile: null);
   }
+  final future = withDates.where((p) => !p.examDate!.isBefore(now)).toList()
+    ..sort((a, b) => a.examDate!.compareTo(b.examDate!));
+  final chosen = future.isNotEmpty ? future.first : withDates.first;
+  return (label: chosen.name, date: chosen.examDate!, profile: chosen);
 }
 
-class _PerformanceRow extends StatelessWidget {
-  const _PerformanceRow({required this.todayTotal, required this.dailyGoal, required this.avgNet, required this.accuracy, required this.totalQuestions});
-  final int todayTotal;
-  final int dailyGoal;
-  final double? avgNet;
-  final double? accuracy;
-  final int totalQuestions;
+class _StudentHeader extends StatelessWidget {
+  const _StudentHeader({
+    required this.userName,
+    required this.dateLabel,
+    required this.rangeIndex,
+    required this.hasUnreadNotifications,
+    required this.isDark,
+    required this.onRangeChange,
+    required this.onOpenSchedule,
+    required this.onToggleTheme,
+    required this.onOpenNotifications,
+  });
+
+  final String userName;
+  final String dateLabel;
+  final int rangeIndex;
+  final bool hasUnreadNotifications;
+  final bool isDark;
+  final ValueChanged<int> onRangeChange;
+  final VoidCallback onOpenSchedule;
+  final VoidCallback onToggleTheme;
+  final VoidCallback onOpenNotifications;
 
   @override
   Widget build(BuildContext context) {
-    return IntrinsicHeight(
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
+    final colors = AppColors.of(context);
+    final greeting = userName.trim().isEmpty
+        ? 'İyi çalışmalar'
+        : 'Merhaba, ${userName.trim()}';
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 14, 20, 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Expanded(flex: 5, child: _RingCard(solved: todayTotal, dailyGoal: dailyGoal)),
-          const SizedBox(width: 12),
-          Expanded(flex: 7, child: Column(children: [
-            Expanded(child: _StatCard(label: 'Ortalama Net', value: avgNet == null ? '—' : avgNet!.toStringAsFixed(1))),
-            const SizedBox(height: 10),
-            Expanded(child: Row(children: [
-              Expanded(child: _MiniStatCard(label: 'Doğruluk', value: accuracy == null ? '—' : '%${(accuracy! * 100).round()}', valueColor: AppColors.of(context).primary)),
-              const SizedBox(width: 10),
-              Expanded(child: _MiniStatCard(label: 'Toplam', value: totalQuestions == 0 ? '—' : totalQuestions.toString())),
-            ])),
-          ])),
+          Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      dateLabel,
+                      style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                            color: colors.textSecondary,
+                          ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      greeting,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                            color: colors.textPrimary,
+                            fontWeight: FontWeight.w800,
+                          ),
+                    ),
+                  ],
+                ),
+              ),
+              _HeaderIconButton(
+                icon: Icons.calendar_month_outlined,
+                tooltip: 'Haftalık Program',
+                onTap: onOpenSchedule,
+              ),
+              const SizedBox(width: 8),
+              _HeaderIconButton(
+                icon: isDark
+                    ? Icons.light_mode_outlined
+                    : Icons.dark_mode_outlined,
+                tooltip: isDark ? 'Gündüz Moduna Geç' : 'Gece Moduna Geç',
+                onTap: onToggleTheme,
+              ),
+              const SizedBox(width: 8),
+              _HeaderIconButton(
+                icon: Icons.notifications_none_rounded,
+                tooltip: 'Bildirimler',
+                showBadge: hasUnreadNotifications,
+                onTap: onOpenNotifications,
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          Container(
+            padding: const EdgeInsets.all(4),
+            decoration: BoxDecoration(
+              color: colors.subtleFill,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: colors.border),
+            ),
+            child: Row(
+              children: [
+                _RangeTab(
+                  label: 'Bugün',
+                  active: rangeIndex == 0,
+                  onTap: () => onRangeChange(0),
+                ),
+                _RangeTab(
+                  label: 'Hafta',
+                  active: rangeIndex == 1,
+                  onTap: () => onRangeChange(1),
+                ),
+                _RangeTab(
+                  label: '30 Gün',
+                  active: rangeIndex == 2,
+                  onTap: () => onRangeChange(2),
+                ),
+              ],
+            ),
+          ),
         ],
       ),
     );
   }
 }
 
-class _RingCard extends StatelessWidget {
-  const _RingCard({required this.solved, required this.dailyGoal});
-  final int solved;
-  final int dailyGoal;
+class _HeaderIconButton extends StatelessWidget {
+  const _HeaderIconButton({
+    required this.icon,
+    required this.tooltip,
+    required this.onTap,
+    this.showBadge = false,
+  });
+
+  final IconData icon;
+  final String tooltip;
+  final VoidCallback onTap;
+  final bool showBadge;
 
   @override
   Widget build(BuildContext context) {
-    final safeGoal = max(dailyGoal, 1);
-    final ratio = (solved / safeGoal).clamp(0.0, 1.0);
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(color: AppColors.of(context).surface, borderRadius: BorderRadius.circular(24), border: Border.all(color: Colors.white.withOpacity(0.05))),
-      child: Column(children: [
-        RepaintBoundary(
-          child: ProgressRing(value: ratio, size: 156, strokeWidth: 12, trackColor: AppColors.of(context).surfaceLight, progressColor: AppColors.of(context).primary, centerColor: AppColors.of(context).surface, child: Column(mainAxisSize: MainAxisSize.min, children: [
-            FittedBox(child: Text(solved.toString(), style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w900, fontSize: 32))),
-            const SizedBox(height: 2),
-            Text('/$dailyGoal', style: Theme.of(context).textTheme.labelSmall?.copyWith(color: AppColors.of(context).textSecondary, letterSpacing: 1, fontSize: 14)),
-          ])),
+    final colors = AppColors.of(context);
+    return Tooltip(
+      message: tooltip,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          width: 40,
+          height: 40,
+          decoration: BoxDecoration(
+            color: colors.surface,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: colors.border),
+          ),
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              Icon(icon, color: colors.textPrimary, size: 20),
+              if (showBadge)
+                Positioned(
+                  right: 9,
+                  top: 9,
+                  child: Container(
+                    width: 7,
+                    height: 7,
+                    decoration: BoxDecoration(
+                      color: colors.danger,
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                ),
+            ],
+          ),
         ),
-        const SizedBox(height: 12),
-        Text('Günlük Soru', style: Theme.of(context).textTheme.bodySmall?.copyWith(color: AppColors.of(context).textSecondary, fontSize: 14)),
-      ]),
+      ),
     );
   }
 }
 
-class _StatCard extends StatelessWidget {
-  const _StatCard({required this.label, required this.value});
-  final String label;
-  final String value;
+class _RangeTab extends StatelessWidget {
+  const _RangeTab({
+    required this.label,
+    required this.active,
+    required this.onTap,
+  });
 
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      decoration: BoxDecoration(color: AppColors.of(context).surface, borderRadius: BorderRadius.circular(18), border: Border.all(color: Colors.white.withOpacity(0.05))),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisAlignment: MainAxisAlignment.center, children: [
-        Text(label, style: Theme.of(context).textTheme.bodySmall?.copyWith(color: AppColors.of(context).textSecondary, fontSize: 13)),
-        const SizedBox(height: 4),
-        Text(value, style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold, fontSize: 20)),
-      ]),
-    );
-  }
-}
-
-class _MiniStatCard extends StatelessWidget {
-  const _MiniStatCard({required this.label, required this.value, this.valueColor});
-  final String label;
-  final String value;
-  final Color? valueColor;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      height: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      decoration: BoxDecoration(color: AppColors.of(context).surface, borderRadius: BorderRadius.circular(18), border: Border.all(color: Colors.white.withOpacity(0.05))),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisAlignment: MainAxisAlignment.center, children: [
-        Text(label, style: Theme.of(context).textTheme.bodySmall?.copyWith(color: AppColors.of(context).textSecondary, fontSize: 12)),
-        const SizedBox(height: 4),
-        Text(value, style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold, fontSize: 18, color: valueColor ?? AppColors.of(context).textPrimary)),
-      ]),
-    );
-  }
-}
-
-class _Header extends StatelessWidget {
-  const _Header({required this.selectedRange, required this.onRangeChanged, this.onNotificationsTap});
-  final int selectedRange;
-  final ValueChanged<int> onRangeChanged;
-  final VoidCallback? onNotificationsTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final now = DateTime.now();
-    return GlassPanel(
-      padding: const EdgeInsets.fromLTRB(20, 20, 20, 12),
-      radius: const BorderRadius.vertical(bottom: Radius.circular(24)),
-      child: Column(children: [
-        Row(children: [
-          Expanded(child: Text(_formatToday(now), style: Theme.of(context).textTheme.displaySmall?.copyWith(fontWeight: FontWeight.w700, color: AppColors.of(context).textPrimary))),
-          InkWell(onTap: onNotificationsTap, borderRadius: BorderRadius.circular(16), child: Container(width: 42, height: 42, decoration: BoxDecoration(color: AppColors.of(context).surfaceLight, borderRadius: BorderRadius.circular(16), border: Border.all(color: Colors.white.withOpacity(0.05))), child: const Icon(Icons.notifications_none, color: Colors.white))),
-        ]),
-        const SizedBox(height: 16),
-        Container(padding: const EdgeInsets.all(6), decoration: BoxDecoration(color: AppColors.of(context).surfaceLight.withOpacity(0.5), borderRadius: BorderRadius.circular(16)), child: Row(children: [
-          _SegmentedButton(label: 'Bugün', active: selectedRange == 0, onTap: () => onRangeChanged(0)),
-          _SegmentedButton(label: 'Hafta', active: selectedRange == 1, onTap: () => onRangeChanged(1)),
-          _SegmentedButton(label: '30 Gün', active: selectedRange == 2, onTap: () => onRangeChanged(2)),
-        ])),
-      ]),
-    );
-  }
-}
-
-class _SegmentedButton extends StatelessWidget {
-  const _SegmentedButton({required this.label, required this.active, required this.onTap});
   final String label;
   final bool active;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Expanded(child: GestureDetector(onTap: onTap, child: AnimatedContainer(duration: const Duration(milliseconds: 220), padding: const EdgeInsets.symmetric(vertical: 8), decoration: BoxDecoration(color: active ? AppColors.of(context).surfaceLight : Colors.transparent, borderRadius: BorderRadius.circular(12), border: Border.all(color: active ? Colors.white12 : Colors.transparent)), child: Text(label, textAlign: TextAlign.center, style: Theme.of(context).textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w600, color: active ? Colors.white : AppColors.of(context).textSecondary)))));
-  }
-}
-
-class _AiGoalPanel extends StatelessWidget {
-  const _AiGoalPanel({required this.repository, required this.onOpenProfile});
-  final AppRepository repository;
-  final VoidCallback onOpenProfile;
-
-  @override
-  Widget build(BuildContext context) {
-    return ValueListenableBuilder<Map<String, int>>(
-      valueListenable: repository.aiGoalTargets,
-      builder: (context, targets, _) {
-        return ValueListenableBuilder<String>(
-          valueListenable: repository.aiGoalCadence,
-          builder: (context, cadence, __) {
-            return ValueListenableBuilder<DateTime?>(
-              valueListenable: repository.aiGoalUpdatedAt,
-              builder: (context, updatedAt, ___) {
-                final cadenceLabel = cadence == 'daily' ? 'Günlük' : cadence == 'weekly' ? 'Haftalık' : 'Aylık';
-                final displayValue = targets[cadence];
-                return GlassPanel(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                  radius: BorderRadius.circular(20),
-                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Row(children: [
-                      Container(width: 38, height: 38, decoration: BoxDecoration(color: AppColors.of(context).primary.withOpacity(0.18), borderRadius: BorderRadius.circular(12)), child: Icon(Icons.auto_awesome, color: AppColors.of(context).primary)),
-                      const SizedBox(width: 10),
-                      Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                        Text('AI Hedef Panosu', style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Colors.white, fontWeight: FontWeight.w700)),
-                        Text(updatedAt == null ? 'Henüz hedef oluşturulmadı.' : 'Son güncelleme: ${_formatDateTime(updatedAt)}', style: Theme.of(context).textTheme.labelSmall?.copyWith(color: AppColors.of(context).textSecondary)),
-                      ])),
-                      TextButton(onPressed: onOpenProfile, child: const Text('Düzenle')),
-                    ]),
-                    const SizedBox(height: 12),
-                    Row(children: [
-                      Expanded(child: _AiGoalValueCard(label: cadenceLabel, value: displayValue?.toString() ?? '—')),
-                      const SizedBox(width: 12),
-                      Expanded(child: _AiGoalValueCard(label: 'Günlük', value: targets['daily']?.toString() ?? '—', isMuted: cadence != 'daily')),
-                    ]),
-                    const SizedBox(height: 10),
-                    Row(children: [
-                      Expanded(child: _AiGoalValueCard(label: 'Haftalık', value: targets['weekly']?.toString() ?? '—', isMuted: cadence != 'weekly')),
-                      const SizedBox(width: 12),
-                      Expanded(child: _AiGoalValueCard(label: 'Aylık', value: targets['monthly']?.toString() ?? '—', isMuted: cadence != 'monthly')),
-                    ]),
-                    const SizedBox(height: 12),
-                    SizedBox(width: double.infinity, child: OutlinedButton.icon(onPressed: () => _requestAiPlan(context, repository), icon: const Icon(Icons.psychology_alt), label: const Text('AI Program Hazırla'))),
-                  ]),
-                );
-              },
-            );
-          },
-        );
-      },
+    final colors = AppColors.of(context);
+    return Expanded(
+      child: GestureDetector(
+        onTap: onTap,
+        behavior: HitTestBehavior.opaque,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 160),
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          decoration: BoxDecoration(
+            color: active ? colors.surface : Colors.transparent,
+            borderRadius: BorderRadius.circular(10),
+            boxShadow: active && !colors.isDark
+                ? [
+                    BoxShadow(
+                      color: colors.cardShadow,
+                      blurRadius: 6,
+                      offset: const Offset(0, 2),
+                    ),
+                  ]
+                : const [],
+          ),
+          child: Text(
+            label,
+            textAlign: TextAlign.center,
+            style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                  color: active ? colors.primary : colors.textSecondary,
+                  fontWeight: active ? FontWeight.w700 : FontWeight.w600,
+                ),
+          ),
+        ),
+      ),
     );
   }
 }
 
-class _AiGoalValueCard extends StatelessWidget {
-  const _AiGoalValueCard({required this.label, required this.value, this.isMuted = false});
+class _SetupCurriculumBanner extends StatelessWidget {
+  const _SetupCurriculumBanner({required this.onOpenHub});
+  final VoidCallback onOpenHub;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = AppColors.of(context);
+    return GlassPanel(
+      padding: const EdgeInsets.all(14),
+      borderColor: colors.primary.withValues(alpha: 0.35),
+      color: colors.primary.withValues(alpha: colors.isDark ? 0.12 : 0.06),
+      child: Row(
+        children: [
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: colors.primary.withValues(alpha: 0.14),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(Icons.auto_stories_outlined, color: colors.primary),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Derslerini Seçmeye Başla',
+                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                        color: colors.textPrimary,
+                      ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  'Maarif TYT/AYT, KPSS, YDS veya kendi derslerini ekle.',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: colors.textSecondary,
+                      ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          ElevatedButton(
+            onPressed: onOpenHub,
+            style: ElevatedButton.styleFrom(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            ),
+            child: const Text('Seç'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DailyHeroCard extends StatelessWidget {
+  const _DailyHeroCard({
+    required this.countdownLabel,
+    required this.daysLeft,
+    required this.streak,
+    required this.solved,
+    required this.goal,
+    required this.rangeLabel,
+    required this.accuracy,
+    required this.avgNet,
+    required this.isEmpty,
+    required this.aiTargetCount,
+    required this.onTapCountdown,
+    required this.onTapStreak,
+    required this.onQuickAdd,
+    required this.onOpenAiGoals,
+  });
+
+  final String countdownLabel;
+  final int daysLeft;
+  final int streak;
+  final int solved;
+  final int goal;
+  final String rangeLabel;
+  final double? accuracy;
+  final double? avgNet;
+  final bool isEmpty;
+  final int? aiTargetCount;
+  final VoidCallback onTapCountdown;
+  final VoidCallback onTapStreak;
+  final VoidCallback onQuickAdd;
+  final VoidCallback onOpenAiGoals;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = AppColors.of(context);
+    final progress = goal <= 0 ? 0.0 : (solved / goal).clamp(0.0, 1.0);
+    final countdownText = daysLeft > 0
+        ? '$countdownLabel • $daysLeft gün'
+        : daysLeft == 0
+            ? '$countdownLabel • Bugün!'
+            : '$countdownLabel • Tarih seç';
+
+    return GlassPanel(
+      padding: const EdgeInsets.all(18),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Top compact status pills: Exam Countdown + Streak
+          Row(
+            children: [
+              Expanded(
+                child: InkWell(
+                  onTap: onTapCountdown,
+                  borderRadius: BorderRadius.circular(10),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 6,
+                    ),
+                    decoration: BoxDecoration(
+                      color: colors.primary.withValues(
+                        alpha: colors.isDark ? 0.16 : 0.09,
+                      ),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.flag_outlined,
+                          size: 14,
+                          color: colors.primary,
+                        ),
+                        const SizedBox(width: 6),
+                        Flexible(
+                          child: Text(
+                            countdownText,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: Theme.of(context)
+                                .textTheme
+                                .labelSmall
+                                ?.copyWith(
+                                  color: colors.primary,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              InkWell(
+                onTap: onTapStreak,
+                borderRadius: BorderRadius.circular(10),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 6,
+                  ),
+                  decoration: BoxDecoration(
+                    color: colors.warning.withValues(
+                      alpha: colors.isDark ? 0.16 : 0.12,
+                    ),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.local_fire_department_rounded,
+                        size: 15,
+                        color: colors.warning,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        '$streak gün seri',
+                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                              color: colors.warning,
+                              fontWeight: FontWeight.w700,
+                            ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 18),
+          // Main Progress Row
+          Row(
+            children: [
+              ProgressRing(
+                value: progress,
+                size: 98,
+                strokeWidth: 9,
+                trackColor: colors.subtleFill,
+                progressColor: progress >= 1.0 ? colors.success : colors.primary,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      '$solved',
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                            color: colors.textPrimary,
+                            fontWeight: FontWeight.w800,
+                          ),
+                    ),
+                    Text(
+                      '/ $goal',
+                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                            color: colors.textMuted,
+                          ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 18),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '$rangeLabel Soru Hedefi',
+                      style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                            color: colors.textSecondary,
+                          ),
+                    ),
+                    const SizedBox(height: 10),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _HeroMetric(
+                            label: 'Doğruluk',
+                            value: accuracy == null
+                                ? '—'
+                                : '%${(accuracy! * 100).round()}',
+                            accent: colors.success,
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: _HeroMetric(
+                            label: 'Ort. Net',
+                            value: avgNet == null
+                                ? '—'
+                                : avgNet!.toStringAsFixed(1),
+                            accent: colors.primary,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          if (aiTargetCount != null && aiTargetCount! > 0) ...[
+            const SizedBox(height: 14),
+            InkWell(
+              onTap: onOpenAiGoals,
+              borderRadius: BorderRadius.circular(12),
+              child: Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  color: colors.subtleFill,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.auto_awesome, size: 15, color: colors.primary),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'AI Günlük Hedefi: $aiTargetCount soru',
+                        style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                              color: colors.textPrimary,
+                            ),
+                      ),
+                    ),
+                    Icon(
+                      Icons.chevron_right_rounded,
+                      size: 18,
+                      color: colors.textMuted,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+          if (isEmpty) ...[
+            const SizedBox(height: 14),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: onQuickAdd,
+                icon: const Icon(Icons.add_rounded, size: 19),
+                label: const Text('İlk Soru veya Denemeni Ekle'),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _HeroMetric extends StatelessWidget {
+  const _HeroMetric({
+    required this.label,
+    required this.value,
+    required this.accent,
+  });
+
   final String label;
   final String value;
-  final bool isMuted;
+  final Color accent;
 
   @override
   Widget build(BuildContext context) {
+    final colors = AppColors.of(context);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      decoration: BoxDecoration(color: Colors.white.withOpacity(isMuted ? 0.04 : 0.08), borderRadius: BorderRadius.circular(14), border: Border.all(color: Colors.white12)),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text(label, style: Theme.of(context).textTheme.labelSmall?.copyWith(color: AppColors.of(context).textSecondary)),
-        const SizedBox(height: 4),
-        Text('$value soru', style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Colors.white, fontWeight: FontWeight.w700)),
-      ]),
-    );
-  }
-}
-
-class _StreakCard extends StatelessWidget {
-  const _StreakCard({required this.streak});
-  final int streak;
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const StreakDetailScreen())),
-      child: GlassPanel(
-        padding: const EdgeInsets.all(16),
-        radius: BorderRadius.circular(20),
-        child: Row(children: [
-          Container(width: 40, height: 40, decoration: BoxDecoration(color: AppColors.of(context).primary.withOpacity(0.18), borderRadius: BorderRadius.circular(12)), child: Icon(Icons.local_fire_department, color: AppColors.of(context).primary)),
-          const SizedBox(width: 12),
-          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text('Çalışma Serisi', style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Colors.white, fontWeight: FontWeight.w700)),
-            Text(streak == 0 ? 'Bugün başla' : '$streak gün üst üste', style: Theme.of(context).textTheme.bodySmall?.copyWith(color: AppColors.of(context).textSecondary)),
-          ])),
-          Text(streak.toString(), style: Theme.of(context).textTheme.titleMedium?.copyWith(color: Colors.white, fontWeight: FontWeight.w700)),
-        ]),
+      decoration: BoxDecoration(
+        color: colors.subtleFill,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                  color: colors.textSecondary,
+                ),
+          ),
+          const SizedBox(height: 3),
+          Text(
+            value,
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  color: value == '—' ? colors.textMuted : accent,
+                  fontWeight: FontWeight.w800,
+                ),
+          ),
+        ],
       ),
     );
   }
 }
 
-class _FocusTimerCard extends StatelessWidget {
-  const _FocusTimerCard({required this.remainingSeconds, required this.running, required this.onStart, required this.onPause, required this.onReset, required this.onOpen});
+class _TodayScheduleCard extends StatelessWidget {
+  const _TodayScheduleCard({
+    required this.todayBlocks,
+    required this.weekKey,
+    required this.onToggleBlock,
+    required this.onOpenFullSchedule,
+  });
+
+  final List<StudyScheduleBlock> todayBlocks;
+  final String weekKey;
+  final ValueChanged<String> onToggleBlock;
+  final VoidCallback onOpenFullSchedule;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = AppColors.of(context);
+    final completedCount =
+        todayBlocks.where((b) => b.isCompletedForWeek(weekKey)).length;
+
+    return GlassPanel(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                Icons.calendar_today_rounded,
+                size: 17,
+                color: colors.primary,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Bugünün Programı',
+                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                        color: colors.textPrimary,
+                        fontWeight: FontWeight.w700,
+                      ),
+                ),
+              ),
+              if (todayBlocks.isNotEmpty)
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: colors.subtleFill,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    '$completedCount/${todayBlocks.length}',
+                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                          color: colors.textSecondary,
+                          fontWeight: FontWeight.w700,
+                        ),
+                  ),
+                ),
+              TextButton(
+                onPressed: onOpenFullSchedule,
+                style: TextButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  minimumSize: const Size(0, 32),
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+                child: Text(todayBlocks.isEmpty ? 'Hazırla' : 'Tümü'),
+              ),
+            ],
+          ),
+          if (todayBlocks.isEmpty) ...[
+            const SizedBox(height: 6),
+            Text(
+              'Bugün için planlı görev yok. Haftalık programdan sürükle-bırak ile ekle.',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: colors.textSecondary,
+                  ),
+            ),
+          ] else ...[
+            const SizedBox(height: 10),
+            ...todayBlocks.take(4).map((block) {
+              final completed = block.isCompletedForWeek(weekKey);
+              final subjectStyle = SubjectColors.of(
+                block.subject,
+                isDark: colors.isDark,
+              );
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: InkWell(
+                  onTap: () => onToggleBlock(block.id),
+                  borderRadius: BorderRadius.circular(12),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 10,
+                    ),
+                    decoration: BoxDecoration(
+                      color: colors.subtleFill,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: colors.border),
+                    ),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 4,
+                          height: 28,
+                          decoration: BoxDecoration(
+                            color: completed
+                                ? colors.textMuted
+                                : subjectStyle.accent,
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Container(
+                          width: 22,
+                          height: 22,
+                          decoration: BoxDecoration(
+                            color: completed
+                                ? colors.success
+                                : colors.surface,
+                            borderRadius: BorderRadius.circular(7),
+                            border: Border.all(
+                              color: completed
+                                  ? colors.success
+                                  : subjectStyle.accent,
+                              width: 1.6,
+                            ),
+                          ),
+                          child: completed
+                              ? const Icon(
+                                  Icons.check_rounded,
+                                  size: 14,
+                                  color: Colors.white,
+                                )
+                              : null,
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                block.topic.isNotEmpty
+                                    ? '${block.subject} • ${block.topic}'
+                                    : block.subject,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .bodyMedium
+                                    ?.copyWith(
+                                      color: completed
+                                          ? colors.textMuted
+                                          : colors.textPrimary,
+                                      fontWeight: FontWeight.w700,
+                                      decoration: completed
+                                          ? TextDecoration.lineThrough
+                                          : null,
+                                    ),
+                              ),
+                              Text(
+                                '${block.startTime.isNotEmpty ? '${block.startTime} • ' : ''}'
+                                '${block.durationMinutes} dk'
+                                '${block.targetQuestions > 0 ? ' • ${block.targetQuestions} soru' : ''}',
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .labelSmall
+                                    ?.copyWith(color: colors.textSecondary),
+                              ),
+                            ],
+                          ),
+                        ),
+                        if (block.videoUrl.trim().isNotEmpty)
+                          Padding(
+                            padding: const EdgeInsets.only(left: 4),
+                            child: Icon(
+                              Icons.play_circle_outline_rounded,
+                              size: 17,
+                              color: colors.danger,
+                            ),
+                          ),
+                        if (block.imagePaths.isNotEmpty)
+                          Padding(
+                            padding: const EdgeInsets.only(left: 4),
+                            child: Icon(
+                              Icons.photo_outlined,
+                              size: 16,
+                              color: subjectStyle.accent,
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                ),
+              );
+            }),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _StudyToolsRow extends StatelessWidget {
+  const _StudyToolsRow({
+    required this.remainingSeconds,
+    required this.timerRunning,
+    required this.unsolvedMistakes,
+    required this.onTapTimer,
+    required this.onToggleTimer,
+    required this.onOpenMistakes,
+  });
+
   final int remainingSeconds;
-  final bool running;
-  final VoidCallback onStart;
-  final VoidCallback onPause;
-  final VoidCallback onReset;
-  final VoidCallback onOpen;
+  final bool timerRunning;
+  final int unsolvedMistakes;
+  final VoidCallback onTapTimer;
+  final VoidCallback onToggleTimer;
+  final VoidCallback onOpenMistakes;
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onOpen,
-      child: GlassPanel(
-        padding: const EdgeInsets.all(16),
-        radius: BorderRadius.circular(20),
-        child: Row(children: [
-          Container(width: 40, height: 40, decoration: BoxDecoration(color: AppColors.of(context).primary.withOpacity(0.18), borderRadius: BorderRadius.circular(12)), child: Icon(running ? Icons.hourglass_top : Icons.timer, color: AppColors.of(context).primary)),
-          const SizedBox(width: 12),
-          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text('Odaklan', style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Colors.white, fontWeight: FontWeight.w700)),
-            Text(_formatTimer(remainingSeconds), style: Theme.of(context).textTheme.titleMedium?.copyWith(color: Colors.white, fontWeight: FontWeight.bold)),
-          ])),
-          if (!running) IconButton(onPressed: onStart, icon: Icon(Icons.play_arrow_rounded, color: AppColors.of(context).primary, size: 32))
-          else IconButton(onPressed: onPause, icon: const Icon(Icons.pause_rounded, color: Colors.white, size: 32)),
-          IconButton(onPressed: onReset, icon: const Icon(Icons.replay_rounded, color: Colors.white38, size: 24)),
-        ]),
-      ),
-    );
-  }
-}
-
-class _FocusPresetChip extends StatelessWidget {
-  const _FocusPresetChip({required this.minutes, required this.selected, required this.onTap});
-  final int minutes;
-  final bool selected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        decoration: BoxDecoration(color: selected ? AppColors.of(context).primary.withOpacity(0.25) : Colors.white.withOpacity(0.06), borderRadius: BorderRadius.circular(14), border: Border.all(color: selected ? AppColors.of(context).primary.withOpacity(0.4) : Colors.white.withOpacity(0.08))),
-        child: Text('$minutes dk', style: Theme.of(context).textTheme.labelSmall?.copyWith(color: selected ? Colors.white : Colors.white70, fontWeight: FontWeight.w700)),
-      ),
+    final colors = AppColors.of(context);
+    return Row(
+      children: [
+        Expanded(
+          child: InkWell(
+            onTap: onTapTimer,
+            borderRadius: BorderRadius.circular(20),
+            child: GlassPanel(
+              padding: const EdgeInsets.all(14),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Odak Sayacı',
+                          style: Theme.of(context)
+                              .textTheme
+                              .labelSmall
+                              ?.copyWith(color: colors.textSecondary),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          _formatTimer(remainingSeconds),
+                          style: Theme.of(context)
+                              .textTheme
+                              .titleLarge
+                              ?.copyWith(
+                                color: timerRunning
+                                    ? colors.primary
+                                    : colors.textPrimary,
+                                fontWeight: FontWeight.w800,
+                              ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  InkWell(
+                    onTap: onToggleTimer,
+                    borderRadius: BorderRadius.circular(12),
+                    child: Container(
+                      width: 38,
+                      height: 38,
+                      decoration: BoxDecoration(
+                        color: colors.primary,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Icon(
+                        timerRunning
+                            ? Icons.pause_rounded
+                            : Icons.play_arrow_rounded,
+                        color: colors.onPrimary,
+                        size: 22,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: InkWell(
+            onTap: onOpenMistakes,
+            borderRadius: BorderRadius.circular(20),
+            child: GlassPanel(
+              padding: const EdgeInsets.all(14),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Hata Defteri',
+                          style: Theme.of(context)
+                              .textTheme
+                              .labelSmall
+                              ?.copyWith(color: colors.textSecondary),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          unsolvedMistakes == 0
+                              ? 'Tertemiz'
+                              : '$unsolvedMistakes bekleyen',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: Theme.of(context)
+                              .textTheme
+                              .titleSmall
+                              ?.copyWith(
+                                color: unsolvedMistakes == 0
+                                    ? colors.success
+                                    : colors.warning,
+                                fontWeight: FontWeight.w800,
+                              ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Container(
+                    width: 38,
+                    height: 38,
+                    decoration: BoxDecoration(
+                      color: colors.warning.withValues(
+                        alpha: colors.isDark ? 0.16 : 0.12,
+                      ),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Icon(
+                      Icons.collections_bookmark_outlined,
+                      color: colors.warning,
+                      size: 20,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
@@ -702,19 +1493,50 @@ class _ActivitySection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(children: [
-      Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-        Text('Son Aktiviteler', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700)),
-        TextButton(onPressed: onShowAll, child: Text('Tümü', style: TextStyle(color: AppColors.of(context).primary))),
-      ]),
-      const SizedBox(height: 6),
-      if (activity.isEmpty) Container(padding: const EdgeInsets.all(18), decoration: BoxDecoration(color: AppColors.of(context).surface, borderRadius: BorderRadius.circular(20), border: Border.all(color: Colors.white.withOpacity(0.05))), child: Row(children: [
-        Container(width: 40, height: 40, decoration: BoxDecoration(color: AppColors.of(context).surfaceLight, borderRadius: BorderRadius.circular(14)), child: const Icon(Icons.timeline, color: Colors.white54)),
-        const SizedBox(width: 12),
-        Expanded(child: Text('Henüz etkinlik yok. İlk kaydın burada görünecek.', style: Theme.of(context).textTheme.bodySmall?.copyWith(color: AppColors.of(context).textSecondary))),
-      ]))
-      else Column(children: activity.map((item) => _ActivityCard(item: item)).toList()),
-    ]);
+    final colors = AppColors.of(context);
+    return Column(
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              'Son Aktiviteler',
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    color: colors.textPrimary,
+                    fontWeight: FontWeight.w700,
+                  ),
+            ),
+            TextButton(
+              onPressed: onShowAll,
+              child: const Text('Tümü'),
+            ),
+          ],
+        ),
+        const SizedBox(height: 4),
+        if (activity.isEmpty)
+          GlassPanel(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              children: [
+                Icon(Icons.history_rounded, color: colors.textMuted, size: 22),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    'Bu aralıkta henüz kayıt yok.',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: colors.textSecondary,
+                        ),
+                  ),
+                ),
+              ],
+            ),
+          )
+        else
+          Column(
+            children: activity.map((item) => _ActivityCard(item: item)).toList(),
+          ),
+      ],
+    );
   }
 }
 
@@ -724,148 +1546,498 @@ class _ActivityCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(color: AppColors.of(context).surface, borderRadius: BorderRadius.circular(18), border: Border.all(color: Colors.white.withOpacity(0.05))),
-      child: Row(children: [
-        Container(width: 38, height: 38, decoration: BoxDecoration(color: AppColors.of(context).surfaceLight, borderRadius: BorderRadius.circular(14), border: Border.all(color: item.accentColor.withOpacity(0.5))), child: Icon(item.icon, color: item.accentColor)),
-        const SizedBox(width: 12),
-        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(item.title, style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: AppColors.of(context).textPrimary, fontWeight: FontWeight.w700)),
-          const SizedBox(height: 4),
-          Text(item.subtitle, style: Theme.of(context).textTheme.bodySmall?.copyWith(color: AppColors.of(context).textSecondary)),
-        ])),
-        Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
-          Text(item.timeLabel, style: Theme.of(context).textTheme.labelSmall?.copyWith(color: AppColors.of(context).textSecondary)),
-          const SizedBox(height: 6),
-          Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4), decoration: BoxDecoration(color: item.accentColor.withOpacity(0.15), borderRadius: BorderRadius.circular(10)), child: Text(item.badge, style: Theme.of(context).textTheme.labelSmall?.copyWith(color: item.accentColor, fontWeight: FontWeight.w700))),
-        ]),
-      ]),
+    final colors = AppColors.of(context);
+    final subjectStyle = SubjectColors.of(
+      item.subjectForColor,
+      isDark: colors.isDark,
+    );
+    final card = InkWell(
+      onTap: () => _showActivityDetailSheet(context, item),
+      borderRadius: BorderRadius.circular(18),
+      child: GlassPanel(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        radius: BorderRadius.circular(18),
+        child: Row(
+          children: [
+            Container(
+              width: 38,
+              height: 38,
+              decoration: BoxDecoration(
+                color: subjectStyle.tint,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(item.icon, color: subjectStyle.accent, size: 20),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    item.title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: colors.textPrimary,
+                          fontWeight: FontWeight.w700,
+                        ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    item.subtitle,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: colors.textSecondary,
+                        ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 10),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Text(
+                  item.timeLabel,
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                        color: colors.textMuted,
+                      ),
+                ),
+                const SizedBox(height: 4),
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: subjectStyle.tint,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    item.badge,
+                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                          color: subjectStyle.accent,
+                          fontWeight: FontWeight.w700,
+                        ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+
+    final deleteKey = item.questionEntry?.id ?? item.mockExam?.id;
+    if (deleteKey == null) {
+      return Padding(
+        padding: const EdgeInsets.only(bottom: 10),
+        child: card,
+      );
+    }
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Dismissible(
+        key: ValueKey('activity_$deleteKey'),
+        direction: DismissDirection.endToStart,
+        background: Container(
+          alignment: Alignment.centerRight,
+          padding: const EdgeInsets.only(right: 20),
+          decoration: BoxDecoration(
+            color: colors.danger,
+            borderRadius: BorderRadius.circular(18),
+          ),
+          child: const Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.delete_outline_rounded, color: Colors.white, size: 20),
+              SizedBox(width: 6),
+              Text(
+                'Sil',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ),
+        ),
+        confirmDismiss: (_) async {
+          if (item.questionEntry != null) {
+            return deleteQuestionEntryWithUndo(context, item.questionEntry!);
+          }
+          if (item.mockExam != null) {
+            return deleteMockExamWithUndo(context, item.mockExam!);
+          }
+          return false;
+        },
+        child: card,
+      ),
     );
   }
 }
 
-class _EmptyStateHero extends StatelessWidget {
-  const _EmptyStateHero({required this.onQuickAdd});
-  final VoidCallback onQuickAdd;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(color: AppColors.of(context).surface, borderRadius: BorderRadius.circular(22), border: Border.all(color: Colors.white.withOpacity(0.05))),
-      child: Row(children: [
-        Container(width: 60, height: 60, decoration: BoxDecoration(color: AppColors.of(context).surfaceLight, borderRadius: BorderRadius.circular(18)), child: Icon(Icons.insights, color: AppColors.of(context).primary)),
-        const SizedBox(width: 14),
-        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text('Henüz veri yok', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700)),
-          const SizedBox(height: 6),
-          Text('İlk soru veya denemeni ekleyerek dashboardu doldur.', style: Theme.of(context).textTheme.bodySmall?.copyWith(color: AppColors.of(context).textSecondary)),
-          const SizedBox(height: 8),
-          TextButton.icon(onPressed: onQuickAdd, icon: Icon(Icons.bolt, color: AppColors.of(context).primary), label: Text('Hızlı Ekle', style: TextStyle(color: AppColors.of(context).primary))),
-        ])),
-      ]),
-    );
-  }
+void _showActivityDetailSheet(BuildContext context, _ActivityItem item) {
+  final colors = AppColors.of(context);
+  showModalBottomSheet<void>(
+    context: context,
+    backgroundColor: colors.surface,
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+    ),
+    builder: (sheetContext) {
+      final q = item.questionEntry;
+      final e = item.mockExam;
+      return SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 14, 20, 20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: colors.border,
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 14),
+              Text(
+                item.title,
+                style: Theme.of(sheetContext).textTheme.titleMedium?.copyWith(
+                      color: colors.textPrimary,
+                      fontWeight: FontWeight.w800,
+                    ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                '${item.subtitle} • ${item.timeLabel}',
+                style: Theme.of(sheetContext).textTheme.bodySmall?.copyWith(
+                      color: colors.textSecondary,
+                    ),
+              ),
+              const SizedBox(height: 16),
+              if (q != null)
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    _MiniPill(label: 'Doğru ${q.correct}', color: colors.success),
+                    _MiniPill(label: 'Yanlış ${q.wrong}', color: colors.danger),
+                    _MiniPill(label: 'Boş ${q.blank}', color: colors.warning),
+                    _MiniPill(label: '${q.minutes} dk', color: colors.primary),
+                  ],
+                ),
+              if (e != null)
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    _MiniPill(
+                      label: '${e.totalNet.toStringAsFixed(1)} net',
+                      color: colors.primary,
+                    ),
+                    _MiniPill(label: 'Doğru ${e.correct}', color: colors.success),
+                    _MiniPill(label: 'Yanlış ${e.wrong}', color: colors.danger),
+                    _MiniPill(label: 'Boş ${e.blank}', color: colors.warning),
+                    _MiniPill(label: '${e.minutes} dk', color: colors.textSecondary),
+                  ],
+                ),
+              const SizedBox(height: 18),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: () async {
+                    bool deleted = false;
+                    if (q != null) {
+                      deleted = await deleteQuestionEntryWithUndo(context, q);
+                    } else if (e != null) {
+                      deleted = await deleteMockExamWithUndo(context, e);
+                    }
+                    if (deleted && sheetContext.mounted) {
+                      Navigator.of(sheetContext).pop();
+                    }
+                  },
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: colors.danger,
+                    side: BorderSide(color: colors.danger.withValues(alpha: 0.45)),
+                  ),
+                  icon: const Icon(Icons.delete_outline_rounded, size: 19),
+                  label: const Text('Kaydı Sil'),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    },
+  );
 }
 
-class _ExamCountdownCard extends StatelessWidget {
-  const _ExamCountdownCard({required this.examDate});
-  final DateTime examDate;
-
-  @override
-  Widget build(BuildContext context) {
-    final now = DateTime.now();
-    final difference = examDate.difference(now);
-    final days = max(0, difference.inDays);
-    final isPassed = difference.isNegative;
-    Color statusColor = AppColors.of(context).primary;
-    if (days < 30) statusColor = AppColors.of(context).danger;
-    else if (days < 60) statusColor = Colors.orangeAccent;
-
-    return GlassPanel(
-      padding: const EdgeInsets.all(16),
-      radius: BorderRadius.circular(20),
-      child: Row(children: [
-        Container(width: 44, height: 44, decoration: BoxDecoration(color: statusColor.withOpacity(0.15), borderRadius: BorderRadius.circular(14)), child: Icon(Icons.event_available, color: statusColor)),
-        const SizedBox(width: 14),
-        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text('Sınav Takvimi', style: Theme.of(context).textTheme.labelSmall?.copyWith(color: AppColors.of(context).textSecondary, fontWeight: FontWeight.w700, letterSpacing: 1)),
-          const SizedBox(height: 2),
-          Text(isPassed ? 'Sınav Tamamlandı' : '$days Gün Kaldı', style: Theme.of(context).textTheme.titleMedium?.copyWith(color: Colors.white, fontWeight: FontWeight.w800)),
-        ])),
-        if (!isPassed) _MiniProgressIndicator(total: 365, remaining: 365 - days, color: statusColor),
-      ]),
-    );
-  }
-}
-
-class _MiniProgressIndicator extends StatelessWidget {
-  const _MiniProgressIndicator({required this.total, required this.remaining, required this.color});
-  final int total;
-  final int remaining;
+class _MiniPill extends StatelessWidget {
+  const _MiniPill({required this.label, required this.color});
+  final String label;
   final Color color;
 
   @override
   Widget build(BuildContext context) {
-    final ratio = (remaining / total).clamp(0.0, 1.0);
-    return Stack(alignment: Alignment.center, children: [
-      SizedBox(width: 40, height: 40, child: CircularProgressIndicator(value: ratio, strokeWidth: 4, backgroundColor: Colors.white10, valueColor: AlwaysStoppedAnimation<Color>(color))),
-      Text('%${(ratio * 100).round()}', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.white)),
-    ]);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Text(
+        label,
+        style: Theme.of(context).textTheme.labelMedium?.copyWith(
+              color: color,
+              fontWeight: FontWeight.w700,
+            ),
+      ),
+    );
   }
 }
 
 class _ActivityItem {
-  _ActivityItem({required this.title, required this.subtitle, required this.timeLabel, required this.badge, required this.icon, required this.accentColor, required this.timestamp});
+  _ActivityItem({
+    required this.title,
+    required this.subtitle,
+    required this.timeLabel,
+    required this.badge,
+    required this.icon,
+    required this.subjectForColor,
+    required this.timestamp,
+    this.questionEntry,
+    this.mockExam,
+  });
+
   final String title;
   final String subtitle;
   final String timeLabel;
   final String badge;
   final IconData icon;
-  final Color accentColor;
+  final String subjectForColor;
   final DateTime timestamp;
+  final QuestionEntry? questionEntry;
+  final MockExam? mockExam;
 }
 
-List<_ActivityItem> _buildActivity(BuildContext context, List<QuestionEntry> questionEntries, List<MockExam> mockExams) {
-  final items = <_ActivityItem>[];
-  for (final entry in questionEntries) {
-    items.add(_ActivityItem(title: entry.bookName.isNotEmpty ? entry.bookName : (entry.topic.isEmpty ? 'Soru Kaydı' : entry.topic), subtitle: '${entry.subject} • ${entry.total} soru', timeLabel: _formatTime(entry.createdAt), badge: '${entry.correct} doğru', icon: Icons.quiz, accentColor: AppColors.of(context).primary, timestamp: entry.createdAt));
+List<QuestionEntry> _filterQuestionsByRange(
+  List<QuestionEntry> entries,
+  int rangeIndex,
+) {
+  final now = DateTime.now();
+  if (rangeIndex == 0) {
+    return entries.where((e) => _isSameDay(e.createdAt, now)).toList();
   }
-  for (final exam in mockExams) {
-    items.add(_ActivityItem(title: exam.title.isEmpty ? 'Deneme' : exam.title, subtitle: '${exam.totalNet.toStringAsFixed(1)} net', timeLabel: _formatTime(exam.createdAt), badge: '${exam.totalNet.toStringAsFixed(1)} net', icon: Icons.school, accentColor: AppColors.of(context).success, timestamp: exam.createdAt));
-  }
-  items.sort((a, b) => b.timestamp.compareTo(a.timestamp));
-  return items.take(3).toList();
+  final days = rangeIndex == 1 ? 7 : 30;
+  final cutoff = DateTime(now.year, now.month, now.day)
+      .subtract(Duration(days: days - 1));
+  return entries.where((e) => !e.createdAt.isBefore(cutoff)).toList();
 }
 
-void _showActivitySheet(BuildContext context, List<QuestionEntry> questionEntries, List<MockExam> mockExams) {
+List<MockExam> _filterExamsByRange(List<MockExam> exams, int rangeIndex) {
+  final now = DateTime.now();
+  if (rangeIndex == 0) {
+    return exams.where((e) => _isSameDay(e.createdAt, now)).toList();
+  }
+  final days = rangeIndex == 1 ? 7 : 30;
+  final cutoff = DateTime(now.year, now.month, now.day)
+      .subtract(Duration(days: days - 1));
+  return exams.where((e) => !e.createdAt.isBefore(cutoff)).toList();
+}
+
+int _rangeGoal(int dailyGoal, int rangeIndex) {
+  if (rangeIndex == 0) return dailyGoal;
+  if (rangeIndex == 1) return dailyGoal * 7;
+  return dailyGoal * 30;
+}
+
+List<_ActivityItem> _buildAllActivityItems(
+  BuildContext context,
+  List<QuestionEntry> questionEntries,
+  List<MockExam> mockExams,
+) {
   final items = <_ActivityItem>[];
   for (final entry in questionEntries) {
-    items.add(_ActivityItem(title: entry.bookName.isNotEmpty ? entry.bookName : (entry.topic.isEmpty ? 'Soru Kaydı' : entry.topic), subtitle: '${entry.subject} • ${entry.total} soru', timeLabel: _formatTime(entry.createdAt), badge: '${entry.correct} doğru', icon: Icons.quiz, accentColor: AppColors.of(context).primary, timestamp: entry.createdAt));
+    items.add(
+      _ActivityItem(
+        title: entry.bookName.isNotEmpty
+            ? entry.bookName
+            : (entry.topic.isEmpty ? 'Soru Kaydı' : entry.topic),
+        subtitle: '${entry.subject} • ${entry.total} soru',
+        timeLabel: _formatTime(entry.createdAt),
+        badge: '${entry.correct} doğru',
+        icon: Icons.edit_note_rounded,
+        subjectForColor: entry.subject,
+        timestamp: entry.createdAt,
+        questionEntry: entry,
+      ),
+    );
   }
   for (final exam in mockExams) {
-    items.add(_ActivityItem(title: exam.title.isEmpty ? 'Deneme' : exam.title, subtitle: '${exam.totalNet.toStringAsFixed(1)} net', timeLabel: _formatTime(exam.createdAt), badge: '${exam.totalNet.toStringAsFixed(1)} net', icon: Icons.school, accentColor: AppColors.of(context).success, timestamp: exam.createdAt));
+    items.add(
+      _ActivityItem(
+        title: exam.title.isEmpty ? 'Deneme' : exam.title,
+        subtitle: '${exam.scopeSummary} • ${exam.examType}',
+        timeLabel: _formatTime(exam.createdAt),
+        badge: '${exam.totalNet.toStringAsFixed(1)} net',
+        icon: Icons.assignment_turned_in_outlined,
+        subjectForColor:
+            exam.focusSubject.isNotEmpty ? exam.focusSubject : exam.examType,
+        timestamp: exam.createdAt,
+        mockExam: exam,
+      ),
+    );
   }
   items.sort((a, b) => b.timestamp.compareTo(a.timestamp));
+  return items;
+}
+
+List<_ActivityItem> _buildActivity(
+  BuildContext context,
+  List<QuestionEntry> questionEntries,
+  List<MockExam> mockExams,
+) {
+  return _buildAllActivityItems(context, questionEntries, mockExams)
+      .take(3)
+      .toList();
+}
+
+void _showActivitySheet(
+  BuildContext context,
+  List<QuestionEntry> _,
+  List<MockExam> __,
+) {
+  final repository = AppRepositoryScope.of(context);
+  var filterIndex = 0;
 
   showModalBottomSheet(
-    context: context, isScrollControlled: true, backgroundColor: Colors.transparent,
+    context: context,
+    isScrollControlled: true,
+    backgroundColor: Colors.transparent,
     builder: (sheetContext) {
-      return DraggableScrollableSheet(
-        initialChildSize: 0.7, minChildSize: 0.4, maxChildSize: 0.95,
-        builder: (context, controller) {
-          return Container(
-            decoration: BoxDecoration(color: AppColors.of(context).surface, borderRadius: const BorderRadius.vertical(top: Radius.circular(24)), border: Border.all(color: Colors.white.withOpacity(0.08))),
-            child: Column(children: [
-              const SizedBox(height: 8),
-              Container(width: 44, height: 4, decoration: BoxDecoration(color: Colors.white.withOpacity(0.2), borderRadius: BorderRadius.circular(999))),
-              const SizedBox(height: 12),
-              Text('Tüm Aktiviteler', style: Theme.of(context).textTheme.titleMedium?.copyWith(color: Colors.white, fontWeight: FontWeight.w700)),
-              const SizedBox(height: 8),
-              Expanded(child: items.isEmpty ? Center(child: Text('Henüz kayıt yok.', style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.white54))) : ListView.builder(controller: controller, padding: const EdgeInsets.all(16), itemCount: items.length, itemBuilder: (_, index) => _ActivityCard(item: items[index]))),
-            ]),
+      return StatefulBuilder(
+        builder: (sheetContext, setModalState) {
+          return DraggableScrollableSheet(
+            initialChildSize: 0.75,
+            minChildSize: 0.4,
+            maxChildSize: 0.95,
+            builder: (context, controller) {
+              return ValueListenableBuilder<List<QuestionEntry>>(
+                valueListenable: repository.questionEntries,
+                builder: (context, liveQuestions, _) {
+                  return ValueListenableBuilder<List<MockExam>>(
+                    valueListenable: repository.mockExams,
+                    builder: (context, liveExams, __) {
+                      final allItems = _buildAllActivityItems(
+                        context,
+                        filterIndex == 2 ? const [] : liveQuestions,
+                        filterIndex == 1 ? const [] : liveExams,
+                      );
+                      final colors = AppColors.of(context);
+
+                      return Container(
+                        decoration: BoxDecoration(
+                          color: colors.background,
+                          borderRadius: const BorderRadius.vertical(
+                            top: Radius.circular(24),
+                          ),
+                          border: Border.all(color: colors.border),
+                        ),
+                        child: Column(
+                          children: [
+                            const SizedBox(height: 8),
+                            Container(
+                              width: 44,
+                              height: 4,
+                              decoration: BoxDecoration(
+                                color: colors.border,
+                                borderRadius: BorderRadius.circular(999),
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            Text(
+                              'Tüm Aktiviteler (${allItems.length})',
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .titleMedium
+                                  ?.copyWith(
+                                    color: colors.textPrimary,
+                                    fontWeight: FontWeight.w800,
+                                  ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              'Silmek için sola kaydır veya kayda dokun',
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .labelSmall
+                                  ?.copyWith(color: colors.textMuted),
+                            ),
+                            const SizedBox(height: 10),
+                            Padding(
+                              padding:
+                                  const EdgeInsets.symmetric(horizontal: 16),
+                              child: Row(
+                                children: [
+                                  ChoiceChip(
+                                    label: const Text('Tümü'),
+                                    selected: filterIndex == 0,
+                                    onSelected: (_) =>
+                                        setModalState(() => filterIndex = 0),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  ChoiceChip(
+                                    label: Text('Sorular (${liveQuestions.length})'),
+                                    selected: filterIndex == 1,
+                                    onSelected: (_) =>
+                                        setModalState(() => filterIndex = 1),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  ChoiceChip(
+                                    label: Text('Denemeler (${liveExams.length})'),
+                                    selected: filterIndex == 2,
+                                    onSelected: (_) =>
+                                        setModalState(() => filterIndex = 2),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Expanded(
+                              child: allItems.isEmpty
+                                  ? Center(
+                                      child: Text(
+                                        'Bu kategoride kayıt yok.',
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .bodySmall
+                                            ?.copyWith(
+                                              color: colors.textSecondary,
+                                            ),
+                                      ),
+                                    )
+                                  : ListView.builder(
+                                      controller: controller,
+                                      padding: const EdgeInsets.all(16),
+                                      itemCount: allItems.length,
+                                      itemBuilder: (_, index) =>
+                                          _ActivityCard(item: allItems[index]),
+                                    ),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                  );
+                },
+              );
+            },
           );
         },
       );
@@ -873,144 +2045,191 @@ void _showActivitySheet(BuildContext context, List<QuestionEntry> questionEntrie
   );
 }
 
-int _countTodayQuestions(List<QuestionEntry> entries) {
-  final now = DateTime.now();
-  return entries.where((entry) => _isSameDay(entry.createdAt, now)).fold(0, (sum, entry) => sum + entry.total);
+void _showNotificationsSheet(BuildContext context, AppRepository repository) {
+  final colors = AppColors.of(context);
+  showModalBottomSheet<void>(
+    context: context,
+    backgroundColor: colors.surface,
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+    ),
+    builder: (context) {
+      return ValueListenableBuilder(
+        valueListenable: repository.notifications,
+        builder: (context, notifications, _) {
+          return SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      SvgPicture.asset(
+                        'assets/images/KISTAS.svg',
+                        height: 24,
+                        colorFilter: ColorFilter.mode(
+                          colors.primary,
+                          BlendMode.srcIn,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          'Bildirimler',
+                          style:
+                              Theme.of(context).textTheme.titleMedium?.copyWith(
+                                    color: colors.textPrimary,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                        ),
+                      ),
+                      if (notifications.isNotEmpty) ...[
+                        TextButton(
+                          onPressed: () => repository.markAllNotificationsRead(),
+                          child: const Text('Okundu'),
+                        ),
+                        TextButton(
+                          onPressed: () => repository.clearNotifications(),
+                          child: Text(
+                            'Temizle',
+                            style: TextStyle(color: colors.danger),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  if (notifications.isEmpty)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 20),
+                      child: Center(
+                        child: Text(
+                          'Henüz bildirim yok.',
+                          style:
+                              Theme.of(context).textTheme.bodySmall?.copyWith(
+                                    color: colors.textSecondary,
+                                  ),
+                        ),
+                      ),
+                    )
+                  else
+                    Flexible(
+                      child: ListView.separated(
+                        shrinkWrap: true,
+                        itemCount: notifications.length,
+                        separatorBuilder: (_, __) =>
+                            Divider(color: colors.divider),
+                        itemBuilder: (context, index) {
+                          final item = notifications[index];
+                          return ListTile(
+                            onTap: () =>
+                                repository.markNotificationRead(item.id),
+                            contentPadding: EdgeInsets.zero,
+                            leading: item.unread
+                                ? Container(
+                                    width: 8,
+                                    height: 8,
+                                    decoration: BoxDecoration(
+                                      shape: BoxShape.circle,
+                                      color: colors.primary,
+                                    ),
+                                  )
+                                : const SizedBox(width: 8),
+                            title: Text(
+                              item.title,
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .bodyMedium
+                                  ?.copyWith(
+                                    color: colors.textPrimary,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                            ),
+                            subtitle: Text(
+                              item.body,
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .bodySmall
+                                  ?.copyWith(color: colors.textSecondary),
+                            ),
+                            trailing: Text(
+                              _formatTime(item.createdAt),
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .labelSmall
+                                  ?.copyWith(color: colors.textMuted),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          );
+        },
+      );
+    },
+  );
 }
 
 double? _averageNet(List<MockExam> exams) {
   if (exams.isEmpty) return null;
-  return exams.fold<double>(0, (sum, item) => sum + item.totalNet) / exams.length;
+  return exams.fold<double>(0, (sum, item) => sum + item.totalNet) /
+      exams.length;
 }
 
 double? _overallAccuracy(List<QuestionEntry> entries) {
   if (entries.isEmpty) return null;
-  final correct = entries.fold<int>(0, (sum, entry) => sum + entry.effectiveCorrect);
+  final correct =
+      entries.fold<int>(0, (sum, entry) => sum + entry.effectiveCorrect);
   final total = entries.fold<int>(0, (sum, entry) => sum + entry.total);
   return total == 0 ? null : correct / total;
 }
 
-int _totalQuestions(List<QuestionEntry> entries) => entries.fold<int>(0, (sum, entry) => sum + entry.total);
+int _totalQuestions(List<QuestionEntry> entries) =>
+    entries.fold<int>(0, (sum, entry) => sum + entry.total);
 
-TopicProgress? _pickFocusTopic(AppRepository repository, List<QuestionEntry> entries) {
-  if (entries.isEmpty) return null;
-  final progress = repository.buildTopicProgress();
-  progress.sort((a, b) {
-    if (a.lastStudied == null && b.lastStudied == null) return 0;
-    if (a.lastStudied == null) return 1;
-    if (b.lastStudied == null) return -1;
-    return b.lastStudied!.compareTo(a.lastStudied!);
-  });
-  return progress.firstWhere((item) => item.totalQuestions > 0, orElse: () => progress.first);
-}
-
-bool _isSameDay(DateTime a, DateTime b) => a.year == b.year && a.month == b.month && a.day == b.day;
+bool _isSameDay(DateTime a, DateTime b) =>
+    a.year == b.year && a.month == b.month && a.day == b.day;
 
 String _formatToday(DateTime date) {
-  final months = ['Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran', 'Temmuz', 'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık'];
-  return 'Bugün, ${date.day} ${months[date.month - 1]}';
+  const months = [
+    'Ocak',
+    'Şubat',
+    'Mart',
+    'Nisan',
+    'Mayıs',
+    'Haziran',
+    'Temmuz',
+    'Ağustos',
+    'Eylül',
+    'Ekim',
+    'Kasım',
+    'Aralık',
+  ];
+  const weekdays = [
+    'Pazartesi',
+    'Salı',
+    'Çarşamba',
+    'Perşembe',
+    'Cuma',
+    'Cumartesi',
+    'Pazar',
+  ];
+  return '${date.day} ${months[date.month - 1]}, ${weekdays[date.weekday - 1]}';
 }
 
-String _formatTime(DateTime date) => '${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
-
-String _formatDateTime(DateTime dateTime) => '${dateTime.day.toString().padLeft(2, '0')}.${dateTime.month.toString().padLeft(2, '0')} ${dateTime.hour.toString().padLeft(2, '0')}:${dateTime.minute.toString().padLeft(2, '0')}';
+String _formatTime(DateTime date) {
+  final h = date.hour.toString().padLeft(2, '0');
+  final m = date.minute.toString().padLeft(2, '0');
+  return '$h:$m';
+}
 
 String _formatTimer(int totalSeconds) {
   final m = (totalSeconds ~/ 60).toString().padLeft(2, '0');
   final s = (totalSeconds % 60).toString().padLeft(2, '0');
   return '$m:$s';
-}
-
-void _showNotificationsSheet(BuildContext context, AppRepository repository) {
-  showModalBottomSheet<void>(
-    context: context, backgroundColor: AppColors.of(context).surface, shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
-    builder: (context) {
-      return ValueListenableBuilder(
-        valueListenable: repository.notifications,
-        builder: (context, notifications, _) {
-          return Padding(
-            padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
-            child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Row(children: [
-                SvgPicture.asset('assets/images/KISTAS.svg', height: 28),
-                const SizedBox(width: 16),
-                Text('Bildirimler', style: Theme.of(context).textTheme.titleLarge?.copyWith(color: Colors.white, fontWeight: FontWeight.w700)),
-              ]),
-              const SizedBox(height: 8),
-              Row(children: [
-                TextButton(onPressed: notifications.isEmpty ? null : () => repository.markAllNotificationsRead(), child: const Text('Okundu Yap')),
-                const SizedBox(width: 8),
-                TextButton(onPressed: notifications.isEmpty ? null : () => repository.clearNotifications(), child: const Text('Temizle')),
-              ]),
-              const SizedBox(height: 12),
-              if (notifications.isEmpty) Text('Henüz bildirim yok.', style: Theme.of(context).textTheme.bodySmall?.copyWith(color: AppColors.of(context).textSecondary))
-              else Flexible(child: ListView.separated(shrinkWrap: true, itemCount: notifications.length, separatorBuilder: (_, __) => const Divider(color: Colors.white12), itemBuilder: (context, index) {
-                final item = notifications[index];
-                return ListTile(
-                  onTap: () => repository.markNotificationRead(item.id),
-                  contentPadding: EdgeInsets.zero,
-                  leading: item.unread ? Container(width: 8, height: 8, decoration: BoxDecoration(shape: BoxShape.circle, color: AppColors.of(context).primary)) : const SizedBox(width: 8),
-                  title: Text(item.title, style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Colors.white, fontWeight: FontWeight.w600)),
-                  subtitle: Text(item.body, style: Theme.of(context).textTheme.bodySmall?.copyWith(color: AppColors.of(context).textSecondary)),
-                  trailing: Text(_formatTime(item.createdAt), style: Theme.of(context).textTheme.labelSmall?.copyWith(color: AppColors.of(context).textSecondary)),
-                );
-              })),
-            ]),
-          );
-        },
-      );
-    },
-  );
-}
-
-Future<void> _requestAiPlan(BuildContext context, AppRepository repository) async {
-  final apiKey = repository.geminiApiKey.value;
-  if (apiKey.isEmpty) { InAppNotice.show(context, 'Gemini anahtarını profilden ekle.'); return; }
-  final userNeed = await showDialog<String>(context: context, builder: (context) {
-    final controller = TextEditingController();
-    return AlertDialog(title: const Text('Derdi Anlat'), content: TextField(controller: controller, maxLines: 5, decoration: const InputDecoration(hintText: 'Örn: Matematikte zorlanıyorum...')), actions: [
-      TextButton(onPressed: () => Navigator.pop(context), child: const Text('Vazgeç')),
-      ElevatedButton(onPressed: () => Navigator.pop(context, controller.text), child: const Text('Program İste')),
-    ]);
-  });
-  if (userNeed == null || userNeed.trim().isEmpty) return;
-
-  final closeLoading = _showLoadingDialog(context, 'AI program hazırlanıyor...');
-  try {
-    final result = await GeminiClient().generateText(apiKey: apiKey, prompt: 'Kullanıcı derdi: $userNeed. 7 günlük KPSS programı yap.', model: repository.geminiModel.value.isEmpty ? 'gemini-1.5-flash-latest' : repository.geminiModel.value);
-    await repository.setAiProgram(result);
-    closeLoading();
-    if (context.mounted) AiResponseDialog.show(context, 'AI Programı', result);
-  } catch (_) { closeLoading(); InAppNotice.show(context, 'AI program alınamadı.'); }
-}
-
-Future<void> Function() _showLoadingDialog(BuildContext context, String title) {
-  bool isOpen = false;
-  AiLoadingDialog.show(context, status: title).then((_) {
-    isOpen = false;
-  });
-  isOpen = true;
-
-  return () async {
-    await Future.delayed(const Duration(milliseconds: 500));
-    if (isOpen && context.mounted) {
-      Navigator.of(context, rootNavigator: true).pop();
-      isOpen = false;
-    }
-  };
-}
-
-int _calculateStreak(List<QuestionEntry> entries, List<MockExam> exams) {
-  final activityDates = <DateTime>{};
-  for (final entry in entries) { activityDates.add(DateTime(entry.createdAt.year, entry.createdAt.month, entry.createdAt.day)); }
-  for (final exam in exams) { activityDates.add(DateTime(exam.createdAt.year, exam.createdAt.month, exam.createdAt.day)); }
-  if (activityDates.isEmpty) return 0;
-  var streak = 0;
-  var current = DateTime.now();
-  while (true) {
-    if (!activityDates.contains(DateTime(current.year, current.month, current.day))) break;
-    streak++;
-    current = current.subtract(const Duration(days: 1));
-  }
-  return streak;
 }

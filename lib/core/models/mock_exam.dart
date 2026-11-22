@@ -13,6 +13,9 @@ class MockExam {
     this.subjectNets = const {},
     this.subjectMinutes = const {},
     this.examType = 'Genel',
+    this.examScope = 'Genel Deneme',
+    this.focusSubject = '',
+    this.focusTopic = '',
   });
 
   final String id;
@@ -28,6 +31,29 @@ class MockExam {
   final Map<String, double> subjectNets;
   final Map<String, int> subjectMinutes;
   final String examType;
+  final String examScope; // 'Genel Deneme', 'Branş Denemesi', 'Konu Denemesi', etc.
+  final String focusSubject;
+  final String focusTopic;
+
+  bool get isTopicExam =>
+      examScope == 'Konu Denemesi' || focusTopic.trim().isNotEmpty;
+
+  bool get isBranchExam =>
+      examScope == 'Branş Denemesi' && focusTopic.trim().isEmpty;
+
+  String get scopeSummary {
+    if (isTopicExam) {
+      final parts = [
+        if (focusSubject.isNotEmpty) focusSubject,
+        if (focusTopic.isNotEmpty) focusTopic,
+      ];
+      return parts.isEmpty ? 'Konu Denemesi' : 'Konu Denemesi • ${parts.join(' - ')}';
+    }
+    if (isBranchExam && focusSubject.isNotEmpty) {
+      return 'Branş • $focusSubject';
+    }
+    return examScope;
+  }
 
   Map<String, dynamic> toJson() {
     return {
@@ -44,6 +70,9 @@ class MockExam {
       'subjectNets': subjectNets,
       'subjectMinutes': subjectMinutes,
       'examType': examType,
+      'examScope': examScope,
+      'focusSubject': focusSubject,
+      'focusTopic': focusTopic,
     };
   }
 
@@ -55,16 +84,12 @@ class MockExam {
       for (final entry in rawNets.entries) {
         final key = entry.key?.toString();
         final value = entry.value;
-        if (key == null) {
-          continue;
-        }
+        if (key == null) continue;
         if (value is num) {
           nets[key] = value.toDouble();
         } else if (value is String) {
           final parsed = double.tryParse(value);
-          if (parsed != null) {
-            nets[key] = parsed;
-          }
+          if (parsed != null) nets[key] = parsed;
         }
       }
     }
@@ -73,16 +98,12 @@ class MockExam {
       for (final entry in rawMinutes.entries) {
         final key = entry.key?.toString();
         final value = entry.value;
-        if (key == null) {
-          continue;
-        }
+        if (key == null) continue;
         if (value is num) {
           minutes[key] = value.round();
         } else if (value is String) {
           final parsed = int.tryParse(value);
-          if (parsed != null) {
-            minutes[key] = parsed;
-          }
+          if (parsed != null) minutes[key] = parsed;
         }
       }
     }
@@ -101,6 +122,9 @@ class MockExam {
       subjectNets: nets,
       subjectMinutes: minutes,
       examType: json['examType'] as String? ?? 'Genel',
+      examScope: json['examScope'] as String? ?? 'Genel Deneme',
+      focusSubject: json['focusSubject'] as String? ?? '',
+      focusTopic: json['focusTopic'] as String? ?? '',
     );
   }
 }

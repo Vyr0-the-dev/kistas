@@ -8,6 +8,7 @@ import 'package:package_info_plus/package_info_plus.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 
+import '../../../core/models/exam_profile.dart';
 import '../../../core/models/mock_exam.dart';
 import '../../../core/models/question_entry.dart';
 import '../../../core/repositories/app_repository.dart';
@@ -15,8 +16,11 @@ import '../../../core/services/gemini_client.dart';
 import '../../../core/services/notification_service.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/widgets/ai_loading_dialog.dart';
+import '../../../core/widgets/delete_helpers.dart';
 import '../../../core/widgets/glass_panel.dart';
 import '../../../core/widgets/in_app_notice.dart';
+import '../../curriculum/screens/curriculum_hub_screen.dart';
+import '../../schedule/screens/weekly_schedule_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -27,16 +31,19 @@ class ProfileScreen extends StatefulWidget {
 
 class _ProfileScreenState extends State<ProfileScreen> {
   late final TextEditingController _apiKeyController;
+  late final TextEditingController _userNameController;
 
   @override
   void initState() {
     super.initState();
     _apiKeyController = TextEditingController();
+    _userNameController = TextEditingController();
   }
 
   @override
   void dispose() {
     _apiKeyController.dispose();
+    _userNameController.dispose();
     super.dispose();
   }
 
@@ -47,94 +54,198 @@ class _ProfileScreenState extends State<ProfileScreen> {
     if (_apiKeyController.text.isEmpty && repository.geminiApiKey.value.isNotEmpty) {
       _apiKeyController.text = repository.geminiApiKey.value;
     }
+    if (_userNameController.text.isEmpty && repository.userName.value.isNotEmpty) {
+      _userNameController.text = repository.userName.value;
+    }
 
     return SafeArea(
       child: ListView(
         padding: const EdgeInsets.fromLTRB(20, 24, 20, 140),
         children: [
           _buildBranding(context),
-          const SizedBox(height: 24),
-          _buildCollapsibleSection(
-            context,
-            title: 'Kişisel Hedefler',
-            icon: Icons.person_outline,
-            children: [
-              _buildActivityHeatmap(context, repository),
-              const SizedBox(height: 24),
-              ValueListenableBuilder<int>(
-                valueListenable: repository.dailyGoal,
-                builder: (context, goal, _) {
-                  return _GoalRow(
+          const SizedBox(height: 16),
+          ValueListenableBuilder<int>(
+            valueListenable: repository.dailyGoal,
+            builder: (context, goal, _) {
+              return _buildCollapsibleSection(
+                context,
+                title: 'Kişisel Hedefler',
+                subtitle: 'Günlük $goal soru',
+                icon: Icons.person_outline,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: _userNameController,
+                          decoration: const InputDecoration(
+                            labelText: 'Görünen İsim (Opsiyonel)',
+                            hintText: 'Örn: Ahmet',
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      ElevatedButton(
+                        onPressed: () async {
+                          await repository.setUserName(_userNameController.text);
+                          if (context.mounted) {
+                            _showSnack(context, 'İsim kaydedildi.');
+                          }
+                        },
+                        child: const Text('Kaydet'),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 20),
+                  _buildActivityHeatmap(context, repository),
+                  const SizedBox(height: 24),
+                  _GoalRow(
                     value: goal,
                     onDecrease: () => repository.setDailyGoal(goal - 5),
                     onIncrease: () => repository.setDailyGoal(goal + 5),
-                  );
-                },
-              ),
-              const Divider(color: Colors.white10, height: 24),
-              ValueListenableBuilder<DateTime>(
-                valueListenable: repository.examDate,
-                builder: (context, examDate, _) {
-                  return _ExamDateRow(
-                    value: examDate,
-                    onTap: () => _selectExamDate(context, repository, examDate),
-                  );
-                },
-              ),
-            ],
+                  ),
+                  Divider(color: AppColors.of(context).divider, height: 24),
+                  ValueListenableBuilder<DateTime>(
+                    valueListenable: repository.examDate,
+                    builder: (context, examDate, _) {
+                      return _ExamDateRow(
+                        value: examDate,
+                        onTap: () => _selectExamDate(context, repository, examDate),
+                      );
+                    },
+                  ),
+                ],
+              );
+            },
           ),
-          _buildCollapsibleSection(
-            context,
-            title: 'AI Asistanı (Gemini)',
-            icon: Icons.auto_awesome_outlined,
-            children: [
-              _AiConfigurationSection(
-                controller: _apiKeyController,
-                repository: repository,
-              ),
-              const Divider(color: Colors.white10, height: 32),
-              _AiUsageTracker(repository: repository),
-              const Divider(color: Colors.white10, height: 32),
-              _AiGoalSection(repository: repository),
-            ],
+          ValueListenableBuilder<List<ExamProfile>>(
+            valueListenable: repository.examProfiles,
+            builder: (context, profiles, _) {
+              return _buildCollapsibleSection(
+                context,
+                title: 'Dersler, Sınav Profilleri & Program',
+                subtitle: profiles.isEmpty
+                    ? 'Hazır paket ekle veya net kuralı seç'
+                    : '${profiles.length} profil aktif',
+                icon: Icons.school_outlined,
+                children: [
+                  _ProfileAction(
+                    title: 'Ders & Müfredat Merkezi',
+                    subtitle: 'KPSS, TYT, AYT, YDS, özel ders & AI oluşturucu',
+                    icon: Icons.auto_stories_outlined,
+                    onTap: () => Navigator.of(context, rootNavigator: true).push(
+                      MaterialPageRoute(
+                        builder: (_) => const CurriculumHubScreen(),
+                      ),
+                    ),
+                  ),
+                  Divider(color: AppColors.of(context).divider, height: 16),
+                  _ProfileAction(
+                    title: 'Haftalık Ders Programı',
+                    subtitle: 'Sürükle-bırak haftalık çalışma takvimi',
+                    icon: Icons.calendar_month_outlined,
+                    onTap: () => Navigator.of(context, rootNavigator: true).push(
+                      MaterialPageRoute(
+                        builder: (_) => const WeeklyScheduleScreen(),
+                      ),
+                    ),
+                  ),
+                  if (profiles.isNotEmpty) ...[
+                    Divider(color: AppColors.of(context).divider, height: 20),
+                    Text(
+                      'Sınav Profilleri & Net Kuralları',
+                      style: TextStyle(
+                        color: AppColors.of(context).textSecondary,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    ...profiles.map((profile) => _ExamProfileRow(
+                          profile: profile,
+                          onEdit: () => _editExamProfile(
+                            context,
+                            repository,
+                            profile,
+                          ),
+                        )),
+                  ],
+                ],
+              );
+            },
           ),
-          _buildCollapsibleSection(
-            context,
-            title: 'Bildirimler',
-            icon: Icons.notifications_none_outlined,
-            children: [
-              _ReminderSection(repository: repository),
-            ],
+          ValueListenableBuilder<String>(
+            valueListenable: repository.geminiApiKey,
+            builder: (context, apiKey, _) {
+              return _buildCollapsibleSection(
+                context,
+                title: 'AI Asistanı (Gemini)',
+                subtitle: apiKey.isEmpty ? 'API anahtarı eklenmedi' : 'Bağlı',
+                icon: Icons.auto_awesome_outlined,
+                children: [
+                  _AiConfigurationSection(
+                    controller: _apiKeyController,
+                    repository: repository,
+                  ),
+                  Divider(color: AppColors.of(context).divider, height: 32),
+                  _AiUsageTracker(repository: repository),
+                  Divider(color: AppColors.of(context).divider, height: 32),
+                  _AiGoalSection(repository: repository),
+                ],
+              );
+            },
           ),
-          _buildCollapsibleSection(
-            context,
-            title: 'Görünüm & Tema',
-            icon: Icons.palette_outlined,
-            children: [
-              ValueListenableBuilder<String>(
-                valueListenable: repository.themeKey,
-                builder: (context, themeKey, _) {
-                  return Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+          ValueListenableBuilder<bool>(
+            valueListenable: repository.reminderEnabled,
+            builder: (context, dailyOn, _) {
+              return ValueListenableBuilder<bool>(
+                valueListenable: repository.weeklyPlanEnabled,
+                builder: (context, weeklyOn, __) {
+                  final status = dailyOn && weeklyOn
+                      ? 'Günlük ve haftalık açık'
+                      : dailyOn
+                          ? 'Günlük hatırlatıcı açık'
+                          : weeklyOn
+                              ? 'Haftalık plan açık'
+                              : 'Kapalı';
+                  return _buildCollapsibleSection(
+                    context,
+                    title: 'Bildirimler',
+                    subtitle: status,
+                    icon: Icons.notifications_none_outlined,
                     children: [
-                      const Text(
-                        'Renk Teması',
-                        style: TextStyle(color: Colors.white54, fontSize: 12),
-                      ),
-                      const SizedBox(height: 16),
-                      _ThemeGrid(
-                        currentTheme: themeKey,
-                        onThemeSelected: repository.setTheme,
-                      ),
+                      _ReminderSection(repository: repository),
+                      Divider(color: AppColors.of(context).divider, height: 28),
+                      _WeeklyPlanSection(repository: repository),
                     ],
                   );
                 },
-              ),
-            ],
+              );
+            },
+          ),
+          ValueListenableBuilder<String>(
+            valueListenable: repository.themeKey,
+            builder: (context, themeKey, _) {
+              final palette = AppColors.resolvePalette(themeKey);
+              return _buildCollapsibleSection(
+                context,
+                title: 'Görünüm & Tema',
+                subtitle:
+                    '${palette.name} • ${palette.isDark ? 'Gece Modu' : 'Gündüz Modu'}',
+                icon: Icons.palette_outlined,
+                children: [
+                  _ThemeGrid(
+                    currentTheme: themeKey,
+                    onThemeSelected: repository.setTheme,
+                  ),
+                ],
+              );
+            },
           ),
           _buildCollapsibleSection(
             context,
             title: 'Veri Yönetimi',
+            subtitle: 'Yedekle, geri yükle veya sıfırla',
             icon: Icons.storage_outlined,
             children: [
               _ProfileAction(
@@ -143,14 +254,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 icon: Icons.cloud_upload_outlined,
                 onTap: () => _exportBackup(context, repository),
               ),
-              const Divider(color: Colors.white10, height: 16),
+              Divider(color: AppColors.of(context).divider, height: 16),
               _ProfileAction(
                 title: 'Yedek Yükle',
                 subtitle: 'Dosyadan geri yükle',
                 icon: Icons.cloud_download_outlined,
                 onTap: () => _importBackup(context, repository),
               ),
-              const Divider(color: Colors.white10, height: 16),
+              Divider(color: AppColors.of(context).divider, height: 16),
               _ProfileAction(
                 title: 'Verileri Sıfırla',
                 subtitle: 'Tüm kayıtları kalıcı olarak sil',
@@ -166,6 +277,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Widget _buildBranding(BuildContext context) {
+    final colors = AppColors.of(context);
     return Center(
       child: Column(
         children: [
@@ -173,6 +285,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
             'assets/images/KISTAS.svg',
             width: 140,
             fit: BoxFit.contain,
+            colorFilter: ColorFilter.mode(
+              colors.isDark ? colors.textPrimary : colors.primary,
+              BlendMode.srcIn,
+            ),
           ),
           Transform.translate(
             offset: const Offset(0, -35),
@@ -181,14 +297,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
               builder: (context, snapshot) {
                 final version = snapshot.data?.version ?? '...';
                 final buildNumber = snapshot.data?.buildNumber ?? '';
-                final displayVersion = buildNumber.isNotEmpty 
-                    ? 'v$version+$buildNumber' 
+                final displayVersion = buildNumber.isNotEmpty
+                    ? 'v$version+$buildNumber'
                     : 'v$version';
-                
+
                 return Text(
                   displayVersion,
                   style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                        color: Colors.white38,
+                        color: colors.textMuted,
                         letterSpacing: 2,
                       ),
                 );
@@ -201,9 +317,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Widget _buildCollapsibleSection(
-    BuildContext context,
-    {
+    BuildContext context, {
     required String title,
+    String? subtitle,
     required IconData icon,
     required List<Widget> children,
   }) {
@@ -217,18 +333,190 @@ class _ProfileScreenState extends State<ProfileScreen> {
             leading: Icon(icon, color: AppColors.of(context).primaryLight, size: 22),
             title: Text(
               title,
-              style: const TextStyle(
-                color: Colors.white,
+              style: TextStyle(
+                color: AppColors.of(context).textPrimary,
                 fontWeight: FontWeight.w700,
                 fontSize: 15,
               ),
             ),
+            subtitle: subtitle == null
+                ? null
+                : Text(
+                    subtitle,
+                    style: TextStyle(color: AppColors.of(context).textSecondary, fontSize: 12),
+                  ),
             childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
             expandedAlignment: Alignment.topLeft,
             children: children,
           ),
         ),
       ),
+    );
+  }
+
+  Future<void> _editExamProfile(
+    BuildContext context,
+    AppRepository repository,
+    ExamProfile profile,
+  ) async {
+    var penalty = profile.wrongPenalty;
+    var selectedDate = profile.examDate;
+
+    await showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: AppColors.of(context).surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (sheetContext) {
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            return SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '${profile.name} Ayarları',
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                            color: AppColors.of(context).textPrimary,
+                            fontWeight: FontWeight.w800,
+                          ),
+                    ),
+                    const SizedBox(height: 14),
+                    Text(
+                      'Net Hesap Kuralı',
+                      style: TextStyle(color: AppColors.of(context).textSecondary, fontSize: 12),
+                    ),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        ChoiceChip(
+                          label: const Text('4 Yanlış 1 Doğru'),
+                          selected: (penalty - 0.25).abs() < 0.01,
+                          onSelected: (_) => setModalState(() => penalty = 0.25),
+                        ),
+                        ChoiceChip(
+                          label: const Text('3 Yanlış 1 Doğru'),
+                          selected: (penalty - (1 / 3)).abs() < 0.02,
+                          onSelected: (_) =>
+                              setModalState(() => penalty = 1 / 3),
+                        ),
+                        ChoiceChip(
+                          label: const Text('Cezasız'),
+                          selected: penalty <= 0.001,
+                          onSelected: (_) => setModalState(() => penalty = 0.0),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Sınav Tarihi',
+                                style: TextStyle(
+                                  color: AppColors.of(context).textPrimary,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              Text(
+                                selectedDate == null
+                                    ? 'Belirlenmedi'
+                                    : '${selectedDate!.day}.${selectedDate!.month}.${selectedDate!.year}',
+                                style: TextStyle(
+                                  color: AppColors.of(context).textSecondary,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        if (selectedDate != null)
+                          TextButton(
+                            onPressed: () =>
+                                setModalState(() => selectedDate = null),
+                            child: const Text('Temizle'),
+                          ),
+                        OutlinedButton(
+                          onPressed: () async {
+                            final now = DateTime.now();
+                            final picked = await showDatePicker(
+                              context: context,
+                              initialDate: selectedDate ?? now.add(const Duration(days: 60)),
+                              firstDate: DateTime(now.year - 1),
+                              lastDate: DateTime(now.year + 5),
+                            );
+                            if (picked != null) {
+                              setModalState(() => selectedDate = picked);
+                            }
+                          },
+                          child: const Text('Tarih Seç'),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 18),
+                    Row(
+                      children: [
+                        OutlinedButton.icon(
+                          onPressed: () async {
+                            final confirmed = await confirmDeleteDialog(
+                              sheetContext,
+                              title: 'Sınav Profilini Sil',
+                              message:
+                                  '"${profile.name}" profili ve net kuralı ayarları silinecek (ekli ders ve kayıtların korunur). Emin misin?',
+                            );
+                            if (!confirmed) return;
+                            await repository.deleteExamProfile(profile.name);
+                            if (sheetContext.mounted) {
+                              Navigator.of(sheetContext).pop();
+                            }
+                            if (context.mounted) {
+                              _showSnack(context, '${profile.name} profili silindi.');
+                            }
+                          },
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: Colors.redAccent,
+                            side: const BorderSide(color: Colors.redAccent),
+                          ),
+                          icon: const Icon(Icons.delete_outline, size: 18),
+                          label: const Text('Sil'),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: ElevatedButton(
+                            onPressed: () async {
+                              await repository.upsertExamProfile(
+                                profile.copyWith(
+                                  wrongPenalty: penalty,
+                                  examDate: selectedDate,
+                                  clearExamDate: selectedDate == null,
+                                ),
+                              );
+                              if (sheetContext.mounted) {
+                                Navigator.of(sheetContext).pop();
+                                _showSnack(context, '${profile.name} ayarları kaydedildi.');
+                              }
+                            },
+                            child: const Text('Kaydet'),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
     );
   }
 
@@ -261,9 +549,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
             return Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
+                Text(
                   'Aktivite Haritası',
-                  style: TextStyle(color: Colors.white54, fontSize: 12),
+                  style: TextStyle(color: AppColors.of(context).textSecondary, fontSize: 12),
                 ),
                 const SizedBox(height: 12),
                 RepaintBoundary(child: _HeatmapGrid(activityMap: activityMap)),
@@ -326,7 +614,7 @@ class _HeatmapGrid extends StatelessWidget {
   }
 
   Color _getHeatmapColor(BuildContext context, int count) {
-    if (count == 0) return Colors.white.withOpacity(0.05);
+    if (count == 0) return AppColors.of(context).subtleFill;
     if (count <= 20) return AppColors.of(context).primary.withOpacity(0.3);
     if (count <= 50) return AppColors.of(context).primary.withOpacity(0.5);
     if (count <= 100) return AppColors.of(context).primary.withOpacity(0.7);
@@ -364,9 +652,9 @@ class _AiConfigurationSection extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
+        Text(
           'API Yapılandırması',
-          style: TextStyle(color: Colors.white54, fontSize: 12),
+          style: TextStyle(color: AppColors.of(context).textSecondary, fontSize: 12),
         ),
         const SizedBox(height: 8),
         TextField(
@@ -425,14 +713,14 @@ class _AiUsageTracker extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
+        Text(
           'AI Kullanım Takibi',
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 14),
+          style: TextStyle(color: AppColors.of(context).textPrimary, fontWeight: FontWeight.w700, fontSize: 14),
         ),
         const SizedBox(height: 6),
-        const Text(
+        Text(
           'Bugün yapılan AI istekleri.',
-          style: TextStyle(color: Colors.white54, fontSize: 11),
+          style: TextStyle(color: AppColors.of(context).textSecondary, fontSize: 11),
         ),
         const SizedBox(height: 12),
         ValueListenableBuilder<int>(
@@ -455,14 +743,14 @@ class _AiUsageTracker extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text(
+                        Text(
                           'Bugünkü Kullanım',
-                          style: TextStyle(color: Colors.white54, fontSize: 10),
+                          style: TextStyle(color: AppColors.of(context).textSecondary, fontSize: 10),
                         ),
                         Text(
                           '$count İstek',
-                          style: const TextStyle(
-                            color: Colors.white,
+                          style: TextStyle(
+                            color: AppColors.of(context).textPrimary,
                             fontWeight: FontWeight.w800,
                             fontSize: 16,
                           ),
@@ -476,9 +764,9 @@ class _AiUsageTracker extends StatelessWidget {
                       color: Colors.black26,
                       borderRadius: BorderRadius.circular(8),
                     ),
-                    child: const Text(
+                    child: Text(
                       'Limit: 1500',
-                      style: TextStyle(color: Colors.white54, fontSize: 9),
+                      style: TextStyle(color: AppColors.of(context).textSecondary, fontSize: 9),
                     ),
                   ),
                 ],
@@ -500,14 +788,14 @@ class _AiGoalSection extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
+        Text(
           'AI Hedef Asistanı',
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 14),
+          style: TextStyle(color: AppColors.of(context).textPrimary, fontWeight: FontWeight.w700, fontSize: 14),
         ),
         const SizedBox(height: 6),
-        const Text(
+        Text(
           'Çalışma verilerine göre hedef önerir.',
-          style: TextStyle(color: Colors.white54, fontSize: 11),
+          style: TextStyle(color: AppColors.of(context).textSecondary, fontSize: 11),
         ),
         const SizedBox(height: 12),
         _AiGoalDisplay(repository: repository),
@@ -564,7 +852,7 @@ class _AiGoalDisplay extends StatelessWidget {
                   updatedAt == null
                       ? 'Henüz hedef oluşturulmadı.'
                       : 'Son güncelleme: ${_formatDateTime(updatedAt)}',
-                  style: const TextStyle(color: Colors.white38, fontSize: 10),
+                  style: TextStyle(color: AppColors.of(context).textMuted, fontSize: 10),
                 ),
               ],
             );
@@ -586,18 +874,18 @@ class _AiGoalTile extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.05),
+        color: AppColors.of(context).subtleFill,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.white12),
+        border: Border.all(color: AppColors.of(context).border),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(label, style: const TextStyle(color: Colors.white38, fontSize: 9)),
+          Text(label, style: TextStyle(color: AppColors.of(context).textMuted, fontSize: 9)),
           const SizedBox(height: 4),
           Text(
             '$display $suffix',
-            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 12),
+            style: TextStyle(color: AppColors.of(context).textPrimary, fontWeight: FontWeight.w700, fontSize: 12),
           ),
         ],
       ),
@@ -655,17 +943,19 @@ class _AiCadenceChip extends StatelessWidget {
         decoration: BoxDecoration(
           color: isSelected
               ? AppColors.of(context).primary.withValues(alpha: 0.2)
-              : Colors.white.withValues(alpha: 0.06),
+              : AppColors.of(context).subtleFill,
           borderRadius: BorderRadius.circular(999),
           border: Border.all(
-            color: isSelected ? AppColors.of(context).primary : Colors.white12,
+            color: isSelected ? AppColors.of(context).primary : AppColors.of(context).subtleFill,
           ),
         ),
         child: Text(
           label,
           style: TextStyle(
-            color: isSelected ? Colors.white : Colors.white54,
-            fontWeight: FontWeight.w600,
+            color: isSelected
+                ? AppColors.of(context).primary
+                : AppColors.of(context).textSecondary,
+            fontWeight: FontWeight.w700,
             fontSize: 11,
           ),
         ),
@@ -695,17 +985,17 @@ class _AiNotificationToggle extends StatelessWidget {
               child: Icon(Icons.notifications, color: AppColors.of(context).primary),
             ),
             const SizedBox(width: 12),
-            const Expanded(
+            Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
                     'AI Bildirimleri',
-                    style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 14),
+                    style: TextStyle(color: AppColors.of(context).textPrimary, fontWeight: FontWeight.w700, fontSize: 14),
                   ),
                   Text(
                     'Öneriler bildirim kutusuna düşsün.',
-                    style: TextStyle(color: Colors.white54, fontSize: 11),
+                    style: TextStyle(color: AppColors.of(context).textSecondary, fontSize: 11),
                   ),
                 ],
               ),
@@ -737,9 +1027,9 @@ class _ReminderSection extends StatelessWidget {
             return Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
+                Text(
                   'Hedef Hatırlatıcısı',
-                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 14),
+                  style: TextStyle(color: AppColors.of(context).textPrimary, fontWeight: FontWeight.w700, fontSize: 14),
                 ),
                 const SizedBox(height: 8),
                 Row(
@@ -758,17 +1048,17 @@ class _ReminderSection extends StatelessWidget {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text(
+                          Text(
                             'Günlük hedef uyarısı',
                             style: TextStyle(
-                              color: Colors.white,
+                              color: AppColors.of(context).textPrimary,
                               fontWeight: FontWeight.w600,
                               fontSize: 13,
                             ),
                           ),
                           Text(
                             enabled ? 'Saat $time' : 'Şu an kapalı',
-                            style: const TextStyle(color: Colors.white54, fontSize: 11),
+                            style: TextStyle(color: AppColors.of(context).textSecondary, fontSize: 11),
                           ),
                         ],
                       ),
@@ -827,9 +1117,9 @@ class _WeeklyPlanSection extends StatelessWidget {
                 return Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
+                    Text(
                       'Haftalık Plan Bildirimi',
-                      style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 14),
+                      style: TextStyle(color: AppColors.of(context).textPrimary, fontWeight: FontWeight.w700, fontSize: 14),
                     ),
                     const SizedBox(height: 8),
                     Row(
@@ -848,17 +1138,17 @@ class _WeeklyPlanSection extends StatelessWidget {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const Text(
+                              Text(
                                 'Haftalık plan hatırlat',
                                 style: TextStyle(
-                                  color: Colors.white,
+                                  color: AppColors.of(context).textPrimary,
                                   fontWeight: FontWeight.w600,
                                   fontSize: 13,
                                 ),
                               ),
                               Text(
                                 enabled ? '${_weekdayLabel(weekday)} • $time' : 'Şu an kapalı',
-                                style: const TextStyle(color: Colors.white54, fontSize: 11),
+                                style: TextStyle(color: AppColors.of(context).textSecondary, fontSize: 11),
                               ),
                             ],
                           ),
@@ -925,10 +1215,10 @@ class _GoalButton extends StatelessWidget {
         width: 36,
         height: 36,
         decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.06),
+          color: AppColors.of(context).subtleFill,
           borderRadius: BorderRadius.circular(12),
         ),
-        child: Icon(icon, color: Colors.white70, size: 20),
+        child: Icon(icon, color: AppColors.of(context).textSecondary, size: 20),
       ),
     );
   }
@@ -957,13 +1247,13 @@ class _ModelInfoCard extends StatelessWidget {
               Expanded(
                 child: Text(
                   model,
-                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 13),
+                  style: TextStyle(color: AppColors.of(context).textPrimary, fontWeight: FontWeight.w700, fontSize: 13),
                 ),
               ),
             ],
           ),
           const SizedBox(height: 8),
-          Text(info.description, style: const TextStyle(color: Colors.white70, fontSize: 11)),
+          Text(info.description, style: TextStyle(color: AppColors.of(context).textSecondary, fontSize: 11)),
           const SizedBox(height: 12),
           Container(
             padding: const EdgeInsets.all(10),
@@ -971,9 +1261,9 @@ class _ModelInfoCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
+                Text(
                   'Ücretsiz Limitler',
-                  style: TextStyle(color: Colors.white38, fontSize: 9, fontWeight: FontWeight.w600),
+                  style: TextStyle(color: AppColors.of(context).textMuted, fontSize: 9, fontWeight: FontWeight.w600),
                 ),
                 const SizedBox(height: 6),
                 _LimitRow(label: 'Dakikalık İstek', value: info.rpm),
@@ -998,7 +1288,7 @@ class _LimitRow extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(label, style: const TextStyle(color: Colors.white54, fontSize: 10)),
+          Text(label, style: TextStyle(color: AppColors.of(context).textSecondary, fontSize: 10)),
           Text(
             value,
             style: TextStyle(
@@ -1020,17 +1310,58 @@ class _ThemeGrid extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = AppColors.of(context);
+    final resolved = AppColors.resolveKey(currentTheme);
+    const lightKeys = ['paper', 'sage', 'lavender'];
+    const darkKeys = ['night', 'forest_dark', 'ocean_dark'];
+
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        Text(
+          'Gündüz Modları (Önerilen)',
+          style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                color: colors.textSecondary,
+                fontWeight: FontWeight.w700,
+              ),
+        ),
+        const SizedBox(height: 10),
         Row(
-          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-          children: ['graphite', 'royal', 'volcanic', 'ocean', 'sunset'].map((key) {
-            final config = _getThemeColor(key);
-            return _ThemeOption(
-              color: config.primary,
-              label: config.label,
-              isSelected: currentTheme == key,
-              onTap: () => onThemeSelected(key),
+          children: lightKeys.map((key) {
+            final p = AppColors.resolvePalette(key);
+            return Expanded(
+              child: Padding(
+                padding: EdgeInsets.only(right: key == lightKeys.last ? 0 : 8),
+                child: _ThemeOption(
+                  palette: p,
+                  isSelected: resolved == key,
+                  onTap: () => onThemeSelected(key),
+                ),
+              ),
+            );
+          }).toList(),
+        ),
+        const SizedBox(height: 14),
+        Text(
+          'Gece Modları',
+          style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                color: colors.textSecondary,
+                fontWeight: FontWeight.w700,
+              ),
+        ),
+        const SizedBox(height: 10),
+        Row(
+          children: darkKeys.map((key) {
+            final p = AppColors.resolvePalette(key);
+            return Expanded(
+              child: Padding(
+                padding: EdgeInsets.only(right: key == darkKeys.last ? 0 : 8),
+                child: _ThemeOption(
+                  palette: p,
+                  isSelected: resolved == key,
+                  onTap: () => onThemeSelected(key),
+                ),
+              ),
             );
           }).toList(),
         ),
@@ -1041,54 +1372,57 @@ class _ThemeGrid extends StatelessWidget {
 
 class _ThemeOption extends StatelessWidget {
   const _ThemeOption({
-    required this.color,
-    required this.label,
+    required this.palette,
     required this.isSelected,
     required this.onTap,
   });
-  final Color color;
-  final String label;
+
+  final AppPalette palette;
   final bool isSelected;
   final VoidCallback onTap;
+
   @override
   Widget build(BuildContext context) {
-    return Flexible(
-      child: GestureDetector(
-        onTap: onTap,
+    final colors = AppColors.of(context);
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(14),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 160),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+        decoration: BoxDecoration(
+          color: palette.background,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: isSelected ? colors.primary : palette.border,
+            width: isSelected ? 2 : 1,
+          ),
+        ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             Container(
-              width: 40,
-              height: 40,
+              width: 34,
+              height: 34,
               decoration: BoxDecoration(
-                color: color,
+                color: palette.primary,
                 shape: BoxShape.circle,
-                border: isSelected
-                    ? Border.all(color: Colors.white, width: 2)
-                    : Border.all(color: Colors.white12, width: 1),
-                boxShadow: isSelected
-                    ? [
-                        BoxShadow(
-                          color: color.withValues(alpha: 0.5),
-                          blurRadius: 8,
-                          spreadRadius: 1,
-                        )
-                      ]
-                    : [],
+                border: Border.all(color: palette.surface, width: 2.5),
               ),
-              child: isSelected ? const Icon(Icons.check, color: Colors.white, size: 20) : null,
+              child: isSelected
+                  ? Icon(Icons.check_rounded, color: palette.onPrimary, size: 17)
+                  : null,
             ),
-            const SizedBox(height: 6),
+            const SizedBox(height: 8),
             Text(
-              label,
+              palette.name,
               textAlign: TextAlign.center,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
-                color: isSelected ? Colors.white : Colors.white54,
-                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                fontSize: 9,
+                color: palette.textPrimary,
+                fontSize: 11.5,
+                fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
               ),
             ),
           ],
@@ -1127,13 +1461,13 @@ class _ProfileAction extends StatelessWidget {
       ),
       title: Text(
         title,
-        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 14),
+        style: TextStyle(color: AppColors.of(context).textPrimary, fontWeight: FontWeight.w700, fontSize: 14),
       ),
       subtitle: Text(
         subtitle,
-        style: const TextStyle(color: Colors.white54, fontSize: 11),
+        style: TextStyle(color: AppColors.of(context).textSecondary, fontSize: 11),
       ),
-      trailing: const Icon(Icons.chevron_right, color: Colors.white54, size: 20),
+      trailing: Icon(Icons.chevron_right, color: AppColors.of(context).textSecondary, size: 20),
     );
   }
 }
@@ -1160,13 +1494,13 @@ class _ExamDateRow extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
+              Text(
                 'Sınav Tarihi',
-                style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 14),
+                style: TextStyle(color: AppColors.of(context).textPrimary, fontWeight: FontWeight.w700, fontSize: 14),
               ),
               Text(
                 '${value.day}.${value.month}.${value.year}',
-                style: const TextStyle(color: Colors.white54, fontSize: 12),
+                style: TextStyle(color: AppColors.of(context).textSecondary, fontSize: 12),
               ),
             ],
           ),
@@ -1203,11 +1537,11 @@ class _GoalRow extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
+              Text(
                 'Günlük Hedef',
-                style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 14),
+                style: TextStyle(color: AppColors.of(context).textPrimary, fontWeight: FontWeight.w700, fontSize: 14),
               ),
-              Text('$value soru', style: const TextStyle(color: Colors.white54, fontSize: 12)),
+              Text('$value soru', style: TextStyle(color: AppColors.of(context).textSecondary, fontSize: 12)),
             ],
           ),
         ),
@@ -1237,12 +1571,8 @@ String _weekdayLabel(int weekday) {
   }
 }
 
-String _weeklyPlanBody(AppRepository repository) {
-  final program = repository.aiProgramLast.value;
-  if (program == null || program.trim().isEmpty) return 'Bu hafta için çalışma planını güncelle.';
-  final firstLine = program.trim().split('\n').first;
-  return firstLine.length > 120 ? '${firstLine.substring(0, 120)}…' : firstLine;
-}
+String _weeklyPlanBody(AppRepository repository) =>
+    repository.buildWeeklyScheduleSummary();
 
 String _formatDateTime(DateTime dateTime) =>
     '${dateTime.day}.${dateTime.month} ${dateTime.hour}:${dateTime.minute.toString().padLeft(2, '0')}';
@@ -1325,7 +1655,7 @@ Future<void> _fetchAndSelectModel(
                   model,
                   style: TextStyle(
                     fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
-                    color: isActive ? AppColors.of(context).primaryLight : Colors.white,
+                    color: isActive ? AppColors.of(context).primaryLight : AppColors.of(context).textPrimary,
                     fontSize: 14,
                   ),
                 ),
@@ -1359,11 +1689,17 @@ Future<void> _requestAiGoals(BuildContext context, AppRepository repository) asy
     final client = GeminiClient();
     final model =
         repository.geminiModel.value.isEmpty ? 'gemini-1.5-flash-latest' : repository.geminiModel.value;
-    final entries = repository.questionEntries.value;
-    final exams = repository.mockExams.value;
-    final streak = _calculateStreak(entries, exams);
-    final prompt =
-        'KPSS/YKS adayı için çalışma verilerine göre JSON formatında günlük, haftalık ve aylık soru hedefi öner. Veri: $streak gün seri.';
+    final streak = repository.calculateCurrentStreak();
+    final activeTags = repository.availableTags.join(', ');
+    final activeSubjects = repository.subjectsForTag(null).join(', ');
+    final prompt = '''
+Kullanıcının çalışma verilerine göre JSON formatında gerçekçi günlük, haftalık ve aylık soru hedefi öner.
+Sınav/kategoriler: ${activeTags.isEmpty ? 'Genel' : activeTags}
+Dersler: ${activeSubjects.isEmpty ? 'Belirtilmemiş' : activeSubjects}
+Mevcut günlük hedef: ${repository.dailyGoal.value}
+Aktif seri: $streak gün
+Sadece ham JSON döndür: {"daily": 60, "weekly": 400, "monthly": 1600, "note": "kısa motivasyon"}
+''';
     final result = await client.generateText(apiKey: apiKey, prompt: prompt, model: model);
     await repository.incrementAiRequestCount();
     closeLoading();
@@ -1383,10 +1719,10 @@ _AiGoalResult? _parseAiGoalResult(String raw) {
   try {
     final decoded = jsonDecode(match.group(0)!);
     return _AiGoalResult(
-      daily: decoded['daily'] ?? 50,
-      weekly: decoded['weekly'] ?? 350,
-      monthly: decoded['monthly'] ?? 1500,
-      note: decoded['note'] ?? 'Başarılar!',
+      daily: (decoded['daily'] as num?)?.round() ?? 50,
+      weekly: (decoded['weekly'] as num?)?.round() ?? 350,
+      monthly: (decoded['monthly'] as num?)?.round() ?? 1500,
+      note: decoded['note']?.toString() ?? 'Başarılar!',
     );
   } catch (_) {
     return null;
@@ -1410,6 +1746,12 @@ Future<void> _showAiGoalDialog(
         ElevatedButton(
           onPressed: () async {
             await repository.setDailyGoal(goals.daily);
+            await repository.setAiGoalTargets({
+              'daily': goals.daily,
+              'weekly': goals.weekly,
+              'monthly': goals.monthly,
+            });
+            await repository.setAiGoalUpdatedAt(DateTime.now());
             if (context.mounted) Navigator.pop(context);
           },
           child: const Text('Uygula'),
@@ -1419,23 +1761,57 @@ Future<void> _showAiGoalDialog(
   );
 }
 
-int _calculateStreak(List<QuestionEntry> entries, List<MockExam> exams) {
-  final activityDates = <DateTime>{};
-  for (final e in entries) {
-    activityDates.add(DateTime(e.createdAt.year, e.createdAt.month, e.createdAt.day));
+class _ExamProfileRow extends StatelessWidget {
+  const _ExamProfileRow({required this.profile, required this.onEdit});
+  final ExamProfile profile;
+  final VoidCallback onEdit;
+
+  @override
+  Widget build(BuildContext context) {
+    final dateLabel = profile.examDate == null
+        ? 'Tarih yok'
+        : '${profile.examDate!.day}.${profile.examDate!.month}.${profile.examDate!.year}';
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: InkWell(
+        onTap: onEdit,
+        borderRadius: BorderRadius.circular(14),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          decoration: BoxDecoration(
+            color: AppColors.of(context).subtleFill,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: AppColors.of(context).border),
+          ),
+          child: Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      profile.name,
+                      style: TextStyle(
+                        color: AppColors.of(context).textPrimary,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 13,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      '${profile.penaltyLabel} • $dateLabel',
+                      style: TextStyle(color: AppColors.of(context).textSecondary, fontSize: 11),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(Icons.tune, color: AppColors.of(context).textSecondary, size: 18),
+            ],
+          ),
+        ),
+      ),
+    );
   }
-  for (final e in exams) {
-    activityDates.add(DateTime(e.createdAt.year, e.createdAt.month, e.createdAt.day));
-  }
-  if (activityDates.isEmpty) return 0;
-  var streak = 0;
-  var current = DateTime.now();
-  while (true) {
-    if (!activityDates.contains(DateTime(current.year, current.month, current.day))) break;
-    streak++;
-    current = current.subtract(const Duration(days: 1));
-  }
-  return streak;
 }
 
 Future<void> _exportBackup(BuildContext context, AppRepository repository) async {
@@ -1542,37 +1918,4 @@ _ModelDetails _getModelInfo(String model) {
   if (model.contains('1.5-flash')) return _ModelDetails('Hızlı ve dengeli model.', '15 RPM', '1500 RPD');
   if (model.contains('1.5-pro')) return _ModelDetails('En zeki ve kapsamlı model.', '2 RPM', '50 RPD');
   return _ModelDetails('Standart Gemini modeli.', '—', '—');
-}
-
-class _ThemeColorConfig {
-  final Color primary;
-  final String label;
-  _ThemeColorConfig(this.primary, this.label);
-}
-
-_ThemeColorConfig _getThemeColor(String key) {
-  switch (key) {
-    case 'midnight':
-      return _ThemeColorConfig(AppColors.midnight.primary, 'Midnight');
-    case 'ocean':
-      return _ThemeColorConfig(AppColors.ocean.primary, 'Okyanus');
-    case 'volcanic':
-      return _ThemeColorConfig(AppColors.volcanic.primary, 'Volkanik');
-    case 'forest':
-      return _ThemeColorConfig(AppColors.forest.primary, 'Orman');
-    case 'royal':
-      return _ThemeColorConfig(AppColors.royal.primary, 'Asil');
-    case 'sunset':
-      return _ThemeColorConfig(AppColors.sunset.primary, 'Sunset');
-    case 'glacier':
-      return _ThemeColorConfig(AppColors.glacier.primary, 'Buzul');
-    case 'crimson':
-      return _ThemeColorConfig(AppColors.crimson.primary, 'Lal');
-    case 'amber':
-      return _ThemeColorConfig(AppColors.amber.primary, 'Kehribar');
-    case 'graphite':
-      return _ThemeColorConfig(AppColors.graphite.primary, 'Grafit');
-    default:
-      return _ThemeColorConfig(Colors.blue, 'Bilinmeyen');
-  }
 }

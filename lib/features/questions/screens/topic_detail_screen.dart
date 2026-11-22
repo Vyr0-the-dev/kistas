@@ -12,19 +12,14 @@ import '../../../core/services/gemini_client.dart';
 import '../../../core/services/notification_service.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/widgets/ai_loading_dialog.dart';
-import '../../../core/widgets/ai_response_dialog.dart';
 import '../../../core/widgets/ambient_background.dart';
-import '../../../core/widgets/app_bottom_nav.dart';
+import '../../../core/widgets/delete_helpers.dart';
 import '../../../core/widgets/glass_panel.dart';
 import '../../../core/widgets/in_app_notice.dart';
 import '../../../core/widgets/progress_ring.dart';
-import '../../analysis/screens/analysis_screen.dart';
 import 'entry_wizard_screen.dart';
 import 'flashcard_study_screen.dart';
-import '../../dashboard/screens/home_screen.dart';
-import '../../settings/screens/profile_screen.dart';
-import 'quick_add_screen.dart';
-import 'topic_summaries_screen.dart';
+import '../../dashboard/screens/main_screen.dart';
 import '../../mistakes/screens/mistake_gallery_screen.dart';
 
 class TopicDetailScreen extends StatelessWidget {
@@ -39,64 +34,73 @@ class TopicDetailScreen extends StatelessWidget {
     return ValueListenableBuilder<List<TopicSummary>>(
       valueListenable: repository.userTopics,
       builder: (context, allTopics, _) {
-        final currentTopic = allTopics.firstWhere(
-          (t) => t.id == topic.id,
-          orElse: () => topic,
-        );
-        final entries = repository.entriesForTopic(currentTopic.title);
-        final progress = TopicProgress.fromEntries(currentTopic, entries);
+        return ValueListenableBuilder<List<QuestionEntry>>(
+          valueListenable: repository.questionEntries,
+          builder: (context, _, __) {
+            final currentTopic = allTopics.firstWhere(
+              (t) => t.id == topic.id,
+              orElse: () => topic,
+            );
+            final entries = repository.entriesForTopic(
+              currentTopic.title,
+              subject: currentTopic.subject,
+            );
+            final progress = TopicProgress.fromEntries(currentTopic, entries);
 
-        return Scaffold(
-          backgroundColor: AppColors.of(context).background,
-          body: AmbientBackground(
-            child: Column(
-              children: [
-                _Header(topic: currentTopic),
-                Expanded(
-                  child: SingleChildScrollView(
-                    padding: const EdgeInsets.fromLTRB(20, 20, 20, 120),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _Hero(progress: progress),
-                        SizedBox(height: 16),
-                        _KpiRow(progress: progress),
-                        SizedBox(height: 12),
-                                            _MasteryCard(
-                                              mastery: _calculateMastery(progress),
-                                              lastStudied: progress.lastStudied,
-                                            ),
-                                            SizedBox(height: 16),
-                                                                _NotesSection(
-                                                                  topic: currentTopic,
-                                                                  onDeleteInsight: (id) async {
-                                                                    final updated = currentTopic.copyWith(
-                                                                      aiInsights: currentTopic.aiInsights
-                                                                          .where((e) => e.id != id)
-                                                                          .toList(),
-                                                                    );
-                                                                    await repository.saveTopicUpdate(updated);
-                                                                  },
-                                                                  onClearMainNotes: () async {
-                                                                    await repository.deleteTopicUpdate(currentTopic.id);
-                                                                  },
-                                                                ),
-                                            
-                                            SizedBox(height: 16),
-                        
-                        _TrendCard(entries: entries),
-                        SizedBox(height: 16),
-                        _MistakeSection(entries: entries),
-                        SizedBox(height: 18),
-                        _ActionButtons(topic: currentTopic),
-                      ],
+            return Scaffold(
+              backgroundColor: AppColors.of(context).background,
+              body: AmbientBackground(
+                child: Column(
+                  children: [
+                    _Header(topic: currentTopic),
+                    Expanded(
+                      child: SingleChildScrollView(
+                        padding: const EdgeInsets.fromLTRB(20, 20, 20, 120),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            _Hero(progress: progress),
+                            const SizedBox(height: 16),
+                            _KpiRow(progress: progress),
+                            const SizedBox(height: 12),
+                            _MasteryCard(
+                              mastery: _calculateMastery(progress),
+                              lastStudied: progress.lastStudied,
+                            ),
+                            const SizedBox(height: 16),
+                            _NotesSection(
+                              topic: currentTopic,
+                              onDeleteInsight: (id) async {
+                                final updated = currentTopic.copyWith(
+                                  aiInsights: currentTopic.aiInsights
+                                      .where((e) => e.id != id)
+                                      .toList(),
+                                );
+                                await repository.saveTopicUpdate(updated);
+                              },
+                              onClearMainNotes: () async {
+                                await repository.clearTopicNotes(currentTopic.id);
+                              },
+                            ),
+                            const SizedBox(height: 16),
+                            _TrendCard(entries: entries),
+                            const SizedBox(height: 16),
+                            _MistakeSection(
+                              topic: currentTopic,
+                              entries: entries,
+                            ),
+                            const SizedBox(height: 18),
+                            _ActionButtons(topic: currentTopic),
+                          ],
+                        ),
+                      ),
                     ),
-                  ),
+                  ],
                 ),
-              ],
-            ),
-          ),
-          bottomNavigationBar: null,
+              ),
+              bottomNavigationBar: null,
+            );
+          },
         );
       },
     );
@@ -125,20 +129,20 @@ class _Header extends StatelessWidget {
             children: [
               IconButton(
                 onPressed: () => Navigator.of(context).pop(),
-                icon: Icon(Icons.arrow_back, color: Colors.white70),
+                icon: Icon(Icons.arrow_back, color: AppColors.of(context).textSecondary),
               ),
               const Spacer(),
               Text(
                 topic.subject.toUpperCase(),
                 style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                      color: Colors.white54,
+                      color: AppColors.of(context).textSecondary,
                       letterSpacing: 1,
                     ),
               ),
               const Spacer(),
               IconButton(
                 onPressed: () => _showMoreActions(context, topic),
-                icon: Icon(Icons.more_horiz, color: Colors.white70),
+                icon: Icon(Icons.more_horiz, color: AppColors.of(context).textSecondary),
               ),
             ],
           ),
@@ -190,7 +194,7 @@ class _Hero extends StatelessWidget {
                     child: Text(
                       progress.topic.title,
                       style: Theme.of(context).textTheme.displaySmall?.copyWith(
-                            color: Colors.white,
+                            color: AppColors.of(context).textPrimary,
                             fontWeight: FontWeight.w700,
                           ),
                     ),
@@ -206,7 +210,7 @@ class _Hero extends StatelessWidget {
               Text(
                 label,
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: Colors.white54,
+                      color: AppColors.of(context).textSecondary,
                     ),
               ),
             ],
@@ -244,7 +248,7 @@ class _NotesSection extends StatelessWidget {
             Text(
               'Konu Özetleri & Notlar',
               style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    color: Colors.white,
+                    color: AppColors.of(context).textPrimary,
                     fontWeight: FontWeight.w700,
                   ),
             ),
@@ -262,13 +266,13 @@ class _NotesSection extends StatelessWidget {
             radius: BorderRadius.circular(18),
             child: Row(
               children: [
-                Icon(Icons.info_outline, color: Colors.white38),
+                Icon(Icons.info_outline, color: AppColors.of(context).textMuted),
                 SizedBox(width: 12),
                 Expanded(
                   child: Text(
                     'Bu konu için henüz kayıtlı not yok. AI ile hızlıca kritik notlar oluşturabilirsin.',
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: Colors.white54,
+                          color: AppColors.of(context).textSecondary,
                         ),
                   ),
                 ),
@@ -342,13 +346,13 @@ class _ExpandableNoteCardState extends State<_ExpandableNoteCard> {
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
         decoration: BoxDecoration(
           color: _isExpanded
-              ? Colors.white.withOpacity(0.08)
-              : Colors.white.withOpacity(0.05),
+              ? AppColors.of(context).subtleFill
+              : AppColors.of(context).subtleFill,
           borderRadius: BorderRadius.circular(24),
           border: Border.all(
             color: _isExpanded
-                ? Colors.white.withOpacity(0.12)
-                : Colors.white.withOpacity(0.05),
+                ? AppColors.of(context).subtleFill
+                : AppColors.of(context).subtleFill,
           ),
         ),
         child: Column(
@@ -371,7 +375,7 @@ class _ExpandableNoteCardState extends State<_ExpandableNoteCard> {
                       Text(
                         widget.title,
                         style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                              color: Colors.white,
+                              color: AppColors.of(context).textPrimary,
                               fontWeight: FontWeight.w700,
                               fontSize: 16,
                             ),
@@ -380,7 +384,7 @@ class _ExpandableNoteCardState extends State<_ExpandableNoteCard> {
                       Text(
                         widget.subtitle,
                         style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                              color: Colors.white38,
+                              color: AppColors.of(context).textMuted,
                               fontSize: 11,
                             ),
                       ),
@@ -392,13 +396,13 @@ class _ExpandableNoteCardState extends State<_ExpandableNoteCard> {
                     margin: const EdgeInsets.only(right: 10),
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                     decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.08),
+                      color: AppColors.of(context).subtleFill,
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Text(
                       'Özetli',
                       style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                            color: Colors.white38,
+                            color: AppColors.of(context).textMuted,
                             fontWeight: FontWeight.w600,
                             fontSize: 10,
                           ),
@@ -406,20 +410,20 @@ class _ExpandableNoteCardState extends State<_ExpandableNoteCard> {
                   ),
                 Icon(
                   _isExpanded ? Icons.expand_less : Icons.expand_more,
-                  color: Colors.white38,
+                  color: AppColors.of(context).textMuted,
                   size: 22,
                 ),
               ],
             ),
             if (_isExpanded) ...[
               const SizedBox(height: 20),
-              const Divider(color: Colors.white10, height: 1),
+              Divider(color: AppColors.of(context).divider, height: 1),
               const SizedBox(height: 20),
               if (widget.summary.isNotEmpty) ...[
                 Text(
                   widget.summary,
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: Colors.white.withOpacity(0.9),
+                        color: AppColors.of(context).subtleFill,
                         fontStyle: FontStyle.italic,
                         height: 1.5,
                         fontSize: 15,
@@ -486,8 +490,8 @@ class _NoteItem extends StatelessWidget {
             margin: const EdgeInsets.only(top: 7),
             width: 5,
             height: 5,
-            decoration: const BoxDecoration(
-              color: Colors.white70,
+            decoration: BoxDecoration(
+              color: AppColors.of(context).textSecondary,
               shape: BoxShape.circle,
             ),
           ),
@@ -496,7 +500,7 @@ class _NoteItem extends StatelessWidget {
             child: Text(
               text,
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: Colors.white.withOpacity(0.85),
+                    color: AppColors.of(context).subtleFill,
                     height: 1.5,
                     fontSize: 14,
                   ),
@@ -521,7 +525,7 @@ class _RingScore extends StatelessWidget {
       value: value,
       size: 164,
       strokeWidth: 12,
-      trackColor: Colors.white12,
+      trackColor: AppColors.of(context).subtleFill,
       progressColor: AppColors.of(context).primary,
       centerColor: AppColors.of(context).background,
       child: Column(
@@ -531,7 +535,7 @@ class _RingScore extends StatelessWidget {
             child: Text(
               score.toString(),
               style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    color: Colors.white,
+                    color: AppColors.of(context).textPrimary,
                     fontWeight: FontWeight.w700,
                     fontSize: 24,
                   ),
@@ -540,7 +544,7 @@ class _RingScore extends StatelessWidget {
           Text(
             label,
             style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                  color: Colors.white54,
+                  color: AppColors.of(context).textSecondary,
                   letterSpacing: 1,
                 ),
           ),
@@ -563,7 +567,7 @@ class _KpiRow extends StatelessWidget {
           child: _KpiCard(
             title: 'Toplam\nSoru',
             value: progress.totalQuestions.toString(),
-            valueColor: Colors.white,
+            valueColor: AppColors.of(context).textPrimary,
           ),
         ),
         SizedBox(width: 8),
@@ -583,7 +587,7 @@ class _KpiRow extends StatelessWidget {
                 : _formatAverageTime(
                     progress.minutes / progress.totalQuestions,
                   ),
-            valueColor: Colors.white,
+            valueColor: AppColors.of(context).textPrimary,
           ),
         ),
       ],
@@ -613,7 +617,7 @@ class _KpiCard extends StatelessWidget {
             title,
             textAlign: TextAlign.center,
             style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                  color: Colors.white54,
+                  color: AppColors.of(context).textSecondary,
                   fontWeight: FontWeight.w700,
                   letterSpacing: 0.4,
                 ),
@@ -655,7 +659,7 @@ class _MasteryCard extends StatelessWidget {
           Text(
             'Konu Hakimiyeti',
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: Colors.white,
+                  color: AppColors.of(context).textPrimary,
                   fontWeight: FontWeight.w700,
                 ),
           ),
@@ -663,7 +667,7 @@ class _MasteryCard extends StatelessWidget {
           Text(
             subtitle,
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: Colors.white54,
+                  color: AppColors.of(context).textSecondary,
                 ),
           ),
           SizedBox(height: 10),
@@ -675,7 +679,7 @@ class _MasteryCard extends StatelessWidget {
                   child: LinearProgressIndicator(
                     value: mastery / 100,
                     minHeight: 8,
-                    backgroundColor: Colors.white12,
+                    backgroundColor: AppColors.of(context).subtleFill,
                     valueColor: AlwaysStoppedAnimation<Color>(
                       AppColors.of(context).primary,
                     ),
@@ -686,7 +690,7 @@ class _MasteryCard extends StatelessWidget {
               Text(
                 '%$mastery',
                 style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      color: Colors.white,
+                      color: AppColors.of(context).textPrimary,
                       fontWeight: FontWeight.w700,
                     ),
               ),
@@ -754,7 +758,7 @@ class _TrendCardState extends State<_TrendCard> {
                   Text(
                     'Performans Trendi',
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          color: Colors.white,
+                          color: AppColors.of(context).textPrimary,
                           fontWeight: FontWeight.w700,
                         ),
                   ),
@@ -764,7 +768,7 @@ class _TrendCardState extends State<_TrendCard> {
                         ? 'Henüz veri yok'
                         : 'Son $days gün hareketi',
                     style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                          color: Colors.white54,
+                          color: AppColors.of(context).textSecondary,
                         ),
                   ),
                 ],
@@ -772,7 +776,7 @@ class _TrendCardState extends State<_TrendCard> {
               Container(
                 padding: const EdgeInsets.all(4),
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.05),
+                  color: AppColors.of(context).subtleFill,
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Row(
@@ -804,7 +808,7 @@ class _TrendCardState extends State<_TrendCard> {
                     child: Text(
                       'Grafik için veri bekleniyor.',
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: Colors.white54,
+                            color: AppColors.of(context).textSecondary,
                           ),
                     ),
                   )
@@ -813,8 +817,11 @@ class _TrendCardState extends State<_TrendCard> {
                       points,
                       labels,
                       AppColors.of(context).primary,
+                      gridColor: AppColors.of(context).divider,
+                      surfaceColor: AppColors.of(context).surface,
+                      labelColor: AppColors.of(context).textMuted,
                     ),
-                    child: SizedBox.expand(),
+                    child: const SizedBox.expand(),
                   ),
           ),
         ],
@@ -836,19 +843,20 @@ class _RangeBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = AppColors.of(context);
     return GestureDetector(
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
         margin: const EdgeInsets.only(right: 4),
         decoration: BoxDecoration(
-          color: active ? Colors.white.withOpacity(0.1) : Colors.transparent,
+          color: active ? colors.primary.withValues(alpha: 0.14) : Colors.transparent,
           borderRadius: BorderRadius.circular(8),
         ),
         child: Text(
           label,
           style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                color: active ? Colors.white : Colors.white38,
+                color: active ? colors.primary : colors.textMuted,
                 fontWeight: FontWeight.w700,
               ),
         ),
@@ -858,14 +866,24 @@ class _RangeBadge extends StatelessWidget {
 }
 
 class _TopicTrendPainter extends CustomPainter {
-  _TopicTrendPainter(this.values, this.labels, this.primaryColor);
+  _TopicTrendPainter(
+    this.values,
+    this.labels,
+    this.primaryColor, {
+    required this.gridColor,
+    required this.surfaceColor,
+    required this.labelColor,
+  });
 
   final List<double> values;
   final List<String> labels;
   final Color primaryColor;
+  final Color gridColor;
+  final Color surfaceColor;
+  final Color labelColor;
 
   @override
-void paint(Canvas canvas, Size size) {
+  void paint(Canvas canvas, Size size) {
     if (values.isEmpty) {
       return;
     }
@@ -877,7 +895,7 @@ void paint(Canvas canvas, Size size) {
     final range = maxValue - minValue == 0 ? 1 : maxValue - minValue;
 
     final gridPaint = Paint()
-      ..color = Colors.white.withOpacity(0.08)
+      ..color = gridColor
       ..strokeWidth = 1;
     for (var i = 1; i <= 3; i++) {
       final y = chartHeight * (i / 4);
@@ -907,17 +925,17 @@ void paint(Canvas canvas, Size size) {
     final lastX = values.length == 1 ? size.width / 2 : size.width;
     final lastNormalized = (values.last - minValue) / range;
     final lastY = chartHeight - (lastNormalized * chartHeight);
-    final pointPaint = Paint()..color = Colors.white;
+    final pointPaint = Paint()..color = surfaceColor;
     final outlinePaint = Paint()
       ..color = primaryColor
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 2;
+      ..strokeWidth = 2.5;
     canvas.drawCircle(Offset(lastX, lastY), 4, pointPaint);
     canvas.drawCircle(Offset(lastX, lastY), 6, outlinePaint);
 
     // Draw Axis Labels
     final textStyle = TextStyle(
-      color: Colors.white38,
+      color: labelColor,
       fontSize: 10,
     );
     final textPainter = TextPainter(
@@ -960,8 +978,12 @@ void paint(Canvas canvas, Size size) {
 }
 
 class _MistakeSection extends StatelessWidget {
-  const _MistakeSection({required this.entries});
+  const _MistakeSection({
+    required this.topic,
+    required this.entries,
+  });
 
+  final TopicSummary topic;
   final List<QuestionEntry> entries;
 
   @override
@@ -973,16 +995,20 @@ class _MistakeSection extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Text(
-              'Yanlış Analizi',
+              'Soru Kayıtları & Yanlışlar',
               style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    color: Colors.white,
+                    color: AppColors.of(context).textPrimary,
                     fontWeight: FontWeight.w700,
                   ),
             ),
             TextButton(
               onPressed: () =>
-                  _showMistakeSheet(context, entries, _MistakeFilter.all),
-              child: Text('Tümünü Gör'),
+                  _showMistakeSheet(context, topic, _MistakeFilter.all),
+              child: Text(
+                entries.isEmpty
+                    ? 'Tümünü Gör'
+                    : 'Kayıtları Gör (${entries.length})',
+              ),
             ),
           ],
         ),
@@ -990,7 +1016,7 @@ class _MistakeSection extends StatelessWidget {
           Text(
             'Yanlış ve boş dağılımı için kayıt bekleniyor.',
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: Colors.white54,
+                  color: AppColors.of(context).textSecondary,
                 ),
           )
         else
@@ -1004,7 +1030,7 @@ class _MistakeSection extends StatelessWidget {
                 color: Colors.redAccent,
                 onTap: () => _showMistakeSheet(
                   context,
-                  entries,
+                  topic,
                   _MistakeFilter.wrongOnly,
                 ),
               ),
@@ -1014,7 +1040,7 @@ class _MistakeSection extends StatelessWidget {
                 color: Colors.amber,
                 onTap: () => _showMistakeSheet(
                   context,
-                  entries,
+                  topic,
                   _MistakeFilter.blankOnly,
                 ),
               ),
@@ -1085,20 +1111,20 @@ class _MistakeChip extends StatelessWidget {
             Text(
               label,
               style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                    color: Colors.white,
+                    color: AppColors.of(context).textPrimary,
                   ),
             ),
             SizedBox(width: 6),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
               decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.08),
+                color: AppColors.of(context).subtleFill,
                 borderRadius: BorderRadius.circular(6),
               ),
               child: Text(
                 count.toString(),
                 style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                      color: Colors.white70,
+                      color: AppColors.of(context).textSecondary,
                     ),
               ),
             ),
@@ -1175,12 +1201,12 @@ class _ActionButtons extends StatelessWidget {
             SizedBox(height: 12),
             OutlinedButton.icon(
               onPressed: () => _scheduleReview(context, topic),
-              icon: Icon(Icons.event),
-              label: Text('Tekrar Planla'),
+              icon: const Icon(Icons.event),
+              label: const Text('Tekrar Planla'),
               style: OutlinedButton.styleFrom(
-                foregroundColor: Colors.white70,
+                foregroundColor: AppColors.of(context).textPrimary,
                 minimumSize: const Size.fromHeight(52),
-                side: BorderSide(color: Colors.white.withOpacity(0.12)),
+                side: BorderSide(color: AppColors.of(context).border),
                 shape:
                     RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
               ),
@@ -1219,7 +1245,10 @@ Future<void> _requestTopicInsight(
   }
 
   // Calculate stats for context
-  final entries = repository.entriesForTopic(topic.title);
+  final entries = repository.entriesForTopic(
+    topic.title,
+    subject: topic.subject,
+  );
   final progress = TopicProgress.fromEntries(topic, entries);
   final accuracy = (progress.accuracy * 100).round();
   final totalSolved = progress.totalQuestions;
@@ -1410,7 +1439,7 @@ void _showMoreActions(BuildContext context, TopicSummary topic) {
           decoration: BoxDecoration(
             color: AppColors.of(context).surface,
             borderRadius: BorderRadius.circular(24),
-            border: Border.all(color: Colors.white.withOpacity(0.08)),
+            border: Border.all(color: AppColors.of(context).border),
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -1495,7 +1524,7 @@ void _showMoreActions(BuildContext context, TopicSummary topic) {
                       ),
                     );
                     if (confirm == true) {
-                      await AppRepositoryScope.of(context).deleteTopicUpdate(topic.id);
+                      await AppRepositoryScope.of(context).clearTopicNotes(topic.id);
                       if (context.mounted) {
                         _showSnack(context, 'Notlar temizlendi.');
                       }
@@ -1539,9 +1568,8 @@ void _showMoreActions(BuildContext context, TopicSummary topic) {
                 subtitle: 'Performans ekranı',
                 onTap: () {
                   Navigator.of(sheetContext).pop();
-                  Navigator.of(context).push(
-                    MaterialPageRoute(builder: (_) => AnalysisScreen()),
-                  );
+                  Navigator.of(context).pop();
+                  MainScreen.switchTab(context, 3);
                 },
               ),
               _ActionSheetTile(
@@ -1550,9 +1578,7 @@ void _showMoreActions(BuildContext context, TopicSummary topic) {
                 subtitle: 'Tüm konu listesi',
                 onTap: () {
                   Navigator.of(sheetContext).pop();
-                  Navigator.of(context).pushReplacement(
-                    MaterialPageRoute(builder: (_) => TopicSummariesScreen()),
-                  );
+                  Navigator.of(context).pop();
                 },
               ),
             ],
@@ -1582,20 +1608,20 @@ class _ActionSheetTile extends StatelessWidget {
   Widget build(BuildContext context) {
     return ListTile(
       leading: CircleAvatar(
-        backgroundColor: (iconColor ?? Colors.white).withOpacity(0.06),
-        child: Icon(icon, color: iconColor ?? Colors.white70),
+        backgroundColor: (iconColor ?? AppColors.of(context).textPrimary).withOpacity(0.06),
+        child: Icon(icon, color: iconColor ?? AppColors.of(context).textSecondary),
       ),
       title: Text(
         title,
         style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-              color: Colors.white,
+              color: AppColors.of(context).textPrimary,
               fontWeight: FontWeight.w700,
             ),
       ),
       subtitle: Text(
         subtitle,
         style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: Colors.white54,
+              color: AppColors.of(context).textSecondary,
             ),
       ),
       onTap: onTap,
@@ -1660,19 +1686,10 @@ Future<void> _scheduleReview(
 
 void _showMistakeSheet(
   BuildContext context,
-List<QuestionEntry> entries,
+  TopicSummary topic,
   _MistakeFilter filter,
 ) {
-  final filtered = entries.where((entry) {
-    if (filter == _MistakeFilter.wrongOnly) {
-      return entry.wrong > 0;
-    }
-    if (filter == _MistakeFilter.blankOnly) {
-      return entry.blank > 0;
-    }
-    return entry.wrong > 0 || entry.blank > 0;
-  }).toList()
-    ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+  final repository = AppRepositoryScope.of(context);
 
   showModalBottomSheet(
     context: context,
@@ -1684,57 +1701,81 @@ List<QuestionEntry> entries,
         minChildSize: 0.4,
         maxChildSize: 0.9,
         builder: (context, controller) {
-          return Container(
-            decoration: BoxDecoration(
-              color: AppColors.of(context).surface,
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-              border: Border.all(color: Colors.white.withOpacity(0.08)),
-            ),
-            child: Column(
-              children: [
-                SizedBox(height: 8),
-                Container(
-                  width: 48,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.2),
-                    borderRadius: BorderRadius.circular(999),
+          return ValueListenableBuilder<List<QuestionEntry>>(
+            valueListenable: repository.questionEntries,
+            builder: (context, _, __) {
+              final entries = repository.entriesForTopic(
+                topic.title,
+                subject: topic.subject,
+              );
+              final filtered = entries.where((entry) {
+                if (filter == _MistakeFilter.wrongOnly) {
+                  return entry.wrong > 0;
+                }
+                if (filter == _MistakeFilter.blankOnly) {
+                  return entry.blank > 0;
+                }
+                return true;
+              }).toList()
+                ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+
+              return Container(
+                decoration: BoxDecoration(
+                  color: AppColors.of(context).surface,
+                  borderRadius: const BorderRadius.vertical(
+                    top: Radius.circular(24),
+                  ),
+                  border: Border.all(
+                    color: AppColors.of(context).subtleFill,
                   ),
                 ),
-                SizedBox(height: 12),
-                Text(
-                  _mistakeTitle(filter),
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w700,
+                child: Column(
+                  children: [
+                    const SizedBox(height: 8),
+                    Container(
+                      width: 48,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: AppColors.of(context).subtleFill,
+                        borderRadius: BorderRadius.circular(999),
                       ),
-                ),
-                SizedBox(height: 8),
-                Expanded(
-                  child: filtered.isEmpty
-                      ? Center(
-                          child: Text(
-                            'Bu filtre için kayıt bulunamadı.',
-                            style:
-                                Theme.of(context).textTheme.bodySmall?.copyWith(
-                                      color: Colors.white54,
-                                    ),
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      '${_mistakeTitle(filter)} (${filtered.length})',
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                            color: AppColors.of(context).textPrimary,
+                            fontWeight: FontWeight.w700,
                           ),
-                        )
-                      : ListView.separated(
-                          controller: controller,
-                          padding: const EdgeInsets.all(16),
-                          itemBuilder: (_, index) {
-                            final entry = filtered[index];
-                            return _MistakeDetailTile(entry: entry);
-                          },
-                          separatorBuilder: (_, __) =>
-                              SizedBox(height: 12),
-                          itemCount: filtered.length,
-                        ),
+                    ),
+                    const SizedBox(height: 8),
+                    Expanded(
+                      child: filtered.isEmpty
+                          ? Center(
+                              child: Text(
+                                'Bu filtre için kayıt bulunamadı.',
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .bodySmall
+                                    ?.copyWith(color: AppColors.of(context).textSecondary),
+                              ),
+                            )
+                          : ListView.separated(
+                              controller: controller,
+                              padding: const EdgeInsets.all(16),
+                              itemBuilder: (_, index) {
+                                final entry = filtered[index];
+                                return _MistakeDetailTile(entry: entry);
+                              },
+                              separatorBuilder: (_, __) =>
+                                  const SizedBox(height: 12),
+                              itemCount: filtered.length,
+                            ),
+                    ),
+                  ],
                 ),
-              ],
-            ),
+              );
+            },
           );
         },
       );
@@ -1749,7 +1790,7 @@ String _mistakeTitle(_MistakeFilter filter) {
     case _MistakeFilter.blankOnly:
       return 'Boş Detayları';
     case _MistakeFilter.all:
-      return 'Yanlış & Boş Detayları';
+      return 'Soru Kayıtları';
   }
 }
 
@@ -1760,37 +1801,63 @@ class _MistakeDetailTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final title = entry.bookName.isNotEmpty
+        ? entry.bookName
+        : (entry.topic.isEmpty ? 'Soru Kaydı' : entry.topic);
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.04),
+        color: AppColors.of(context).subtleFill,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white.withOpacity(0.06)),
+        border: Border.all(color: AppColors.of(context).border),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            entry.topic.isEmpty ? 'Soru Kaydı' : entry.topic,
-            style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w700,
+          Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                            color: AppColors.of(context).textPrimary,
+                            fontWeight: FontWeight.w700,
+                          ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      '${entry.subject} • ${_formatShortDate(entry.createdAt)} ${_formatClock(entry.createdAt)}',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: AppColors.of(context).textSecondary,
+                          ),
+                    ),
+                  ],
                 ),
-          ),
-          SizedBox(height: 4),
-          Text(
-            '${entry.subject} • ${_formatShortDate(entry.createdAt)} ${_formatClock(entry.createdAt)}',
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: Colors.white54,
+              ),
+              IconButton(
+                tooltip: 'Soru Kaydını Sil',
+                visualDensity: VisualDensity.compact,
+                icon: const Icon(
+                  Icons.delete_outline,
+                  color: Colors.redAccent,
+                  size: 20,
                 ),
+                onPressed: () => deleteQuestionEntryWithUndo(context, entry),
+              ),
+            ],
           ),
-          SizedBox(height: 12),
+          const SizedBox(height: 12),
           Row(
             children: [
               _MistakeStat(label: 'Doğru', value: entry.correct, color: AppColors.of(context).success),
-              SizedBox(width: 8),
+              const SizedBox(width: 8),
               _MistakeStat(label: 'Yanlış', value: entry.wrong, color: Colors.redAccent),
-              SizedBox(width: 8),
+              const SizedBox(width: 8),
               _MistakeStat(label: 'Boş', value: entry.blank, color: Colors.amber),
             ],
           ),
@@ -1826,14 +1893,14 @@ class _MistakeStat extends StatelessWidget {
             Text(
               label,
               style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                    color: Colors.white70,
+                    color: AppColors.of(context).textSecondary,
                   ),
             ),
             SizedBox(height: 4),
             Text(
               value.toString(),
               style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    color: Colors.white,
+                    color: AppColors.of(context).textPrimary,
                     fontWeight: FontWeight.w700,
                   ),
             ),

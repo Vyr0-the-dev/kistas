@@ -17,6 +17,7 @@ import '../../../core/widgets/ai_loading_dialog.dart';
 import '../../../core/widgets/ai_response_dialog.dart';
 import '../../../core/widgets/ambient_background.dart';
 import '../../../core/widgets/app_bottom_nav.dart';
+import '../../../core/widgets/delete_helpers.dart';
 import '../../../core/widgets/glass_panel.dart';
 import '../../questions/screens/entry_wizard_screen.dart';
 import '../../questions/screens/quick_add_screen.dart';
@@ -34,9 +35,19 @@ class AnalysisScreen extends StatefulWidget {
 
 class _AnalysisScreenState extends State<AnalysisScreen> {
   AnalysisMode _mode = AnalysisMode.exams;
+  int _activeTab = 0; // 0: Özet, 1: Kayıtlar, 2: AI Koç
   _RangeFilter _rangeFilter = _RangeFilter.days7;
   DateTimeRange? _customRange;
+  String _selectedTag = 'Tümü';
+  String _selectedSubject = 'Tümü';
+  String _selectedExamScope = 'Tümü';
   final GlobalKey _weeklyReportKey = GlobalKey();
+
+  bool get _hasActiveFilters =>
+      _rangeFilter != _RangeFilter.days7 ||
+      _selectedTag != 'Tümü' ||
+      _selectedSubject != 'Tümü' ||
+      _selectedExamScope != 'Tümü';
 
   @override
   Widget build(BuildContext context) {
@@ -44,24 +55,12 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
     return SafeArea(
       child: ValueListenableBuilder<List<QuestionEntry>>(
         valueListenable: repository.questionEntries,
-        builder: (context, questionEntries, _) {
+        builder: (context, allQuestionEntries, _) {
           return ValueListenableBuilder<List<MockExam>>(
             valueListenable: repository.mockExams,
-            builder: (context, mockExams, __) {
-              final hasQuestions = questionEntries.isNotEmpty;
-              final hasExams = mockExams.isNotEmpty;
-
-              final dateRange = _getDateRange(_rangeFilter, _customRange);
-              final questionFiltered = _filterQuestions(
-                questionEntries,
-                dateRange.start,
-                dateRange.end,
-              );
-              final examsFiltered = _filterExams(
-                mockExams,
-                dateRange.start,
-                dateRange.end,
-              );
+            builder: (context, allMockExams, __) {
+              final hasQuestions = allQuestionEntries.isNotEmpty;
+              final hasExams = allMockExams.isNotEmpty;
 
               if (!hasQuestions && !hasExams) {
                 return _EmptyState(
@@ -70,6 +69,72 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
                       _openEntry(context, EntryType.question),
                 );
               }
+
+              final tags = <String>{
+                ...repository.availableTags,
+                ...allQuestionEntries.map((e) => e.examType).where((e) => e.isNotEmpty),
+                ...allMockExams.map((e) => e.examType).where((e) => e.isNotEmpty),
+              }.toList()
+                ..sort();
+              final activeTag =
+                  (_selectedTag != 'Tümü' && tags.contains(_selectedTag))
+                      ? _selectedTag
+                      : 'Tümü';
+
+              final tagQuestions = activeTag == 'Tümü'
+                  ? allQuestionEntries
+                  : allQuestionEntries
+                      .where((e) => e.examType == activeTag)
+                      .toList();
+              final tagExamsRaw = activeTag == 'Tümü'
+                  ? allMockExams
+                  : allMockExams
+                      .where((e) => e.examType == activeTag)
+                      .toList();
+
+              final examScopes = tagExamsRaw
+                  .map((e) => e.examScope)
+                  .where((s) => s.isNotEmpty)
+                  .toSet()
+                  .toList()
+                ..sort();
+              final activeExamScope = (_selectedExamScope != 'Tümü' &&
+                      examScopes.contains(_selectedExamScope))
+                  ? _selectedExamScope
+                  : 'Tümü';
+              final tagExams = activeExamScope == 'Tümü'
+                  ? tagExamsRaw
+                  : tagExamsRaw
+                      .where((e) => e.examScope == activeExamScope)
+                      .toList();
+
+              final subjects = <String>{
+                ...tagQuestions.map((e) => e.subject).where((e) => e.isNotEmpty),
+                ...repository.subjectsForTag(activeTag == 'Tümü' ? null : activeTag),
+              }.toList()
+                ..sort();
+              final activeSubject = (_selectedSubject != 'Tümü' &&
+                      subjects.contains(_selectedSubject))
+                  ? _selectedSubject
+                  : 'Tümü';
+
+              final scopedQuestions = activeSubject == 'Tümü'
+                  ? tagQuestions
+                  : tagQuestions
+                      .where((e) => e.subject == activeSubject)
+                      .toList();
+
+              final dateRange = _getDateRange(_rangeFilter, _customRange);
+              final questionFiltered = _filterQuestions(
+                scopedQuestions,
+                dateRange.start,
+                dateRange.end,
+              );
+              final examsFiltered = _filterExams(
+                tagExams,
+                dateRange.start,
+                dateRange.end,
+              );
 
               final activeMode = _mode;
               final hasActiveData = activeMode == AnalysisMode.exams
@@ -86,23 +151,35 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
                       dateRange.start,
                       dateRange.end,
                     );
-              final weakTopics = repository.weakestTopics();
+              final weakTopics = repository.weakestTopics(
+                tag: activeTag == 'Tümü' ? null : activeTag,
+                subject: activeSubject == 'Tümü' ? null : activeSubject,
+              );
 
               final weeklySummary = activeMode == AnalysisMode.exams
-                  ? _buildWeeklyExamSummary(mockExams)
-                  : _buildWeeklyQuestionSummary(questionEntries);
-              
+                  ? _buildWeeklyExamSummary(tagExams)
+                  : _buildWeeklyQuestionSummary(scopedQuestions);
+
               final weeklyTargets = activeMode == AnalysisMode.exams
-                  ? _buildWeeklyExamTargets(mockExams) // Deneme hedefi mantığı eklenebilir, şimdilik boş veya basit.
+                  ? _buildWeeklyExamTargets(tagExams)
                   : _buildWeeklyQuestionTargets(
-                      questionEntries,
+                      scopedQuestions,
                       repository.dailyGoal.value,
                     );
 
+              final colors = AppColors.of(context);
               return CustomScrollView(
+                physics: const BouncingScrollPhysics(),
                 slivers: [
                   SliverToBoxAdapter(
                     child: _Header(
+                      hasActiveFilters: _hasActiveFilters,
+                      onOpenFilters: () => _openFilterSheet(
+                        context,
+                        tags: tags,
+                        examScopes: examScopes,
+                        subjects: subjects,
+                      ),
                       onShare: () => _shareWeeklyReportImage(
                         context,
                         _weeklyReportKey,
@@ -110,10 +187,9 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
                       ),
                     ),
                   ),
-                  const SliverToBoxAdapter(child: SizedBox(height: 16)),
                   SliverToBoxAdapter(
                     child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      padding: const EdgeInsets.fromLTRB(20, 10, 20, 10),
                       child: _ModeSelector(
                         mode: activeMode,
                         examsEnabled: true,
@@ -124,197 +200,276 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
                   ),
                   SliverToBoxAdapter(
                     child: Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 20,
-                        vertical: 12,
-                      ),
-                      child: _RangeSelector(
-                        selected: _rangeFilter,
-                        onSelect: (value) async {
-                          if (value == _RangeFilter.custom) {
-                            final range = await showDateRangePicker(
-                              context: context,
-                              firstDate: DateTime(DateTime.now().year - 1),
-                              lastDate: DateTime(DateTime.now().year + 1),
-                            );
-                            if (!context.mounted) {
-                              return;
-                            }
-                            if (range == null) {
-                              return;
-                            }
-                            setState(() {
-                              _customRange = range;
-                              _rangeFilter = _RangeFilter.custom;
-                            });
-                            return;
-                          }
-                          setState(() {
-                            _customRange = null;
-                            _rangeFilter = value;
-                          });
-                        },
-                      ),
-                    ),
-                  ),
-                  SliverToBoxAdapter(
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 20),
-                      child: hasActiveData
-                          ? _TrendCard(metrics: metrics)
-                          : _ModeEmptyState(
-                              mode: activeMode,
-                              onAddExam: () =>
-                                  _openEntry(context, EntryType.mockExam),
-                              onAddQuestion: () =>
-                                  _openEntry(context, EntryType.question),
-                            ),
-                    ),
-                  ),
-                  if (hasActiveData)
-                    SliverToBoxAdapter(
-                      child: Padding(
-                        padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+                      padding: const EdgeInsets.fromLTRB(20, 0, 20, 10),
+                      child: Container(
+                        padding: const EdgeInsets.all(4),
+                        decoration: BoxDecoration(
+                          color: colors.subtleFill,
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(color: colors.border),
+                        ),
                         child: Row(
                           children: [
-                            Expanded(
-                              child: _MetricCard(
-                                title: metrics.leftTitle,
-                                value: metrics.leftValue,
-                                subtitle: metrics.leftSubtitle,
-                                accent: metrics.leftAccent(context),
-                                footer: _MiniSparkline(
-                                  values: metrics.trend,
-                                  color: metrics.leftAccent(context),
-                                ),
-                              ),
+                            _SubTabChip(
+                              label: 'Özet',
+                              active: _activeTab == 0,
+                              onTap: () => setState(() => _activeTab = 0),
                             ),
-                            SizedBox(width: 12),
-                            Expanded(
-                              child: _MetricCard(
-                                title: metrics.rightTitle,
-                                value: metrics.rightValue,
-                                subtitle: metrics.rightSubtitle,
-                                accent: metrics.rightAccent(context),
-                                footer: _MiniBars(
-                                  values: metrics.trend,
-                                  color: metrics.rightAccent(context),
-                                ),
-                              ),
+                            _SubTabChip(
+                              label:
+                                  'Kayıtlar (${activeMode == AnalysisMode.exams ? examsFiltered.length : questionFiltered.length})',
+                              active: _activeTab == 1,
+                              onTap: () => setState(() => _activeTab = 1),
+                            ),
+                            _SubTabChip(
+                              label: 'AI Koç',
+                              active: _activeTab == 2,
+                              onTap: () => setState(() => _activeTab = 2),
                             ),
                           ],
                         ),
                       ),
                     ),
-                  if (hasActiveData && activeMode == AnalysisMode.exams)
+                  ),
+                  if (_hasActiveFilters)
                     SliverToBoxAdapter(
                       child: Padding(
-                        padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
-                        child: _ExamCompareCard(
-                          exams: _recentExams(examsFiltered, limit: 10),
-                        ),
-                      ),
-                    ),
-                  SliverToBoxAdapter(
-                    child: Padding(
-                      padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
-                      child: RepaintBoundary(
-                        key: _weeklyReportKey,
-                        child: _WeeklyReportCard(
-                          summary: weeklySummary,
-                          onShare: () => _shareWeeklyReportImage(
-                            context,
-                            _weeklyReportKey,
-                            weeklySummary,
-                          ),
-                          onNewsletter: () => _requestAiNewsletter(
-                            context,
-                            repository,
-                            weeklySummary,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                  SliverToBoxAdapter(
-                    child: Padding(
-                      padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
-                      child: _WeeklyTargetCard(items: weeklyTargets),
-                    ),
-                  ),
-                  SliverToBoxAdapter(
-                    child: Padding(
-                      padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
-                      child: _WeakTopicsCard(
-                        topics: weakTopics,
-                        onAiSummary: () => _requestAiSummary(
-                          context,
-                          repository,
-                          activeMode,
-                          metrics,
-                        ),
-                        onStudy: (topic) {
-                          Navigator.of(context).push(
-                            MaterialPageRoute(
-                              builder: (_) => TopicDetailScreen(
-                                topic: topic.topic,
+                        padding: const EdgeInsets.fromLTRB(20, 0, 20, 10),
+                        child: Wrap(
+                          spacing: 6,
+                          runSpacing: 6,
+                          children: [
+                            if (_rangeFilter != _RangeFilter.days7)
+                              InputChip(
+                                label: Text(_rangeFilterLabel(_rangeFilter)),
+                                visualDensity: VisualDensity.compact,
+                                onDeleted: () => setState(() {
+                                  _rangeFilter = _RangeFilter.days7;
+                                  _customRange = null;
+                                }),
                               ),
+                            if (activeTag != 'Tümü')
+                              InputChip(
+                                label: Text(activeTag),
+                                visualDensity: VisualDensity.compact,
+                                onDeleted: () => setState(() {
+                                  _selectedTag = 'Tümü';
+                                  _selectedSubject = 'Tümü';
+                                }),
+                              ),
+                            if (activeMode == AnalysisMode.exams &&
+                                activeExamScope != 'Tümü')
+                              InputChip(
+                                label: Text(activeExamScope),
+                                visualDensity: VisualDensity.compact,
+                                onDeleted: () => setState(
+                                    () => _selectedExamScope = 'Tümü'),
+                              ),
+                            if (activeMode == AnalysisMode.questions &&
+                                activeSubject != 'Tümü')
+                              InputChip(
+                                label: Text(activeSubject),
+                                visualDensity: VisualDensity.compact,
+                                onDeleted: () =>
+                                    setState(() => _selectedSubject = 'Tümü'),
+                              ),
+                          ],
+                        ),
+                      ),
+                    ),
+
+                  // TAB 0: ÖZET (Trend, 2 KPI, Compare/Branch or Weak Topics, Weekly Targets)
+                  if (_activeTab == 0) ...[
+                    SliverToBoxAdapter(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 20),
+                        child: hasActiveData
+                            ? _TrendCard(metrics: metrics)
+                            : _ModeEmptyState(
+                                mode: activeMode,
+                                onAddExam: () =>
+                                    _openEntry(context, EntryType.mockExam),
+                                onAddQuestion: () =>
+                                    _openEntry(context, EntryType.question),
+                              ),
+                      ),
+                    ),
+                    if (hasActiveData)
+                      SliverToBoxAdapter(
+                        child: Padding(
+                          padding: const EdgeInsets.fromLTRB(20, 14, 20, 0),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: _MetricCard(
+                                  title: metrics.leftTitle,
+                                  value: metrics.leftValue,
+                                  subtitle: metrics.leftSubtitle,
+                                  accent: metrics.leftAccent(context),
+                                  footer: _MiniSparkline(
+                                    values: metrics.trend,
+                                    color: metrics.leftAccent(context),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: _MetricCard(
+                                  title: metrics.rightTitle,
+                                  value: metrics.rightValue,
+                                  subtitle: metrics.rightSubtitle,
+                                  accent: metrics.rightAccent(context),
+                                  footer: _MiniBars(
+                                    values: metrics.trend,
+                                    color: metrics.rightAccent(context),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    if (hasActiveData && activeMode == AnalysisMode.exams)
+                      SliverToBoxAdapter(
+                        child: Padding(
+                          padding: const EdgeInsets.fromLTRB(20, 14, 20, 0),
+                          child: _ExamCompareCard(
+                            exams: _recentExams(examsFiltered, limit: 10),
+                          ),
+                        ),
+                      ),
+                    if (hasActiveData && activeMode == AnalysisMode.exams)
+                      SliverToBoxAdapter(
+                        child: Padding(
+                          padding: const EdgeInsets.fromLTRB(20, 14, 20, 0),
+                          child: _ExamBranchCard(
+                            stats: _buildExamBranchStats(examsFiltered),
+                          ),
+                        ),
+                      ),
+                    if (activeMode == AnalysisMode.questions)
+                      SliverToBoxAdapter(
+                        child: Padding(
+                          padding: const EdgeInsets.fromLTRB(20, 14, 20, 0),
+                          child: _WeakTopicsCard(
+                            topics: weakTopics,
+                            onAiSummary: () => _requestAiSummary(
+                              context,
+                              repository,
+                              activeMode,
+                              metrics,
                             ),
-                          );
-                        },
+                            onStudy: (topic) {
+                              Navigator.of(context).push(
+                                MaterialPageRoute(
+                                  builder: (_) => TopicDetailScreen(
+                                    topic: topic.topic,
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                        ),
                       ),
-                    ),
-                  ),
-                  if (hasActiveData && activeMode == AnalysisMode.questions)
                     SliverToBoxAdapter(
                       child: Padding(
-                        padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
-                        child: _AiQuestionHunterCard(
-                          onPredict: () => _requestAiExamPrediction(
-                            context,
-                            repository,
-                            weakTopics,
+                        padding: const EdgeInsets.fromLTRB(20, 14, 20, 0),
+                        child: _WeeklyTargetCard(items: weeklyTargets),
+                      ),
+                    ),
+                  ],
+
+                  // TAB 1: KAYITLAR (Clean list of Mock Exams or Question Entries with Delete & Undo)
+                  if (_activeTab == 1) ...[
+                    SliverToBoxAdapter(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 20),
+                        child: !hasActiveData
+                            ? _ModeEmptyState(
+                                mode: activeMode,
+                                onAddExam: () =>
+                                    _openEntry(context, EntryType.mockExam),
+                                onAddQuestion: () =>
+                                    _openEntry(context, EntryType.question),
+                              )
+                            : activeMode == AnalysisMode.exams
+                                ? _ExamHistoryCard(
+                                    exams: examsFiltered,
+                                    initiallyExpanded: true,
+                                  )
+                                : _QuestionHistoryCard(
+                                    entries: questionFiltered,
+                                    initiallyExpanded: true,
+                                  ),
+                      ),
+                    ),
+                  ],
+
+                  // TAB 2: AI KOÇ (Weekly Report, AI Strategist / Question Hunter, Error Insights)
+                  if (_activeTab == 2) ...[
+                    SliverToBoxAdapter(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 20),
+                        child: RepaintBoundary(
+                          key: _weeklyReportKey,
+                          child: _WeeklyReportCard(
+                            summary: weeklySummary,
+                            onShare: () => _shareWeeklyReportImage(
+                              context,
+                              _weeklyReportKey,
+                              weeklySummary,
+                            ),
+                            onNewsletter: () => _requestAiNewsletter(
+                              context,
+                              repository,
+                              weeklySummary,
+                            ),
                           ),
                         ),
                       ),
                     ),
-                  if (hasActiveData && activeMode == AnalysisMode.questions)
-                    SliverToBoxAdapter(
-                      child: Padding(
-                        padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
-                        child: _QuestionInsightCard(
-                          tags: _buildWrongTagCounts(questionEntries),
-                          onAnalyze: () => _requestAiQuestionAnalysis(
-                            context,
-                            repository,
-                            metrics as _QuestionMetrics,
-                            weakTopics,
+                    if (hasActiveData && activeMode == AnalysisMode.questions)
+                      SliverToBoxAdapter(
+                        child: Padding(
+                          padding: const EdgeInsets.fromLTRB(20, 14, 20, 0),
+                          child: _AiQuestionHunterCard(
+                            onPredict: () => _requestAiExamPrediction(
+                              context,
+                              repository,
+                              weakTopics,
+                            ),
                           ),
                         ),
                       ),
-                    ),
-                  if (hasActiveData && activeMode == AnalysisMode.exams)
-                    SliverToBoxAdapter(
-                      child: Padding(
-                        padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
-                        child: _AiExamStrategistCard(
-                          onAnalyze: () => _requestAiStrategy(
-                            context,
-                            repository,
-                            mockExams,
+                    if (hasActiveData && activeMode == AnalysisMode.questions)
+                      SliverToBoxAdapter(
+                        child: Padding(
+                          padding: const EdgeInsets.fromLTRB(20, 14, 20, 0),
+                          child: _QuestionInsightCard(
+                            tags: _buildWrongTagCounts(questionFiltered),
+                            onAnalyze: () => _requestAiQuestionAnalysis(
+                              context,
+                              repository,
+                              metrics as _QuestionMetrics,
+                              weakTopics,
+                            ),
                           ),
                         ),
                       ),
-                    ),
-                  if (hasActiveData && activeMode == AnalysisMode.exams)
-                    SliverToBoxAdapter(
-                      child: Padding(
-                        padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
-                        child: _ExamBranchCard(
-                          stats: _buildExamBranchStats(mockExams),
+                    if (hasActiveData && activeMode == AnalysisMode.exams)
+                      SliverToBoxAdapter(
+                        child: Padding(
+                          padding: const EdgeInsets.fromLTRB(20, 14, 20, 0),
+                          child: _AiExamStrategistCard(
+                            onAnalyze: () => _requestAiStrategy(
+                              context,
+                              repository,
+                              examsFiltered,
+                            ),
+                          ),
                         ),
                       ),
-                    ),
+                  ],
                   const SliverToBoxAdapter(child: SizedBox(height: 120)),
                 ],
               );
@@ -325,10 +480,269 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
     );
   }
 
+  void _openFilterSheet(
+    BuildContext context, {
+    required List<String> tags,
+    required List<String> examScopes,
+    required List<String> subjects,
+  }) {
+    final colors = AppColors.of(context);
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: colors.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (sheetContext) {
+        return StatefulBuilder(
+          builder: (sheetContext, setModalState) {
+            return SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(20, 14, 20, 20),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Center(
+                      child: Container(
+                        width: 40,
+                        height: 4,
+                        decoration: BoxDecoration(
+                          color: colors.border,
+                          borderRadius: BorderRadius.circular(999),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            'Analiz Filtreleri',
+                            style: Theme.of(sheetContext)
+                                .textTheme
+                                .titleMedium
+                                ?.copyWith(
+                                  color: colors.textPrimary,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                          ),
+                        ),
+                        if (_hasActiveFilters)
+                          TextButton(
+                            onPressed: () {
+                              setState(() {
+                                _rangeFilter = _RangeFilter.days7;
+                                _customRange = null;
+                                _selectedTag = 'Tümü';
+                                _selectedSubject = 'Tümü';
+                                _selectedExamScope = 'Tümü';
+                              });
+                              setModalState(() {});
+                            },
+                            child: const Text('Sıfırla'),
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      'Tarih Aralığı',
+                      style: Theme.of(sheetContext)
+                          .textTheme
+                          .labelMedium
+                          ?.copyWith(color: colors.textSecondary),
+                    ),
+                    const SizedBox(height: 8),
+                    _RangeSelector(
+                      selected: _rangeFilter,
+                      onSelect: (value) async {
+                        if (value == _RangeFilter.custom) {
+                          final range = await showDateRangePicker(
+                            context: sheetContext,
+                            firstDate: DateTime(DateTime.now().year - 1),
+                            lastDate: DateTime(DateTime.now().year + 1),
+                          );
+                          if (range == null) return;
+                          setState(() {
+                            _customRange = range;
+                            _rangeFilter = _RangeFilter.custom;
+                          });
+                          setModalState(() {});
+                          return;
+                        }
+                        setState(() {
+                          _customRange = null;
+                          _rangeFilter = value;
+                        });
+                        setModalState(() {});
+                      },
+                    ),
+                    if (tags.length > 1) ...[
+                      const SizedBox(height: 14),
+                      Text(
+                        'Sınav / Kategori',
+                        style: Theme.of(sheetContext)
+                            .textTheme
+                            .labelMedium
+                            ?.copyWith(color: colors.textSecondary),
+                      ),
+                      const SizedBox(height: 8),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: ['Tümü', ...tags].map((tag) {
+                          return ChoiceChip(
+                            label: Text(tag),
+                            selected: _selectedTag == tag,
+                            onSelected: (_) {
+                              setState(() {
+                                _selectedTag = tag;
+                                _selectedSubject = 'Tümü';
+                              });
+                              setModalState(() {});
+                            },
+                          );
+                        }).toList(),
+                      ),
+                    ],
+                    if (_mode == AnalysisMode.exams &&
+                        examScopes.length > 1) ...[
+                      const SizedBox(height: 14),
+                      Text(
+                        'Deneme Türü',
+                        style: Theme.of(sheetContext)
+                            .textTheme
+                            .labelMedium
+                            ?.copyWith(color: colors.textSecondary),
+                      ),
+                      const SizedBox(height: 8),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: ['Tümü', ...examScopes].map((scope) {
+                          return ChoiceChip(
+                            label: Text(scope),
+                            selected: _selectedExamScope == scope,
+                            onSelected: (_) {
+                              setState(() => _selectedExamScope = scope);
+                              setModalState(() {});
+                            },
+                          );
+                        }).toList(),
+                      ),
+                    ],
+                    if (_mode == AnalysisMode.questions &&
+                        subjects.length > 1) ...[
+                      const SizedBox(height: 14),
+                      Text(
+                        'Ders',
+                        style: Theme.of(sheetContext)
+                            .textTheme
+                            .labelMedium
+                            ?.copyWith(color: colors.textSecondary),
+                      ),
+                      const SizedBox(height: 8),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: ['Tümü', ...subjects].map((subj) {
+                          return ChoiceChip(
+                            label: Text(subj),
+                            selected: _selectedSubject == subj,
+                            onSelected: (_) {
+                              setState(() => _selectedSubject = subj);
+                              setModalState(() {});
+                            },
+                          );
+                        }).toList(),
+                      ),
+                    ],
+                    const SizedBox(height: 18),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: () => Navigator.of(sheetContext).pop(),
+                        child: const Text('Uygula'),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
   void _openEntry(BuildContext context, EntryType type) {
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (context) => EntryWizardScreen(type: type),
+      ),
+    );
+  }
+}
+
+String _rangeFilterLabel(_RangeFilter filter) {
+  switch (filter) {
+    case _RangeFilter.days7:
+      return 'Son 7 Gün';
+    case _RangeFilter.days30:
+      return 'Son 30 Gün';
+    case _RangeFilter.days90:
+      return 'Son 90 Gün';
+    case _RangeFilter.custom:
+      return 'Özel Aralık';
+  }
+}
+
+class _SubTabChip extends StatelessWidget {
+  const _SubTabChip({
+    required this.label,
+    required this.active,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool active;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = AppColors.of(context);
+    return Expanded(
+      child: GestureDetector(
+        onTap: onTap,
+        behavior: HitTestBehavior.opaque,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 160),
+          padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 6),
+          decoration: BoxDecoration(
+            color: active ? colors.surface : Colors.transparent,
+            borderRadius: BorderRadius.circular(10),
+            boxShadow: active && !colors.isDark
+                ? [
+                    BoxShadow(
+                      color: colors.cardShadow,
+                      blurRadius: 6,
+                      offset: const Offset(0, 2),
+                    ),
+                  ]
+                : const [],
+          ),
+          child: Text(
+            label,
+            textAlign: TextAlign.center,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                  color: active ? colors.primary : colors.textSecondary,
+                  fontWeight: active ? FontWeight.w700 : FontWeight.w600,
+                ),
+          ),
+        ),
       ),
     );
   }
@@ -594,16 +1008,16 @@ class _AiQuestionHunterCard extends StatelessWidget {
               Text(
                 'AI Soru Avcısı',
                 style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      color: Colors.white,
+                      color: AppColors.of(context).textPrimary,
                       fontWeight: FontWeight.w700,
                     ),
               ),
             ],
           ),
           const SizedBox(height: 12),
-          const Text(
-            'Zayıf olduğun konuları ve KPSS soru ağırlıklarını analiz ederek çıkması muhtemel noktaları yakalar.',
-            style: TextStyle(color: Colors.white54, fontSize: 13, height: 1.4),
+          Text(
+            'Zayıf olduğun konuları ve ilgili sınav/ders ağırlıklarını analiz ederek çalışman gereken kritik noktaları öne çıkarır.',
+            style: TextStyle(color: AppColors.of(context).textSecondary, fontSize: 13, height: 1.4),
           ),
           const SizedBox(height: 16),
           SizedBox(
@@ -782,7 +1196,7 @@ List<_WeeklyTargetItem> _buildWeeklyQuestionTargets(
         .fold<int>(0, (sum, entry) => sum + entry.total);
     items.add(
       _WeeklyTargetItem(
-        label: '${weekStart.day}.${weekStart.month}',
+        label: _formatShortDayMonth(weekStart),
         actual: total,
         target: dailyGoal * 7,
       ),
@@ -792,10 +1206,8 @@ List<_WeeklyTargetItem> _buildWeeklyQuestionTargets(
 }
 
 List<_WeeklyTargetItem> _buildWeeklyExamTargets(List<MockExam> exams) {
-  // Deneme için sabit bir hedef (örn: haftada 2 deneme) varsayalım veya veriden çıkaralım.
-  // Şimdilik haftalık 2 deneme hedefi koyalım.
   const weeklyTarget = 2;
-  
+
   if (exams.isEmpty) {
     return [];
   }
@@ -811,13 +1223,31 @@ List<_WeeklyTargetItem> _buildWeeklyExamTargets(List<MockExam> exams) {
         .length;
     items.add(
       _WeeklyTargetItem(
-        label: '${weekStart.day}.${weekStart.month}',
+        label: _formatShortDayMonth(weekStart),
         actual: count,
         target: weeklyTarget,
       ),
     );
   }
   return items;
+}
+
+String _formatShortDayMonth(DateTime date) {
+  const months = [
+    'Oca',
+    'Şub',
+    'Mar',
+    'Nis',
+    'May',
+    'Haz',
+    'Tem',
+    'Ağu',
+    'Eyl',
+    'Eki',
+    'Kas',
+    'Ara',
+  ];
+  return '${date.day} ${months[date.month - 1]}';
 }
 
 DateTime _startOfWeek(DateTime date) {
@@ -943,33 +1373,93 @@ String _cadenceLabel(String cadence) {
 enum AnalysisMode { exams, questions }
 
 class _Header extends StatelessWidget {
-  const _Header({required this.onShare});
+  const _Header({
+    required this.hasActiveFilters,
+    required this.onOpenFilters,
+    required this.onShare,
+  });
 
+  final bool hasActiveFilters;
+  final VoidCallback onOpenFilters;
   final VoidCallback onShare;
 
   @override
   Widget build(BuildContext context) {
-    return GlassPanel(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-      radius: const BorderRadius.vertical(bottom: Radius.circular(24)),
+    final canPop = Navigator.of(context).canPop();
+    final colors = AppColors.of(context);
+    return Padding(
+      padding: EdgeInsets.fromLTRB(canPop ? 8 : 20, 14, 16, 4),
       child: Row(
         children: [
-          IconButton(
-            onPressed: () => Navigator.of(context).maybePop(),
-            icon: Icon(Icons.arrow_back, color: Colors.white70),
-          ),
-          SizedBox(width: 4),
+          if (canPop) ...[
+            IconButton(
+              onPressed: () => Navigator.of(context).maybePop(),
+              icon: Icon(Icons.arrow_back_rounded, color: colors.textPrimary),
+            ),
+            const SizedBox(width: 4),
+          ],
           Text(
-            'Performans Analizi',
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w700,
+            'Analiz',
+            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                  color: colors.textPrimary,
+                  fontWeight: FontWeight.w800,
                 ),
           ),
           const Spacer(),
-          IconButton(
-            onPressed: onShare,
-            icon: Icon(Icons.ios_share, color: Colors.white70),
+          Tooltip(
+            message: 'Filtrele',
+            child: InkWell(
+              onTap: onOpenFilters,
+              borderRadius: BorderRadius.circular(12),
+              child: Container(
+                width: 38,
+                height: 38,
+                decoration: BoxDecoration(
+                  color: colors.surface,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: colors.border),
+                ),
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    Icon(Icons.tune_rounded,
+                        color: colors.textPrimary, size: 20),
+                    if (hasActiveFilters)
+                      Positioned(
+                        right: 7,
+                        top: 7,
+                        child: Container(
+                          width: 7,
+                          height: 7,
+                          decoration: BoxDecoration(
+                            color: colors.primary,
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Tooltip(
+            message: 'Raporu Paylaş',
+            child: InkWell(
+              onTap: onShare,
+              borderRadius: BorderRadius.circular(12),
+              child: Container(
+                width: 38,
+                height: 38,
+                decoration: BoxDecoration(
+                  color: colors.surface,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: colors.border),
+                ),
+                child: Icon(Icons.ios_share_rounded,
+                    color: colors.textPrimary, size: 19),
+              ),
+            ),
           ),
         ],
       ),
@@ -1032,7 +1522,7 @@ class _ModeChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = active ? AppColors.of(context).primary : Colors.white54;
+    final color = active ? AppColors.of(context).primary : AppColors.of(context).textSecondary;
     return Expanded(
       child: GestureDetector(
         onTap: onTap,
@@ -1046,7 +1536,7 @@ class _ModeChip extends StatelessWidget {
             label,
             textAlign: TextAlign.center,
             style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                  color: enabled ? color : Colors.white24,
+                  color: enabled ? color : AppColors.of(context).textMuted,
                   fontWeight: FontWeight.w700,
                 ),
           ),
@@ -1121,7 +1611,7 @@ class _RangeChip extends StatelessWidget {
             label,
             textAlign: TextAlign.center,
             style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                  color: active ? Theme.of(context).colorScheme.onPrimary : Colors.white54,
+                  color: active ? Theme.of(context).colorScheme.onPrimary : AppColors.of(context).textSecondary,
                   fontWeight: FontWeight.w600,
                 ),
           ),
@@ -1157,7 +1647,7 @@ class _ModeEmptyState extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppColors.of(context).surface,
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: Colors.white.withOpacity(0.08)),
+        border: Border.all(color: AppColors.of(context).border),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1165,7 +1655,7 @@ class _ModeEmptyState extends StatelessWidget {
           Text(
             title,
             style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  color: Colors.white,
+                  color: AppColors.of(context).textPrimary,
                   fontWeight: FontWeight.w700,
                 ),
           ),
@@ -1173,7 +1663,7 @@ class _ModeEmptyState extends StatelessWidget {
           Text(
             message,
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: Colors.white54,
+                  color: AppColors.of(context).textSecondary,
                 ),
           ),
           SizedBox(height: 16),
@@ -1211,7 +1701,7 @@ class _TrendCard extends StatelessWidget {
                     Text(
                       metrics.title,
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: Colors.white54,
+                            color: AppColors.of(context).textSecondary,
                           ),
                     ),
                     SizedBox(height: 6),
@@ -1224,7 +1714,7 @@ class _TrendCard extends StatelessWidget {
                               .textTheme
                               .displaySmall
                               ?.copyWith(
-                                color: Colors.white,
+                                color: AppColors.of(context).textPrimary,
                                 fontWeight: FontWeight.w700,
                               ),
                         ),
@@ -1232,7 +1722,7 @@ class _TrendCard extends StatelessWidget {
                         Text(
                           metrics.unit,
                           style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                color: Colors.white54,
+                                color: AppColors.of(context).textSecondary,
                               ),
                         ),
                       ],
@@ -1306,28 +1796,41 @@ class _TrendChart extends StatelessWidget {
         child: Text(
           'Grafik için veri yok',
           style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: Colors.white54,
+                color: AppColors.of(context).textSecondary,
               ),
         ),
       );
     }
+    final colors = AppColors.of(context);
     return RepaintBoundary(
       child: CustomPaint(
-        painter: _TrendPainter(values, accent),
-        child: SizedBox.expand(),
+        painter: _TrendPainter(
+          values,
+          accent,
+          gridColor: colors.divider,
+          pointFill: colors.surface,
+        ),
+        child: const SizedBox.expand(),
       ),
     );
   }
 }
 
 class _TrendPainter extends CustomPainter {
-  _TrendPainter(this.values, this.accent);
+  _TrendPainter(
+    this.values,
+    this.accent, {
+    required this.gridColor,
+    required this.pointFill,
+  });
 
   final List<double> values;
   final Color accent;
+  final Color gridColor;
+  final Color pointFill;
 
   @override
-void paint(Canvas canvas, Size size) {
+  void paint(Canvas canvas, Size size) {
     if (values.isEmpty) {
       return;
     }
@@ -1336,7 +1839,7 @@ void paint(Canvas canvas, Size size) {
     final range = maxValue - minValue == 0 ? 1 : maxValue - minValue;
 
     final gridPaint = Paint()
-      ..color = Colors.white.withOpacity(0.08)
+      ..color = gridColor
       ..strokeWidth = 1;
     for (var i = 1; i <= 3; i++) {
       final y = size.height * (i / 4);
@@ -1370,8 +1873,8 @@ void paint(Canvas canvas, Size size) {
         begin: Alignment.topCenter,
         end: Alignment.bottomCenter,
         colors: [
-          accent.withOpacity(0.35),
-          accent.withOpacity(0.05),
+          accent.withValues(alpha: 0.25),
+          accent.withValues(alpha: 0.02),
         ],
       ).createShader(Rect.fromLTWH(0, 0, size.width, size.height))
       ..style = PaintingStyle.fill;
@@ -1389,18 +1892,21 @@ void paint(Canvas canvas, Size size) {
     final lastX = size.width;
     final lastNormalized = (values.last - minValue) / range;
     final lastY = size.height - (lastNormalized * size.height);
-    final pointPaint = Paint()..color = Colors.white;
+    final pointPaint = Paint()..color = pointFill;
     final outlinePaint = Paint()
       ..color = accent
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 2;
+      ..strokeWidth = 2.5;
     canvas.drawCircle(Offset(lastX, lastY), 4, pointPaint);
     canvas.drawCircle(Offset(lastX, lastY), 6, outlinePaint);
   }
 
   @override
   bool shouldRepaint(covariant _TrendPainter oldDelegate) {
-    return oldDelegate.values != values || oldDelegate.accent != accent;
+    return oldDelegate.values != values ||
+        oldDelegate.accent != accent ||
+        oldDelegate.gridColor != gridColor ||
+        oldDelegate.pointFill != pointFill;
   }
 }
 
@@ -1418,7 +1924,7 @@ class _TrendAxis extends StatelessWidget {
             (label) => Text(
               label,
               style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                    color: Colors.white38,
+                    color: AppColors.of(context).textMuted,
                     letterSpacing: 1,
                   ),
             ),
@@ -1481,7 +1987,7 @@ class _MetricCard extends StatelessWidget {
                     Text(
                       title,
                       style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                            color: Colors.white54,
+                            color: AppColors.of(context).textSecondary,
                           ),
                     ),
                   ],
@@ -1497,7 +2003,7 @@ class _MetricCard extends StatelessWidget {
                 Text(
                   subtitle,
                   style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                        color: Colors.white38,
+                        color: AppColors.of(context).textMuted,
                       ),
                 ),
               ],
@@ -1621,7 +2127,7 @@ class _WeakTopicsCard extends StatelessWidget {
               Text(
                 'Dikkat Gerektiren Konular',
                 style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      color: Colors.white,
+                      color: AppColors.of(context).textPrimary,
                       fontWeight: FontWeight.w700,
                     ),
               ),
@@ -1641,7 +2147,7 @@ class _WeakTopicsCard extends StatelessWidget {
             Text(
               'Henüz zayıf konu tespiti yapılmadı.',
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: Colors.white54,
+                    color: AppColors.of(context).textSecondary,
                   ),
             )
           else
@@ -1679,14 +2185,14 @@ class _WeakTopicRow extends StatelessWidget {
                 Text(
                   topic.topic.title,
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: Colors.white,
+                        color: AppColors.of(context).textPrimary,
                         fontWeight: FontWeight.w600,
                       ),
                 ),
                 Text(
                   '${topic.topic.subject} • ${topic.totalQuestions} çözülen',
                   style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                        color: Colors.white54,
+                        color: AppColors.of(context).textSecondary,
                       ),
                 ),
               ],
@@ -1705,7 +2211,7 @@ class _WeakTopicRow extends StatelessWidget {
               Text(
                 'Doğruluk',
                 style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                      color: Colors.white38,
+                      color: AppColors.of(context).textMuted,
                     ),
               ),
             ],
@@ -1715,7 +2221,7 @@ class _WeakTopicRow extends StatelessWidget {
             onPressed: onStudy,
             style: OutlinedButton.styleFrom(
               foregroundColor: Colors.white,
-              side: BorderSide(color: Colors.white.withOpacity(0.12)),
+              side: BorderSide(color: AppColors.of(context).border),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(16),
               ),
@@ -1748,7 +2254,7 @@ class _QuestionInsightCard extends StatelessWidget {
           Text(
             'AI Soru Analizi',
             style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  color: Colors.white,
+                  color: AppColors.of(context).textPrimary,
                   fontWeight: FontWeight.w700,
                 ),
           ),
@@ -1756,7 +2262,7 @@ class _QuestionInsightCard extends StatelessWidget {
           Text(
             'Yanlış eğilimlerini ve hız darboğazını yorumlar.',
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: Colors.white54,
+                  color: AppColors.of(context).textSecondary,
                 ),
           ),
           SizedBox(height: 10),
@@ -1764,7 +2270,7 @@ class _QuestionInsightCard extends StatelessWidget {
             Text(
               'Yanlış türü etiketlenmedi.',
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: Colors.white38,
+                    color: AppColors.of(context).textMuted,
                   ),
             )
           else
@@ -1784,7 +2290,7 @@ class _QuestionInsightCard extends StatelessWidget {
                       child: Text(
                         '${entry.key} • ${entry.value}',
                         style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                              color: Colors.white,
+                              color: AppColors.of(context).textPrimary,
                               fontWeight: FontWeight.w600,
                             ),
                       ),
@@ -1824,7 +2330,7 @@ class _ExamCompareCard extends StatelessWidget {
           Text(
             'Deneme Kıyas Grafiği',
             style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  color: Colors.white,
+                  color: AppColors.of(context).textPrimary,
                   fontWeight: FontWeight.w700,
                 ),
           ),
@@ -1833,7 +2339,7 @@ class _ExamCompareCard extends StatelessWidget {
             Text(
               'Henüz deneme eklenmedi.',
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: Colors.white54,
+                    color: AppColors.of(context).textSecondary,
                   ),
             )
           else ...[
@@ -1845,11 +2351,13 @@ class _ExamCompareCard extends StatelessWidget {
                     values: points,
                     primaryColor: AppColors.of(context).primary,
                     primaryLightColor: AppColors.of(context).primaryLight,
+                    gridColor: AppColors.of(context).divider,
+                    dotFill: AppColors.of(context).surface,
                   ),
                 ),
               ),
             ),
-            SizedBox(height: 12),
+            const SizedBox(height: 12),
             Column(
               children: exams.reversed
                   .map(
@@ -1874,11 +2382,15 @@ class _LineChartPainter extends CustomPainter {
     required this.values,
     required this.primaryColor,
     required this.primaryLightColor,
+    required this.gridColor,
+    required this.dotFill,
   });
 
   final List<double> values;
   final Color primaryColor;
   final Color primaryLightColor;
+  final Color gridColor;
+  final Color dotFill;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -1893,7 +2405,7 @@ class _LineChartPainter extends CustomPainter {
 
     // Draw horizontal grid lines
     final gridPaint = Paint()
-      ..color = Colors.white.withOpacity(0.05)
+      ..color = gridColor
       ..strokeWidth = 1;
     for (var i = 0; i <= 4; i++) {
       final y = size.height * (i / 4);
@@ -1927,14 +2439,14 @@ class _LineChartPainter extends CustomPainter {
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
           colors: [
-            primaryLightColor.withOpacity(0.2),
-            primaryLightColor.withOpacity(0.0),
+            primaryColor.withValues(alpha: 0.2),
+            primaryColor.withValues(alpha: 0.0),
           ],
         ).createShader(Rect.fromLTWH(0, 0, size.width, size.height));
       canvas.drawPath(fillPath, fillPaint);
 
       final linePaint = Paint()
-        ..color = primaryLightColor
+        ..color = primaryColor
         ..strokeWidth = 3
         ..style = PaintingStyle.stroke
         ..strokeCap = StrokeCap.round;
@@ -1942,11 +2454,11 @@ class _LineChartPainter extends CustomPainter {
     }
 
     // Draw dots for each point
-    final dotPaint = Paint()..color = Colors.white;
+    final dotPaint = Paint()..color = dotFill;
     final dotOutlinePaint = Paint()
       ..color = primaryColor
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 2;
+      ..strokeWidth = 2.5;
 
     for (var i = 0; i < values.length; i++) {
       final x = values.length > 1 ? i * stepX : size.width / 2;
@@ -1960,7 +2472,9 @@ class _LineChartPainter extends CustomPainter {
   bool shouldRepaint(covariant _LineChartPainter oldDelegate) {
     return oldDelegate.values != values ||
         oldDelegate.primaryColor != primaryColor ||
-        oldDelegate.primaryLightColor != primaryLightColor;
+        oldDelegate.primaryLightColor != primaryLightColor ||
+        oldDelegate.gridColor != gridColor ||
+        oldDelegate.dotFill != dotFill;
   }
 }
 
@@ -1992,7 +2506,7 @@ class _WeeklyTargetCard extends StatelessWidget {
           Text(
             'Haftalık Hedef Grafiği',
             style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  color: Colors.white,
+                  color: AppColors.of(context).textPrimary,
                   fontWeight: FontWeight.w700,
                 ),
           ),
@@ -2001,7 +2515,7 @@ class _WeeklyTargetCard extends StatelessWidget {
             Text(
               'Hedef grafiği için yeterli veri yok.',
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: Colors.white54,
+                    color: AppColors.of(context).textSecondary,
                   ),
             )
           else
@@ -2022,7 +2536,7 @@ class _WeeklyTargetCard extends StatelessWidget {
                                       .textTheme
                                       .bodySmall
                                       ?.copyWith(
-                                        color: Colors.white,
+                                        color: AppColors.of(context).textPrimary,
                                         fontWeight: FontWeight.w600,
                                       ),
                                 ),
@@ -2032,7 +2546,7 @@ class _WeeklyTargetCard extends StatelessWidget {
                                 style: Theme.of(context)
                                     .textTheme
                                     .labelSmall
-                                    ?.copyWith(color: Colors.white54),
+                                    ?.copyWith(color: AppColors.of(context).textSecondary),
                               ),
                             ],
                           ),
@@ -2044,10 +2558,10 @@ class _WeeklyTargetCard extends StatelessWidget {
                                 child: LinearProgressIndicator(
                                   value: 1,
                                   minHeight: 6,
-                                  backgroundColor: Colors.white12,
+                                  backgroundColor: AppColors.of(context).subtleFill,
                                   valueColor:
-                                      const AlwaysStoppedAnimation<Color>(
-                                          Colors.white12),
+                                      AlwaysStoppedAnimation<Color>(
+                                          AppColors.of(context).subtleFill),
                                 ),
                               ),
                               ClipRRect(
@@ -2100,7 +2614,7 @@ class _WeeklyReportCard extends StatelessWidget {
           Text(
             'Haftalık Rapor',
             style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  color: Colors.white,
+                  color: AppColors.of(context).textPrimary,
                   fontWeight: FontWeight.w700,
                 ),
           ),
@@ -2108,7 +2622,7 @@ class _WeeklyReportCard extends StatelessWidget {
           Text(
             summary,
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: Colors.white70,
+                  color: AppColors.of(context).textSecondary,
                   height: 1.4,
                 ),
           ),
@@ -2180,7 +2694,7 @@ class _ExamBranchCard extends StatelessWidget {
           Text(
             'Deneme Branş Analizi',
             style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  color: Colors.white,
+                  color: AppColors.of(context).textPrimary,
                   fontWeight: FontWeight.w700,
                 ),
           ),
@@ -2189,7 +2703,7 @@ class _ExamBranchCard extends StatelessWidget {
             Text(
               'Branş netleri girilmedi. Deneme eklerken branş netlerini doldurabilirsin.',
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: Colors.white54,
+                    color: AppColors.of(context).textSecondary,
                   ),
             )
           else
@@ -2235,7 +2749,7 @@ class _BarRow extends StatelessWidget {
                 child: Text(
                   label,
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: Colors.white,
+                        color: AppColors.of(context).textPrimary,
                         fontWeight: FontWeight.w600,
                       ),
                 ),
@@ -2243,7 +2757,7 @@ class _BarRow extends StatelessWidget {
               Text(
                 valueLabel,
                 style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                      color: Colors.white54,
+                      color: AppColors.of(context).textSecondary,
                     ),
               ),
             ],
@@ -2254,7 +2768,7 @@ class _BarRow extends StatelessWidget {
             child: LinearProgressIndicator(
               value: ratio,
               minHeight: 6,
-              backgroundColor: Colors.white12,
+              backgroundColor: AppColors.of(context).subtleFill,
               valueColor:
                   AlwaysStoppedAnimation<Color>(AppColors.of(context).primary),
             ),
@@ -2283,28 +2797,28 @@ class _EmptyState extends StatelessWidget {
               width: 100,
               height: 100,
               decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.05),
+                color: AppColors.of(context).subtleFill,
                 borderRadius: BorderRadius.circular(30),
-                border: Border.all(color: Colors.white.withOpacity(0.05)),
+                border: Border.all(color: AppColors.of(context).border),
               ),
               child: Center(
-                child: Icon(Icons.bar_chart, color: Colors.white30, size: 50),
+                child: Icon(Icons.bar_chart, color: AppColors.of(context).textMuted, size: 50),
               ),
             ),
             const SizedBox(height: 24),
             Text(
               'Henüz Veri Yok',
               style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    color: Colors.white,
+                    color: AppColors.of(context).textPrimary,
                     fontWeight: FontWeight.w700,
                   ),
             ),
             const SizedBox(height: 12),
-            const Text(
+            Text(
               'Önce 3 deneme veya soru kaydı ekle — trendleri çıkarmak için buradan takip et.',
               textAlign: TextAlign.center,
               style: TextStyle(
-                color: Colors.white54,
+                color: AppColors.of(context).textSecondary,
                 fontSize: 14,
                 height: 1.5,
               ),
@@ -2742,16 +3256,16 @@ class _AiExamStrategistCard extends StatelessWidget {
               Text(
                 'AI Sınav Stratejisti',
                 style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      color: Colors.white,
+                      color: AppColors.of(context).textPrimary,
                       fontWeight: FontWeight.w700,
                     ),
               ),
             ],
           ),
           const SizedBox(height: 12),
-          const Text(
+          Text(
             'Denemelerindeki branş bazlı süre ve net dağılımını analiz ederek sınav anı için sana özel taktikler üretir.',
-            style: TextStyle(color: Colors.white54, fontSize: 13, height: 1.4),
+            style: TextStyle(color: AppColors.of(context).textSecondary, fontSize: 13, height: 1.4),
           ),
           const SizedBox(height: 16),
           SizedBox(
@@ -2811,4 +3325,284 @@ List<MockExam> _recentExams(List<MockExam> exams, {int limit = 5}) {
   final sorted = [...exams]..sort((a, b) => a.createdAt.compareTo(b.createdAt));
   if (sorted.length <= limit) return sorted;
   return sorted.sublist(sorted.length - limit);
+}
+
+String _formatRecordDate(DateTime date) {
+  final day = date.day.toString().padLeft(2, '0');
+  final month = date.month.toString().padLeft(2, '0');
+  return '$day.$month.${date.year}';
+}
+
+class _ExamHistoryCard extends StatefulWidget {
+  const _ExamHistoryCard({
+    required this.exams,
+    this.initiallyExpanded = false,
+  });
+  final List<MockExam> exams;
+  final bool initiallyExpanded;
+
+  @override
+  State<_ExamHistoryCard> createState() => _ExamHistoryCardState();
+}
+
+class _ExamHistoryCardState extends State<_ExamHistoryCard> {
+  late bool _showAll;
+
+  @override
+  void initState() {
+    super.initState();
+    _showAll = widget.initiallyExpanded;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final sorted = [...widget.exams]
+      ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    final visible = _showAll ? sorted : sorted.take(5).toList();
+    final colors = AppColors.of(context);
+
+    return GlassPanel(
+      padding: const EdgeInsets.all(16),
+      radius: BorderRadius.circular(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.assignment_outlined, color: colors.success, size: 18),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Kayıtlı Denemeler (${sorted.length})',
+                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                        color: colors.textPrimary,
+                        fontWeight: FontWeight.w700,
+                      ),
+                ),
+              ),
+              if (sorted.length > 5 && !widget.initiallyExpanded)
+                TextButton(
+                  onPressed: () => setState(() => _showAll = !_showAll),
+                  child: Text(_showAll ? 'Daha Az' : 'Tümü'),
+                ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          ...visible.map(
+            (exam) => Container(
+              margin: const EdgeInsets.only(bottom: 8),
+              padding: const EdgeInsets.fromLTRB(12, 10, 6, 10),
+              decoration: BoxDecoration(
+                color: colors.subtleFill,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: colors.border),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          exam.title.isEmpty ? 'Deneme' : exam.title,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: colors.textPrimary,
+                            fontWeight: FontWeight.w700,
+                            fontSize: 13.5,
+                          ),
+                        ),
+                        const SizedBox(height: 3),
+                        Text(
+                          '${exam.scopeSummary} • ${exam.examType} • ${_formatRecordDate(exam.createdAt)}',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: colors.textSecondary,
+                            fontSize: 11.5,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Text(
+                        '${exam.totalNet.toStringAsFixed(1)} net',
+                        style: TextStyle(
+                          color: colors.success,
+                          fontWeight: FontWeight.w800,
+                          fontSize: 13,
+                        ),
+                      ),
+                      Text(
+                        '${exam.correct}D ${exam.wrong}Y ${exam.blank}B',
+                        style: TextStyle(
+                          color: colors.textMuted,
+                          fontSize: 10.5,
+                        ),
+                      ),
+                    ],
+                  ),
+                  IconButton(
+                    tooltip: 'Denemeyi Sil',
+                    visualDensity: VisualDensity.compact,
+                    icon: Icon(
+                      Icons.delete_outline_rounded,
+                      color: colors.danger,
+                      size: 19,
+                    ),
+                    onPressed: () => deleteMockExamWithUndo(context, exam),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _QuestionHistoryCard extends StatefulWidget {
+  const _QuestionHistoryCard({
+    required this.entries,
+    this.initiallyExpanded = false,
+  });
+  final List<QuestionEntry> entries;
+  final bool initiallyExpanded;
+
+  @override
+  State<_QuestionHistoryCard> createState() => _QuestionHistoryCardState();
+}
+
+class _QuestionHistoryCardState extends State<_QuestionHistoryCard> {
+  late bool _showAll;
+
+  @override
+  void initState() {
+    super.initState();
+    _showAll = widget.initiallyExpanded;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final sorted = [...widget.entries]
+      ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    final visible = _showAll ? sorted : sorted.take(5).toList();
+    final colors = AppColors.of(context);
+
+    return GlassPanel(
+      padding: const EdgeInsets.all(16),
+      radius: BorderRadius.circular(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.quiz_outlined, color: colors.primary, size: 18),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Soru Kayıtları (${sorted.length})',
+                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                        color: colors.textPrimary,
+                        fontWeight: FontWeight.w700,
+                      ),
+                ),
+              ),
+              if (sorted.length > 5 && !widget.initiallyExpanded)
+                TextButton(
+                  onPressed: () => setState(() => _showAll = !_showAll),
+                  child: Text(_showAll ? 'Daha Az' : 'Tümü'),
+                ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          ...visible.map((entry) {
+            final title = entry.bookName.isNotEmpty
+                ? entry.bookName
+                : (entry.topic.isEmpty ? 'Soru Kaydı' : entry.topic);
+            return Container(
+              margin: const EdgeInsets.only(bottom: 8),
+              padding: const EdgeInsets.fromLTRB(12, 10, 6, 10),
+              decoration: BoxDecoration(
+                color: colors.subtleFill,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: colors.border),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          title,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: colors.textPrimary,
+                            fontWeight: FontWeight.w700,
+                            fontSize: 13.5,
+                          ),
+                        ),
+                        const SizedBox(height: 3),
+                        Text(
+                          '${entry.subject}'
+                          '${entry.topic.isNotEmpty && entry.topic != title ? ' • ${entry.topic}' : ''}'
+                          ' • ${_formatRecordDate(entry.createdAt)}',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: colors.textSecondary,
+                            fontSize: 11.5,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Text(
+                        '${entry.total} soru',
+                        style: TextStyle(
+                          color: colors.primary,
+                          fontWeight: FontWeight.w800,
+                          fontSize: 13,
+                        ),
+                      ),
+                      Text(
+                        '${entry.correct}D ${entry.wrong}Y ${entry.blank}B',
+                        style: TextStyle(
+                          color: colors.textMuted,
+                          fontSize: 10.5,
+                        ),
+                      ),
+                    ],
+                  ),
+                  IconButton(
+                    tooltip: 'Soru Kaydını Sil',
+                    visualDensity: VisualDensity.compact,
+                    icon: Icon(
+                      Icons.delete_outline_rounded,
+                      color: colors.danger,
+                      size: 19,
+                    ),
+                    onPressed: () =>
+                        deleteQuestionEntryWithUndo(context, entry),
+                  ),
+                ],
+              ),
+            );
+          }),
+        ],
+      ),
+    );
+  }
 }

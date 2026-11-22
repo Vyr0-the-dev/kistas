@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 
 import 'features/splash/screens/splash_screen.dart';
 import 'core/repositories/app_repository.dart';
 import 'core/services/notification_service.dart';
+import 'core/theme/app_colors.dart';
 import 'core/theme/app_theme.dart';
 import 'core/data/database_service.dart';
 
@@ -33,13 +35,7 @@ Future<void> main() async {
 }
 
 String _buildWeeklyPlanBody(AppRepository repository) {
-  final program = repository.aiProgramLast.value;
-  if (program == null || program.trim().isEmpty) {
-    return 'Bu hafta için çalışma planını güncelle.';
-  }
-  final trimmed = program.trim();
-  final firstLine = trimmed.split('\n').first;
-  return firstLine.length > 120 ? '${firstLine.substring(0, 120)}…' : firstLine;
+  return repository.buildWeeklyScheduleSummary();
 }
 
 class KistasApp extends StatelessWidget {
@@ -54,21 +50,36 @@ class KistasApp extends StatelessWidget {
       child: ValueListenableBuilder<String>(
         valueListenable: repository.themeKey,
         builder: (context, themeKey, _) {
-          return MaterialApp(
-            navigatorKey: navigatorKey,
-            debugShowCheckedModeBanner: false,
-            title: 'Kıstas',
-            theme: buildAppTheme(themeKey),
-            localizationsDelegates: const [
-              GlobalMaterialLocalizations.delegate,
-              GlobalWidgetsLocalizations.delegate,
-              GlobalCupertinoLocalizations.delegate,
-            ],
-            supportedLocales: const [
-              Locale('tr', 'TR'),
-            ],
-            locale: const Locale('tr', 'TR'),
-            home: const SplashScreen(),
+          final palette = AppColors.resolvePalette(themeKey);
+          final overlayStyle = palette.isDark
+              ? SystemUiOverlayStyle.light.copyWith(
+                  statusBarColor: Colors.transparent,
+                  systemNavigationBarColor: palette.surface,
+                  systemNavigationBarIconBrightness: Brightness.light,
+                )
+              : SystemUiOverlayStyle.dark.copyWith(
+                  statusBarColor: Colors.transparent,
+                  systemNavigationBarColor: palette.surface,
+                  systemNavigationBarIconBrightness: Brightness.dark,
+                );
+          return AnnotatedRegion<SystemUiOverlayStyle>(
+            value: overlayStyle,
+            child: MaterialApp(
+              navigatorKey: navigatorKey,
+              debugShowCheckedModeBanner: false,
+              title: 'Kıstas',
+              theme: buildAppTheme(themeKey),
+              localizationsDelegates: const [
+                GlobalMaterialLocalizations.delegate,
+                GlobalWidgetsLocalizations.delegate,
+                GlobalCupertinoLocalizations.delegate,
+              ],
+              supportedLocales: const [
+                Locale('tr', 'TR'),
+              ],
+              locale: const Locale('tr', 'TR'),
+              home: const SplashScreen(),
+            ),
           );
         },
       ),

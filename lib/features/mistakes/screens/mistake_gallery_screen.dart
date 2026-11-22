@@ -112,9 +112,12 @@ class _MistakeGalleryScreenState extends State<MistakeGalleryScreen> {
                   child: Opacity(
                     opacity: 0.2,
                     child: Image.file(
-                      File(latestImage), 
+                      File(latestImage),
                       fit: BoxFit.cover,
-                      cacheWidth: 300, // Optimized for deck card
+                      cacheWidth: 300,
+                      errorBuilder: (_, __, ___) => Center(
+                        child: Icon(Icons.broken_image_outlined, color: AppColors.of(context).textMuted),
+                      ),
                     ),
                   ),
                 ),
@@ -126,7 +129,7 @@ class _MistakeGalleryScreenState extends State<MistakeGalleryScreen> {
                     children: [
                       Text(
                         topic.isEmpty ? 'Konusuz' : topic,
-                        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
+                        style: TextStyle(color: AppColors.of(context).textPrimary, fontWeight: FontWeight.bold, fontSize: 16),
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -174,9 +177,9 @@ class _MistakeGalleryScreenState extends State<MistakeGalleryScreen> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const Icon(Icons.image_not_supported_outlined, size: 64, color: Colors.white24),
+          Icon(Icons.image_not_supported_outlined, size: 64, color: AppColors.of(context).textMuted),
           const SizedBox(height: 16),
-          const Text('Henüz hatalı soru kaydetmedin.', style: TextStyle(color: Colors.white54)),
+          Text('Henüz hatalı soru kaydetmedin.', style: TextStyle(color: AppColors.of(context).textSecondary)),
           const SizedBox(height: 24),
           ElevatedButton.icon(onPressed: () => _addNewMistake(context), icon: const Icon(Icons.add_a_photo), label: const Text('Fotoğraf Ekle')),
         ],
@@ -185,10 +188,42 @@ class _MistakeGalleryScreenState extends State<MistakeGalleryScreen> {
   }
 
   void _addNewMistake(BuildContext context) async {
+    final source = await showModalBottomSheet<ImageSource>(
+      context: context,
+      backgroundColor: AppColors.of(context).surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (sheetContext) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: Icon(Icons.camera_alt_outlined, color: AppColors.of(context).textPrimary),
+              title: Text('Kameradan Çek', style: TextStyle(color: AppColors.of(context).textPrimary)),
+              onTap: () => Navigator.pop(sheetContext, ImageSource.camera),
+            ),
+            ListTile(
+              leading: Icon(Icons.photo_library_outlined, color: AppColors.of(context).textPrimary),
+              title: Text('Galeriden Seç', style: TextStyle(color: AppColors.of(context).textPrimary)),
+              onTap: () => Navigator.pop(sheetContext, ImageSource.gallery),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (source == null || !context.mounted) return;
     final picker = ImagePicker();
-    final xFile = await picker.pickImage(source: ImageSource.camera);
+    final xFile = await picker.pickImage(source: source);
     if (xFile != null && context.mounted) {
-      Navigator.of(context).push(MaterialPageRoute(builder: (_) => EntryWizardScreen(type: EntryType.question, initialImagePath: xFile.path)));
+      Navigator.of(context, rootNavigator: true).push(
+        MaterialPageRoute(
+          builder: (_) => EntryWizardScreen(
+            type: EntryType.question,
+            initialImagePath: xFile.path,
+          ),
+        ),
+      );
     }
   }
 }
@@ -223,7 +258,7 @@ class _MistakeCard extends StatelessWidget {
                     File(item.imagePath), 
                     fit: BoxFit.cover,
                     cacheWidth: 400, // Optimized for grid view
-                    errorBuilder: (_, __, ___) => const Center(child: Icon(Icons.broken_image, color: Colors.white24))),
+                    errorBuilder: (_, __, ___) => Center(child: Icon(Icons.broken_image, color: AppColors.of(context).textMuted))),
                 ),
               ),
             ),
@@ -234,7 +269,7 @@ class _MistakeCard extends StatelessWidget {
                 children: [
                   Text(item.entry.subject, style: TextStyle(color: AppColors.of(context).primaryLight, fontSize: 10, fontWeight: FontWeight.bold), maxLines: 1, overflow: TextOverflow.ellipsis),
                   const SizedBox(height: 2),
-                  Text(_formatDate(item.entry.createdAt), style: const TextStyle(color: Colors.white38, fontSize: 10)),
+                  Text(_formatDate(item.entry.createdAt), style: TextStyle(color: AppColors.of(context).textMuted, fontSize: 10)),
                 ],
               ),
             ),

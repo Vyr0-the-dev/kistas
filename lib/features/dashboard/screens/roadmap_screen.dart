@@ -57,12 +57,12 @@ class RoadmapScreen extends StatelessWidget {
         children: [
           IconButton(
             onPressed: () => Navigator.pop(context),
-            icon: const Icon(Icons.arrow_back, color: Colors.white70),
+            icon: Icon(Icons.arrow_back, color: AppColors.of(context).textSecondary),
           ),
-          const Text(
+          Text(
             'Konu Yol Haritası',
             style: TextStyle(
-              color: Colors.white,
+              color: AppColors.of(context).textPrimary,
               fontSize: 20,
               fontWeight: FontWeight.bold,
             ),
@@ -140,7 +140,7 @@ class _RoadmapNode extends StatelessWidget {
     final bool isCompleted = progress.accuracy >= 0.8 && progress.totalQuestions > 50;
     final bool isStarted = progress.totalQuestions > 0;
     
-    Color nodeColor = Colors.white10;
+    Color nodeColor = AppColors.of(context).subtleFill;
     IconData nodeIcon = Icons.radio_button_unchecked;
     
     if (isCompleted) {
@@ -170,7 +170,7 @@ class _RoadmapNode extends StatelessWidget {
                 Expanded(
                   child: Container(
                     width: 2,
-                    color: Colors.white10,
+                    color: AppColors.of(context).subtleFill,
                   ),
                 ),
             ],
@@ -189,9 +189,9 @@ class _RoadmapNode extends StatelessWidget {
                 margin: const EdgeInsets.only(bottom: 20),
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.03),
+                  color: AppColors.of(context).subtleFill,
                   borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: Colors.white.withOpacity(0.05)),
+                  border: Border.all(color: AppColors.of(context).border),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -199,7 +199,7 @@ class _RoadmapNode extends StatelessWidget {
                     Text(
                       progress.topic.title,
                       style: TextStyle(
-                        color: isStarted ? Colors.white : Colors.white38,
+                        color: isStarted ? AppColors.of(context).textPrimary : AppColors.of(context).textMuted,
                         fontWeight: FontWeight.bold,
                         fontSize: 15,
                       ),
@@ -208,7 +208,7 @@ class _RoadmapNode extends StatelessWidget {
                     Text(
                       isStarted ? '%${progress.progressPercent} Tamamlandı' : 'Henüz başlanmadı',
                       style: TextStyle(
-                        color: isStarted ? AppColors.of(context).primaryLight : Colors.white24,
+                        color: isStarted ? AppColors.of(context).primaryLight : AppColors.of(context).textMuted,
                         fontSize: 12,
                       ),
                     ),

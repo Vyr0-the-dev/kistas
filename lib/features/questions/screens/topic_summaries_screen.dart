@@ -1,12 +1,17 @@
-import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 
 import '../../../core/models/topic_summary.dart';
 import '../../../core/repositories/app_repository.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/theme/subject_colors.dart';
+import '../../../core/widgets/delete_helpers.dart';
 import '../../../core/widgets/glass_panel.dart';
+import '../../curriculum/screens/curriculum_hub_screen.dart';
 import '../../dashboard/screens/roadmap_screen.dart';
+import '../../schedule/screens/weekly_schedule_screen.dart';
 import 'topic_detail_screen.dart';
+
+enum TopicSort { recent, accuracyLow, accuracyHigh, totalQuestions, alphabetical }
 
 class TopicSummariesScreen extends StatefulWidget {
   const TopicSummariesScreen({super.key});
@@ -26,6 +31,12 @@ class _TopicSummariesScreenState extends State<TopicSummariesScreen> {
   bool _manualSelectionMode = false;
 
   bool get _isSelectionMode => _manualSelectionMode || _selectedIds.isNotEmpty;
+
+  bool get _hasSecondaryFilters =>
+      _activeTag != 'Tümü' ||
+      _weakOnly ||
+      _staleOnly ||
+      _activeSort != TopicSort.recent;
 
   @override
   void dispose() {
@@ -65,32 +76,18 @@ class _TopicSummariesScreenState extends State<TopicSummariesScreen> {
   }
 
   Future<void> _deleteSelected() async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text('${_selectedIds.length} Konuyu Sil'),
-        content: const Text('Seçili konuları ve ilgili tüm verileri silmek istediğine emin misin?'),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Vazgeç')),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(context, true),
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent),
-            child: const Text('Sil'),
-          ),
-        ],
-      ),
+    final confirmed = await confirmDeleteDialog(
+      context,
+      title: '${_selectedIds.length} Konuyu Sil',
+      message:
+          'Seçili konuları müfredattan silmek istediğine emin misin? (Geçmiş soru kayıtların korunur.)',
     );
-
-    if (confirmed == true && mounted) {
+    if (confirmed && mounted) {
       final repository = AppRepositoryScope.of(context);
-      for (final id in _selectedIds) {
-        await repository.deleteUserTopic(id);
-      }
+      await repository.deleteUserTopics(_selectedIds.toList());
       _clearSelection();
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Seçili konular silindi.')),
-        );
+        _showSnack(context, 'Seçili konular silindi.');
       }
     }
   }
@@ -99,41 +96,43 @@ class _TopicSummariesScreenState extends State<TopicSummariesScreen> {
     final controller = TextEditingController(text: 'Genel');
     final newTag = await showDialog<String>(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (dialogContext) => AlertDialog(
         title: Text('${_selectedIds.length} Konunun Etiketini Değiştir'),
         content: TextField(
           controller: controller,
           decoration: const InputDecoration(
-            hintText: 'Yeni Etiket (Örn: YKS, DGS)',
-            border: OutlineInputBorder(),
+            hintText: 'Yeni Etiket (Örn: TYT, AYT, KPSS)',
           ),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Vazgeç')),
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('Vazgeç'),
+          ),
           ElevatedButton(
-            onPressed: () => Navigator.pop(context, controller.text.trim()),
+            onPressed: () =>
+                Navigator.pop(dialogContext, controller.text.trim()),
             child: const Text('Güncelle'),
           ),
         ],
       ),
     );
+    controller.dispose();
 
     if (newTag != null && newTag.isNotEmpty && mounted) {
       final repository = AppRepositoryScope.of(context);
       final currentTopics = repository.userTopics.value;
-      
       for (final id in _selectedIds) {
-        final topicIndex = currentTopics.indexWhere((t) => t.id == id);
-        if (topicIndex != -1) {
-          final updatedTopic = currentTopics[topicIndex].copyWith(tag: newTag);
-          await repository.updateUserTopic(updatedTopic);
+        final idx = currentTopics.indexWhere((t) => t.id == id);
+        if (idx != -1) {
+          await repository.updateUserTopic(
+            currentTopics[idx].copyWith(tag: newTag),
+          );
         }
       }
       _clearSelection();
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Seçili konular "$newTag" olarak güncellendi.')),
-        );
+        _showSnack(context, 'Seçili konular "$newTag" olarak güncellendi.');
       }
     }
   }
@@ -141,8 +140,9 @@ class _TopicSummariesScreenState extends State<TopicSummariesScreen> {
   @override
   Widget build(BuildContext context) {
     final repository = AppRepositoryScope.of(context);
+    final colors = AppColors.of(context);
 
-    return ValueListenableBuilder(
+    return ValueListenableBuilder<List<TopicSummary>>(
       valueListenable: repository.userTopics,
       builder: (context, currentTopics, _) {
         return ValueListenableBuilder(
@@ -150,383 +150,577 @@ class _TopicSummariesScreenState extends State<TopicSummariesScreen> {
           builder: (context, _, __) {
             final progress = repository.buildTopicProgress();
             final filtered = _applyFilters(progress);
+
+            final tags = currentTopics.map((e) => e.tag).toSet().toList()
+              ..sort();
+            final tagScopedTopics = _activeTag == 'Tümü'
+                ? currentTopics
+                : currentTopics.where((t) => t.tag == _activeTag).toList();
+            final subjects = tagScopedTopics
+                .map((e) => e.subject)
+                .toSet()
+                .toList()
+              ..sort();
+
             return PopScope(
               canPop: !_isSelectionMode,
-              onPopInvokedWithResult: (didPop, result) {
-                if (didPop) return;
-                if (_isSelectionMode) {
+              onPopInvokedWithResult: (didPop, _) {
+                if (!didPop && _isSelectionMode) {
                   _clearSelection();
                 }
               },
               child: Scaffold(
-                backgroundColor: Colors.transparent, // AmbientBackground zaten var
-                appBar: _isSelectionMode 
-                  ? AppBar(
-                    backgroundColor: AppColors.of(context).surface,
-                    title: Text('${_selectedIds.length} Seçildi'),
-                    leading: IconButton(
-                      icon: const Icon(Icons.close),
-                      onPressed: _clearSelection,
-                    ),
-                    actions: [
-                      IconButton(
-                        icon: const Icon(Icons.label_outline),
-                        tooltip: 'Etiket Değiştir',
-                        onPressed: _updateSelectedTag,
-                      ),
-                      IconButton(
-                        icon: Icon(
-                          _selectedIds.length == filtered.length 
-                            ? Icons.deselect_outlined 
-                            : Icons.select_all_outlined
+                backgroundColor: Colors.transparent,
+                body: SafeArea(
+                  bottom: false,
+                  child: Column(
+                    children: [
+                      if (_isSelectionMode)
+                        _buildSelectionBar(context, filtered)
+                      else
+                        _buildCompactHeader(
+                          context,
+                          currentTopics: currentTopics,
+                          tags: tags,
+                          subjects: subjects,
+                          totalFiltered: filtered.length,
                         ),
-                        tooltip: 'Tümünü Seç/Kaldır',
-                        onPressed: () => _selectAll(filtered),
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
-                        onPressed: _deleteSelected,
+                      Expanded(
+                        child: filtered.isEmpty
+                            ? _buildEmptyState(
+                                context,
+                                hasAnyTopics: currentTopics.isNotEmpty,
+                              )
+                            : ListView.builder(
+                                padding:
+                                    const EdgeInsets.fromLTRB(20, 8, 20, 120),
+                                itemCount: filtered.length,
+                                itemBuilder: (context, index) {
+                                  final item = filtered[index];
+                                  final isSelected =
+                                      _selectedIds.contains(item.topic.id);
+                                  return Padding(
+                                    padding: const EdgeInsets.only(bottom: 10),
+                                    child: _TopicCard(
+                                      progress: item,
+                                      isSelected: isSelected,
+                                      isSelectionMode: _isSelectionMode,
+                                      onTap: () {
+                                        if (_isSelectionMode) {
+                                          _toggleSelection(item.topic.id);
+                                        } else {
+                                          Navigator.of(context).push(
+                                            MaterialPageRoute(
+                                              builder: (_) => TopicDetailScreen(
+                                                topic: item.topic,
+                                              ),
+                                            ),
+                                          );
+                                        }
+                                      },
+                                      onLongPress: () =>
+                                          _toggleSelection(item.topic.id),
+                                    ),
+                                  );
+                                },
+                              ),
                       ),
                     ],
-                  )
-                : null,
-              body: Column(
-                children: [
-                  if (!_isSelectionMode)
-                      _Header(
-                        topics: currentTopics,
-                        controller: _searchController,
-                        onFilterChanged: (value) => setState(() {
-                          _activeFilter = value;
-                        }),
-                        activeFilter: _activeFilter,
-                        onTagChanged: (value) => setState(() {
-                          _activeTag = value;
-                          _activeFilter = 'Tümü';
-                        }),
-                        activeTag: _activeTag,
-                        weakOnly: _weakOnly,
-                        staleOnly: _staleOnly,
-                        onToggleWeak: () => setState(() {
-                          _weakOnly = !_weakOnly;
-                        }),
-                        onToggleStale: () => setState(() {
-                          _staleOnly = !_staleOnly;
-                        }),
-                        onOpenSort: () => _openSortSheet(context),
-                        onBulkAdd: () => _showBulkAddDialog(context),
-                        onManageTags: () => _showManageTagsSheet(context, currentTopics),
-                      ),
-
-                  Expanded(
-                    child: filtered.isEmpty 
-                      ? _buildEmptyState(context)
-                      : ListView.builder(
-                          padding: EdgeInsets.fromLTRB(20, _isSelectionMode ? 16 : 16, 20, 120),
-                          itemCount: filtered.length,
-                          itemBuilder: (context, index) {
-                            final item = filtered[index];
-                            final isSelected = _selectedIds.contains(item.topic.id);
-                            return Padding(
-                              padding: const EdgeInsets.only(bottom: 14),
-                              child: _TopicCard(
-                                progress: item,
-                                isSelected: isSelected,
-                                isSelectionMode: _isSelectionMode,
-                                onTap: () {
-                                  if (_isSelectionMode) {
-                                    _toggleSelection(item.topic.id);
-                                  } else {
-                                    Navigator.of(context).push(
-                                      MaterialPageRoute(
-                                        builder: (_) => TopicDetailScreen(
-                                          topic: item.topic,
-                                        ),
-                                      ),
-                                    );
-                                  }
-                                },
-                                onLongPress: () => _toggleSelection(item.topic.id),
-                              ),
-                            );
-                          },
-                        ),
                   ),
-                ],
-              ),
-            ),
-          );
-        },
-      );
-    },
-  );
-}
-
-  Widget _buildEmptyState(BuildContext context) {
-    return const Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(Icons.library_add, size: 64, color: Colors.white24),
-          SizedBox(height: 16),
-          Text(
-            'Henüz konu yok.',
-            style: TextStyle(color: Colors.white70, fontSize: 18, fontWeight: FontWeight.bold),
-          ),
-          SizedBox(height: 8),
-          Text(
-            'Kendi konularını ekleyerek başlayabilirsin.',
-            style: TextStyle(color: Colors.white38),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _showBulkAddDialog(BuildContext context) {
-    final tagController = TextEditingController(text: 'Genel');
-    
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Toplu Konu Ekle'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Bir CSV veya metin dosyası yükleyerek konuları topluca ekleyebilirsiniz.',
-              style: TextStyle(fontSize: 13, color: Colors.white70),
-            ),
-            const SizedBox(height: 16),
-            const Text(
-              'Sınav / Etiket (Örn: Sınav, YKS)',
-              style: TextStyle(fontSize: 11, color: Colors.white54),
-            ),
-            const SizedBox(height: 4),
-            TextField(
-              controller: tagController,
-              decoration: const InputDecoration(
-                hintText: 'Sınav Türü',
-                border: OutlineInputBorder(),
-                contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              ),
-            ),
-            const SizedBox(height: 20),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton.icon(
-                onPressed: () => _pickAndProcessCsv(context, tagController.text),
-                icon: const Icon(Icons.upload_file),
-                label: const Text('Dosya Seç ve Yükle'),
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('İptal')),
-        ],
-      ),
-    );
-  }
-
-  Future<void> _pickAndProcessCsv(BuildContext context, String tag) async {
-    final finalTag = tag.trim().isEmpty ? 'Genel' : tag.trim();
-    try {
-      final result = await FilePicker.platform.pickFiles(
-        type: FileType.custom,
-        allowedExtensions: ['csv', 'txt'],
-      );
-
-      if (result != null && result.files.single.bytes != null) {
-        final content = String.fromCharCodes(result.files.single.bytes!);
-        if (context.mounted) {
-          _processBulkAdd(context, content, tag: finalTag);
-          Navigator.pop(context); // Diyaloğu kapat
-        }
-      }
-    } catch (e) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Dosya okuma hatası oluştu.')),
-        );
-      }
-    }
-  }
-
-  void _processBulkAdd(BuildContext context, String text, {String tag = 'KPSS'}) async {
-    final repository = AppRepositoryScope.of(context);
-    final lines = text.split('\n');
-    final List<TopicSummary> newTopics = [];
-
-    for (var line in lines) {
-      if (!line.contains(',')) continue;
-      final parts = line.split(',');
-      if (parts.length < 2) continue;
-      
-      final subject = parts[0].trim();
-      final title = parts[1].trim();
-
-      if (subject.isEmpty || title.isEmpty) continue;
-      
-      newTopics.add(TopicSummary(
-        id: '${subject.toLowerCase()}-${title.toLowerCase().replaceAll(' ', '-')}-${DateTime.now().millisecondsSinceEpoch}-${newTopics.length}',
-        subject: subject,
-        title: title,
-        nextReview: '',
-        tag: tag.isEmpty ? 'Genel' : tag,
-      ));
-    }
-
-    if (newTopics.isNotEmpty) {
-      await repository.addUserTopics(newTopics);
-      if (mounted && context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('${newTopics.length} konu başarıyla eklendi.')),
-        );
-      }
-    }
-  }
-
-  List<TopicProgress> _applyFilters(List<TopicProgress> items) {
-    final query = _searchController.text.trim().toLowerCase();
-    var filtered = [...items];
-    
-    if (_activeTag != 'Tümü') {
-      filtered = filtered.where((item) => item.topic.tag == _activeTag).toList();
-    }
-
-    if (_activeFilter != 'Tümü') {
-      filtered = filtered.where((item) => item.topic.subject == _activeFilter).toList();
-    }
-
-    if (_weakOnly) {
-      filtered = filtered.where((item) => item.totalQuestions > 0 && item.accuracy < 0.5).toList();
-    }
-    if (_staleOnly) {
-      final now = DateTime.now();
-      filtered = filtered.where((item) => item.lastStudied != null && now.difference(item.lastStudied!).inDays >= 7).toList();
-    }
-    if (query.isNotEmpty) {
-      filtered = filtered.where((item) => item.topic.title.toLowerCase().contains(query) || item.topic.subject.toLowerCase().contains(query)).toList();
-    }
-    filtered.sort((a, b) => _sortByActive(a, b, _activeSort));
-    return filtered;
-  }
-
-  void _openSortSheet(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: AppColors.of(context).surface,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      builder: (context) {
-        return Padding(
-          padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: Colors.white24,
-                  borderRadius: BorderRadius.circular(4),
                 ),
               ),
-              const SizedBox(height: 16),
-              Text(
-                'Sıralama',
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w700,
-                    ),
-              ),
-              const SizedBox(height: 12),
-              _SortOption(
-                label: 'En son çalışılan',
-                active: _activeSort == TopicSort.recent,
-                onTap: () => _selectSort(context, TopicSort.recent),
-              ),
-              _SortOption(
-                label: 'Doğruluk düşükten yükseğe',
-                active: _activeSort == TopicSort.accuracyLow,
-                onTap: () => _selectSort(context, TopicSort.accuracyLow),
-              ),
-              _SortOption(
-                label: 'Doğruluk yüksekten düşüğe',
-                active: _activeSort == TopicSort.accuracyHigh,
-                onTap: () => _selectSort(context, TopicSort.accuracyHigh),
-              ),
-              _SortOption(
-                label: 'Toplam soru (yüksekten)',
-                active: _activeSort == TopicSort.totalQuestions,
-                onTap: () => _selectSort(context, TopicSort.totalQuestions),
-              ),
-              _SortOption(
-                label: 'Alfabetik',
-                active: _activeSort == TopicSort.alphabetical,
-                onTap: () => _selectSort(context, TopicSort.alphabetical),
-              ),
-            ],
-          ),
+            );
+          },
         );
       },
     );
   }
 
-  void _selectSort(BuildContext context, TopicSort sort) {
-    setState(() => _activeSort = sort);
-    Navigator.of(context).pop();
+  Widget _buildSelectionBar(
+    BuildContext context,
+    List<TopicProgress> filtered,
+  ) {
+    final colors = AppColors.of(context);
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 10, 16, 8),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: colors.primary,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Row(
+        children: [
+          IconButton(
+            onPressed: _clearSelection,
+            icon: Icon(Icons.close_rounded, color: colors.onPrimary),
+          ),
+          Expanded(
+            child: Text(
+              '${_selectedIds.length} seçili',
+              style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                    color: colors.onPrimary,
+                    fontWeight: FontWeight.w700,
+                  ),
+            ),
+          ),
+          IconButton(
+            tooltip: 'Tümünü Seç',
+            onPressed: () => _selectAll(filtered),
+            icon: Icon(Icons.select_all_rounded, color: colors.onPrimary),
+          ),
+          IconButton(
+            tooltip: 'Etiket Değiştir',
+            onPressed: _updateSelectedTag,
+            icon: Icon(Icons.label_outline_rounded, color: colors.onPrimary),
+          ),
+          IconButton(
+            tooltip: 'Seçilileri Sil',
+            onPressed: _deleteSelected,
+            icon: Icon(Icons.delete_outline_rounded, color: colors.onPrimary),
+          ),
+        ],
+      ),
+    );
   }
 
-  void _showManageTagsSheet(BuildContext context, List<TopicSummary> allTopics) {
-    final tags = allTopics.map((e) => e.tag).toSet().toList();
-    tags.sort();
-
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: AppColors.of(context).surface,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
-      builder: (context) => Padding(
-        padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.white24, borderRadius: BorderRadius.circular(4))),
-            const SizedBox(height: 16),
-            Text('Sınav / Etiket Yönetimi', style: Theme.of(context).textTheme.titleMedium?.copyWith(color: Colors.white, fontWeight: FontWeight.w700)),
-            const SizedBox(height: 12),
-            if (tags.isEmpty)
-              const Padding(padding: EdgeInsets.symmetric(vertical: 20), child: Text('Henüz etiket yok.', style: TextStyle(color: Colors.white38)))
-            else
-              Flexible(
-                child: ListView.builder(
-                  shrinkWrap: true,
-                  itemCount: tags.length,
-                  itemBuilder: (context, index) {
-                    final tag = tags[index];
-                    return ListTile(
-                      contentPadding: EdgeInsets.zero,
-                      title: Text(tag, style: const TextStyle(color: Colors.white)),
-                      subtitle: Text('${allTopics.where((t) => t.tag == tag).length} konu', style: const TextStyle(color: Colors.white38, fontSize: 12)),
-                      trailing: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          IconButton(
-                            icon: const Icon(Icons.edit_outlined, color: Colors.white54, size: 20),
-                            onPressed: () => _renameTag(context, tag, allTopics),
+  Widget _buildCompactHeader(
+    BuildContext context, {
+    required List<TopicSummary> currentTopics,
+    required List<String> tags,
+    required List<String> subjects,
+    required int totalFiltered,
+  }) {
+    final colors = AppColors.of(context);
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 12, 20, 6),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Row(
+                  children: [
+                    Text(
+                      'Konular',
+                      style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                            color: colors.textPrimary,
+                            fontWeight: FontWeight.w800,
                           ),
-                          IconButton(
-                            icon: const Icon(Icons.delete_outline, color: Colors.redAccent, size: 20),
-                            onPressed: () => _deleteTag(context, tag, allTopics),
-                          ),
-                        ],
+                    ),
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 3,
+                      ),
+                      decoration: BoxDecoration(
+                        color: colors.subtleFill,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        '$totalFiltered',
+                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                              color: colors.textSecondary,
+                              fontWeight: FontWeight.w700,
+                            ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              _CompactActionBtn(
+                icon: Icons.add_rounded,
+                tooltip: 'Ders & Müfredat Ekle',
+                highlighted: true,
+                onTap: () => Navigator.of(context, rootNavigator: true).push(
+                  MaterialPageRoute(
+                    builder: (_) => const CurriculumHubScreen(),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              _CompactActionBtn(
+                icon: Icons.tune_rounded,
+                tooltip: 'Filtre & Sırala',
+                showDot: _hasSecondaryFilters,
+                onTap: () => _openFilterSheet(context, tags),
+              ),
+              const SizedBox(width: 4),
+              PopupMenuButton<String>(
+                tooltip: 'Diğer İşlemler',
+                icon: Icon(Icons.more_vert_rounded, color: colors.textPrimary),
+                onSelected: (action) {
+                  if (action == 'manage') {
+                    _showManageTagsSheet(context, currentTopics);
+                  } else if (action == 'schedule') {
+                    Navigator.of(context, rootNavigator: true).push(
+                      MaterialPageRoute(
+                        builder: (_) => const WeeklyScheduleScreen(),
                       ),
                     );
-                  },
+                  } else if (action == 'roadmap') {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(builder: (_) => const RoadmapScreen()),
+                    );
+                  }
+                },
+                itemBuilder: (_) => const [
+                  PopupMenuItem(
+                    value: 'manage',
+                    child: ListTile(
+                      dense: true,
+                      contentPadding: EdgeInsets.zero,
+                      leading: Icon(Icons.label_outline_rounded, size: 20),
+                      title: Text('Sınav & Ders Yönetimi'),
+                    ),
+                  ),
+                  PopupMenuItem(
+                    value: 'schedule',
+                    child: ListTile(
+                      dense: true,
+                      contentPadding: EdgeInsets.zero,
+                      leading: Icon(Icons.calendar_month_outlined, size: 20),
+                      title: Text('Haftalık Program'),
+                    ),
+                  ),
+                  PopupMenuItem(
+                    value: 'roadmap',
+                    child: ListTile(
+                      dense: true,
+                      contentPadding: EdgeInsets.zero,
+                      leading: Icon(Icons.map_outlined, size: 20),
+                      title: Text('Konu Yol Haritası'),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          // Clean single search bar
+          TextField(
+            controller: _searchController,
+            onChanged: (_) => setState(() {}),
+            decoration: InputDecoration(
+              isDense: true,
+              prefixIcon: Icon(
+                Icons.search_rounded,
+                color: colors.textMuted,
+                size: 20,
+              ),
+              suffixIcon: _searchController.text.isEmpty
+                  ? null
+                  : IconButton(
+                      icon: Icon(
+                        Icons.close_rounded,
+                        size: 18,
+                        color: colors.textMuted,
+                      ),
+                      onPressed: () {
+                        _searchController.clear();
+                        setState(() {});
+                      },
+                    ),
+              hintText: 'Konu veya ders ara...',
+              fillColor: colors.surface,
+            ),
+          ),
+          if (subjects.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            SizedBox(
+              height: 36,
+              child: ListView(
+                scrollDirection: Axis.horizontal,
+                children: [
+                  _SubjectFilterPill(
+                    label: 'Tümü',
+                    selected: _activeFilter == 'Tümü',
+                    dotColor: null,
+                    onTap: () => setState(() => _activeFilter = 'Tümü'),
+                  ),
+                  ...subjects.map((subject) {
+                    final style = SubjectColors.of(
+                      subject,
+                      isDark: colors.isDark,
+                    );
+                    return _SubjectFilterPill(
+                      label: subject,
+                      selected: _activeFilter == subject,
+                      dotColor: style.accent,
+                      onTap: () => setState(() => _activeFilter = subject),
+                    );
+                  }),
+                ],
+              ),
+            ),
+          ],
+          if (_hasSecondaryFilters) ...[
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: [
+                if (_activeTag != 'Tümü')
+                  _ActiveFilterBadge(
+                    label: _activeTag,
+                    onClear: () => setState(() {
+                      _activeTag = 'Tümü';
+                      _activeFilter = 'Tümü';
+                    }),
+                  ),
+                if (_weakOnly)
+                  _ActiveFilterBadge(
+                    label: 'Zayıf Konular',
+                    onClear: () => setState(() => _weakOnly = false),
+                  ),
+                if (_staleOnly)
+                  _ActiveFilterBadge(
+                    label: 'Tekrar Gereken',
+                    onClear: () => setState(() => _staleOnly = false),
+                  ),
+                if (_activeSort != TopicSort.recent)
+                  _ActiveFilterBadge(
+                    label: _sortLabel(_activeSort),
+                    onClear: () =>
+                        setState(() => _activeSort = TopicSort.recent),
+                  ),
+              ],
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  void _openFilterSheet(BuildContext context, List<String> tags) {
+    final colors = AppColors.of(context);
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: colors.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (sheetContext) {
+        return StatefulBuilder(
+          builder: (sheetContext, setModalState) {
+            return SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(20, 14, 20, 20),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Center(
+                      child: Container(
+                        width: 40,
+                        height: 4,
+                        decoration: BoxDecoration(
+                          color: colors.border,
+                          borderRadius: BorderRadius.circular(999),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            'Filtre & Sıralama',
+                            style: Theme.of(sheetContext)
+                                .textTheme
+                                .titleMedium
+                                ?.copyWith(
+                                  color: colors.textPrimary,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                          ),
+                        ),
+                        if (_hasSecondaryFilters)
+                          TextButton(
+                            onPressed: () {
+                              setState(() {
+                                _activeTag = 'Tümü';
+                                _activeFilter = 'Tümü';
+                                _weakOnly = false;
+                                _staleOnly = false;
+                                _activeSort = TopicSort.recent;
+                              });
+                              setModalState(() {});
+                            },
+                            child: const Text('Sıfırla'),
+                          ),
+                      ],
+                    ),
+                    if (tags.length > 1) ...[
+                      const SizedBox(height: 10),
+                      Text(
+                        'Sınav / Kategori',
+                        style: Theme.of(sheetContext)
+                            .textTheme
+                            .labelMedium
+                            ?.copyWith(color: colors.textSecondary),
+                      ),
+                      const SizedBox(height: 8),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: ['Tümü', ...tags].map((tag) {
+                          return ChoiceChip(
+                            label: Text(tag),
+                            selected: _activeTag == tag,
+                            onSelected: (_) {
+                              setState(() {
+                                _activeTag = tag;
+                                _activeFilter = 'Tümü';
+                              });
+                              setModalState(() {});
+                            },
+                          );
+                        }).toList(),
+                      ),
+                    ],
+                    const SizedBox(height: 14),
+                    Text(
+                      'Durum',
+                      style: Theme.of(sheetContext)
+                          .textTheme
+                          .labelMedium
+                          ?.copyWith(color: colors.textSecondary),
+                    ),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        FilterChip(
+                          label: const Text('Zayıf (<%50)'),
+                          selected: _weakOnly,
+                          onSelected: (v) {
+                            setState(() => _weakOnly = v);
+                            setModalState(() {});
+                          },
+                        ),
+                        FilterChip(
+                          label: const Text('Tekrar Gereken (7g+)'),
+                          selected: _staleOnly,
+                          onSelected: (v) {
+                            setState(() => _staleOnly = v);
+                            setModalState(() {});
+                          },
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 14),
+                    Text(
+                      'Sıralama',
+                      style: Theme.of(sheetContext)
+                          .textTheme
+                          .labelMedium
+                          ?.copyWith(color: colors.textSecondary),
+                    ),
+                    const SizedBox(height: 6),
+                    ...TopicSort.values.map((sort) {
+                      final active = _activeSort == sort;
+                      return ListTile(
+                        dense: true,
+                        contentPadding: EdgeInsets.zero,
+                        title: Text(
+                          _sortLabel(sort),
+                          style: TextStyle(
+                            color: colors.textPrimary,
+                            fontWeight:
+                                active ? FontWeight.w700 : FontWeight.w500,
+                          ),
+                        ),
+                        trailing: Icon(
+                          active
+                              ? Icons.check_circle_rounded
+                              : Icons.circle_outlined,
+                          color: active ? colors.primary : colors.textMuted,
+                          size: 20,
+                        ),
+                        onTap: () {
+                          setState(() => _activeSort = sort);
+                          setModalState(() {});
+                        },
+                      );
+                    }),
+                    const SizedBox(height: 8),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: () => Navigator.of(sheetContext).pop(),
+                        child: const Text('Uygula'),
+                      ),
+                    ),
+                  ],
                 ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildEmptyState(BuildContext context, {required bool hasAnyTopics}) {
+    final colors = AppColors.of(context);
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 28),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.menu_book_outlined,
+              size: 56,
+              color: colors.textMuted,
+            ),
+            const SizedBox(height: 14),
+            Text(
+              hasAnyTopics
+                  ? 'Filtreye uygun konu bulunamadı.'
+                  : 'Henüz ders veya konu eklenmedi.',
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    color: colors.textPrimary,
+                    fontWeight: FontWeight.w700,
+                  ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              hasAnyTopics
+                  ? 'Aramayı temizleyebilir veya filtreleri sıfırlayabilirsin.'
+                  : 'Maarif TYT/AYT, KPSS, YDS gibi hazır paketleri tek dokunuşla ekleyebilir veya kendi dersini kurabilirsin.',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: colors.textSecondary,
+                  ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 18),
+            if (hasAnyTopics)
+              OutlinedButton(
+                onPressed: () => setState(() {
+                  _searchController.clear();
+                  _activeTag = 'Tümü';
+                  _activeFilter = 'Tümü';
+                  _weakOnly = false;
+                  _staleOnly = false;
+                  _activeSort = TopicSort.recent;
+                }),
+                child: const Text('Filtreleri Temizle'),
+              )
+            else
+              ElevatedButton.icon(
+                onPressed: () => Navigator.of(context, rootNavigator: true).push(
+                  MaterialPageRoute(
+                    builder: (_) => const CurriculumHubScreen(),
+                  ),
+                ),
+                icon: const Icon(Icons.auto_stories_outlined),
+                label: const Text('Ders / Sınav Paketi Ekle'),
               ),
           ],
         ),
@@ -534,416 +728,567 @@ class _TopicSummariesScreenState extends State<TopicSummariesScreen> {
     );
   }
 
-  Future<void> _renameTag(BuildContext context, String oldTag, List<TopicSummary> allTopics) async {
-    final controller = TextEditingController(text: oldTag);
-    final newName = await showDialog<String>(
+  List<TopicProgress> _applyFilters(List<TopicProgress> items) {
+    final query = _searchController.text.trim().toLowerCase();
+    var filtered = [...items];
+
+    final availableTags = items.map((e) => e.topic.tag).toSet();
+    final effectiveTag =
+        (_activeTag != 'Tümü' && availableTags.contains(_activeTag))
+            ? _activeTag
+            : 'Tümü';
+
+    if (effectiveTag != 'Tümü') {
+      filtered =
+          filtered.where((item) => item.topic.tag == effectiveTag).toList();
+    }
+
+    final availableSubjects = filtered.map((e) => e.topic.subject).toSet();
+    final effectiveSubject =
+        (_activeFilter != 'Tümü' && availableSubjects.contains(_activeFilter))
+            ? _activeFilter
+            : 'Tümü';
+
+    if (effectiveSubject != 'Tümü') {
+      filtered = filtered
+          .where((item) => item.topic.subject == effectiveSubject)
+          .toList();
+    }
+
+    if (_weakOnly) {
+      filtered = filtered
+          .where((item) => item.totalQuestions > 0 && item.accuracy < 0.5)
+          .toList();
+    }
+    if (_staleOnly) {
+      final now = DateTime.now();
+      filtered = filtered
+          .where((item) =>
+              item.lastStudied != null &&
+              now.difference(item.lastStudied!).inDays >= 7)
+          .toList();
+    }
+    if (query.isNotEmpty) {
+      filtered = filtered
+          .where((item) =>
+              item.topic.title.toLowerCase().contains(query) ||
+              item.topic.subject.toLowerCase().contains(query) ||
+              item.topic.tag.toLowerCase().contains(query))
+          .toList();
+    }
+    filtered.sort((a, b) => _sortByActive(a, b, _activeSort));
+    return filtered;
+  }
+
+  void _showManageTagsSheet(BuildContext context, List<TopicSummary> _) {
+    final repository = AppRepositoryScope.of(context);
+    var showSubjects = false;
+
+    showModalBottomSheet(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Etiketi Düzenle'),
-        content: TextField(
-          controller: controller,
-          decoration: const InputDecoration(border: OutlineInputBorder()),
-        ),
+      isScrollControlled: true,
+      backgroundColor: AppColors.of(context).surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (sheetContext) => StatefulBuilder(
+        builder: (sheetContext, setModalState) {
+          return ValueListenableBuilder<List<TopicSummary>>(
+            valueListenable: repository.userTopics,
+            builder: (sheetContext, liveTopics, __) {
+              final tags = liveTopics.map((e) => e.tag).toSet().toList()..sort();
+              final subjects = liveTopics.map((e) => e.subject).toSet().toList()
+                ..sort();
+              final colors = AppColors.of(sheetContext);
+
+              return SafeArea(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 14, 20, 24),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        width: 40,
+                        height: 4,
+                        decoration: BoxDecoration(
+                          color: colors.border,
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                      Text(
+                        'Sınav & Ders Yönetimi',
+                        style: Theme.of(sheetContext)
+                            .textTheme
+                            .titleMedium
+                            ?.copyWith(
+                              color: colors.textPrimary,
+                              fontWeight: FontWeight.w800,
+                            ),
+                      ),
+                      const SizedBox(height: 12),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: ChoiceChip(
+                              label: Text('Sınavlar (${tags.length})'),
+                              selected: !showSubjects,
+                              onSelected: (_) =>
+                                  setModalState(() => showSubjects = false),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: ChoiceChip(
+                              label: Text('Dersler (${subjects.length})'),
+                              selected: showSubjects,
+                              onSelected: (_) =>
+                                  setModalState(() => showSubjects = true),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      if (!showSubjects) ...[
+                        if (tags.isEmpty)
+                          Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 20),
+                            child: Text(
+                              'Henüz sınav etiketi yok.',
+                              style: TextStyle(color: colors.textSecondary),
+                            ),
+                          )
+                        else
+                          ConstrainedBox(
+                            constraints: BoxConstraints(
+                              maxHeight:
+                                  MediaQuery.of(sheetContext).size.height * 0.48,
+                            ),
+                            child: ListView.builder(
+                              shrinkWrap: true,
+                              itemCount: tags.length,
+                              itemBuilder: (context, index) {
+                                final tag = tags[index];
+                                return ListTile(
+                                  contentPadding: EdgeInsets.zero,
+                                  title: Text(
+                                    tag,
+                                    style: TextStyle(
+                                      color: colors.textPrimary,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                  subtitle: Text(
+                                    '${liveTopics.where((t) => t.tag == tag).length} konu',
+                                    style: TextStyle(
+                                      color: colors.textSecondary,
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                  trailing: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      IconButton(
+                                        tooltip: 'Yeniden Adlandır',
+                                        icon: Icon(
+                                          Icons.edit_outlined,
+                                          color: colors.textSecondary,
+                                          size: 20,
+                                        ),
+                                        onPressed: () =>
+                                            _renameTag(sheetContext, tag, liveTopics),
+                                      ),
+                                      IconButton(
+                                        tooltip: 'Sınavı ve Konularını Sil',
+                                        icon: Icon(
+                                          Icons.delete_outline,
+                                          color: colors.danger,
+                                          size: 20,
+                                        ),
+                                        onPressed: () =>
+                                            _deleteTag(sheetContext, tag, liveTopics),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                              },
+                            ),
+                          ),
+                      ] else ...[
+                        if (subjects.isEmpty)
+                          Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 20),
+                            child: Text(
+                              'Henüz ders yok.',
+                              style: TextStyle(color: colors.textSecondary),
+                            ),
+                          )
+                        else
+                          ConstrainedBox(
+                            constraints: BoxConstraints(
+                              maxHeight:
+                                  MediaQuery.of(sheetContext).size.height * 0.48,
+                            ),
+                            child: ListView.builder(
+                              shrinkWrap: true,
+                              itemCount: subjects.length,
+                              itemBuilder: (context, index) {
+                                final subject = subjects[index];
+                                final subjectTopics = liveTopics
+                                    .where((t) => t.subject == subject)
+                                    .toList();
+                                final subjectTags = subjectTopics
+                                    .map((t) => t.tag)
+                                    .toSet()
+                                    .join(', ');
+                                final style = SubjectColors.of(
+                                  subject,
+                                  isDark: colors.isDark,
+                                );
+                                return ListTile(
+                                  contentPadding: EdgeInsets.zero,
+                                  leading: Container(
+                                    width: 12,
+                                    height: 12,
+                                    decoration: BoxDecoration(
+                                      color: style.accent,
+                                      shape: BoxShape.circle,
+                                    ),
+                                  ),
+                                  title: Text(
+                                    subject,
+                                    style: TextStyle(
+                                      color: colors.textPrimary,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                  subtitle: Text(
+                                    '${subjectTopics.length} konu • $subjectTags',
+                                    style: TextStyle(
+                                      color: colors.textSecondary,
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                  trailing: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      IconButton(
+                                        tooltip: 'Dersi Yeniden Adlandır',
+                                        icon: Icon(
+                                          Icons.edit_outlined,
+                                          color: colors.textSecondary,
+                                          size: 20,
+                                        ),
+                                        onPressed: () => _renameSubject(
+                                          sheetContext,
+                                          subject,
+                                        ),
+                                      ),
+                                      IconButton(
+                                        tooltip: 'Dersi ve Konularını Sil',
+                                        icon: Icon(
+                                          Icons.delete_outline,
+                                          color: colors.danger,
+                                          size: 20,
+                                        ),
+                                        onPressed: () => _deleteSubject(
+                                          sheetContext,
+                                          subject,
+                                          subjectTopics.length,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                              },
+                            ),
+                          ),
+                      ],
+                    ],
+                  ),
+                ),
+              );
+            },
+          );
+        },
+      ),
+    );
+  }
+
+  Future<void> _renameSubject(
+    BuildContext sheetContext,
+    String oldSubject,
+  ) async {
+    final controller = TextEditingController(text: oldSubject);
+    final newName = await showDialog<String>(
+      context: sheetContext,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Dersi Yeniden Adlandır'),
+        content: TextField(controller: controller),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => Navigator.pop(dialogContext),
             child: const Text('Vazgeç'),
           ),
           ElevatedButton(
-            onPressed: () => Navigator.pop(context, controller.text.trim()),
+            onPressed: () =>
+                Navigator.pop(dialogContext, controller.text.trim()),
             child: const Text('Güncelle'),
           ),
         ],
       ),
     );
+    controller.dispose();
+
+    if (newName != null &&
+        newName.isNotEmpty &&
+        newName != oldSubject &&
+        mounted) {
+      final repository = AppRepositoryScope.of(context);
+      await repository.renameSubject(
+        oldSubject: oldSubject,
+        newSubject: newName,
+      );
+      if (mounted) {
+        if (_activeFilter == oldSubject) {
+          setState(() => _activeFilter = newName);
+        }
+        _showSnack(context, '"$oldSubject" dersinin adı "$newName" yapıldı.');
+      }
+    }
+  }
+
+  Future<void> _deleteSubject(
+    BuildContext sheetContext,
+    String subject,
+    int topicCount,
+  ) async {
+    final confirmed = await confirmDeleteDialog(
+      sheetContext,
+      title: 'Dersi Sil: $subject',
+      message:
+          'Bu derse ait $topicCount konu müfredattan silinecek (geçmiş soru kayıtların korunur). Emin misin?',
+      confirmLabel: 'Dersi Sil',
+    );
+    if (confirmed && mounted) {
+      final repository = AppRepositoryScope.of(context);
+      await repository.deleteSubject(subject);
+      if (mounted) {
+        if (_activeFilter == subject) setState(() => _activeFilter = 'Tümü');
+        _showSnack(context, '"$subject" dersi ve konuları silindi.');
+      }
+    }
+  }
+
+  Future<void> _renameTag(
+    BuildContext sheetContext,
+    String oldTag,
+    List<TopicSummary> allTopics,
+  ) async {
+    final controller = TextEditingController(text: oldTag);
+    final newName = await showDialog<String>(
+      context: sheetContext,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Etiketi Düzenle'),
+        content: TextField(controller: controller),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('Vazgeç'),
+          ),
+          ElevatedButton(
+            onPressed: () =>
+                Navigator.pop(dialogContext, controller.text.trim()),
+            child: const Text('Güncelle'),
+          ),
+        ],
+      ),
+    );
+    controller.dispose();
 
     if (newName != null && newName.isNotEmpty && newName != oldTag && mounted) {
       final repository = AppRepositoryScope.of(context);
-      final topicsToUpdate = allTopics
-          .where((t) => t.tag == oldTag)
-          .map((t) => t.copyWith(tag: newName))
-          .toList();
-      await repository.bulkUpdateUserTopics(topicsToUpdate);
+      await repository.renameExamProfile(oldTag, newName);
       if (mounted) {
-        Navigator.pop(context); // Sheet'i kapat
+        if (_activeTag == oldTag) setState(() => _activeTag = newName);
         _showSnack(context, 'Etiket güncellendi.');
       }
     }
   }
 
-  Future<void> _deleteTag(BuildContext context, String tag, List<TopicSummary> allTopics) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text('Sınavı Sil: $tag'),
-        content: Text('Bu sınava ait tüm konular ve çalışma verileri silinecek. Emin misin?'),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Vazgeç')),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(context, true),
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent),
-            child: const Text('Hepsini Sil'),
-          ),
-        ],
-      ),
+  Future<void> _deleteTag(
+    BuildContext sheetContext,
+    String tag,
+    List<TopicSummary> allTopics,
+  ) async {
+    final confirmed = await confirmDeleteDialog(
+      sheetContext,
+      title: 'Kategoriyi Sil: $tag',
+      message:
+          'Bu kategoriye ait tüm konular listeden silinecek (geçmiş soru kayıtların korunur). Emin misin?',
+      confirmLabel: 'Hepsini Sil',
     );
-
-    if (confirmed == true && mounted) {
+    if (confirmed && mounted) {
       final repository = AppRepositoryScope.of(context);
-      final idsToDelete = allTopics.where((t) => t.tag == tag).map((t) => t.id).toList();
-      for (final id in idsToDelete) {
-        await repository.deleteUserTopic(id);
+      final idsToDelete =
+          allTopics.where((t) => t.tag == tag).map((t) => t.id).toList();
+      await repository.deleteUserTopics(idsToDelete);
+      await repository.deleteExamProfile(tag);
+      if (mounted) {
+        if (_activeTag == tag) setState(() => _activeTag = 'Tümü');
+        _showSnack(context, '$tag kategorisi ve konuları silindi.');
       }
-      Navigator.pop(context); // Sheet'i kapat
-      _showSnack(context, '$tag sınavı ve konuları silindi.');
     }
   }
 
   void _showSnack(BuildContext context, String message) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(message)));
   }
 }
 
-class _Header extends StatelessWidget {
-  const _Header({
-    required this.topics,
-    required this.controller,
-    required this.onFilterChanged,
-    required this.activeFilter,
-    required this.onTagChanged,
-    required this.activeTag,
-    required this.weakOnly,
-    required this.staleOnly,
-    required this.onToggleWeak,
-    required this.onToggleStale,
-    required this.onOpenSort,
-    required this.onBulkAdd,
-    required this.onManageTags,
+class _CompactActionBtn extends StatelessWidget {
+  const _CompactActionBtn({
+    required this.icon,
+    required this.tooltip,
+    required this.onTap,
+    this.highlighted = false,
+    this.showDot = false,
   });
 
-  final List<TopicSummary> topics;
-  final TextEditingController controller;
-  final ValueChanged<String> onFilterChanged;
-  final String activeFilter;
-  final ValueChanged<String> onTagChanged;
-  final String activeTag;
-  final bool weakOnly;
-  final bool staleOnly;
-  final VoidCallback onToggleWeak;
-  final VoidCallback onToggleStale;
-  final VoidCallback onOpenSort;
-  final VoidCallback onBulkAdd;
-  final VoidCallback onManageTags;
+  final IconData icon;
+  final String tooltip;
+  final VoidCallback onTap;
+  final bool highlighted;
+  final bool showDot;
 
   @override
   Widget build(BuildContext context) {
-    final tags = topics.map((e) => e.tag).toSet().toList();
-    tags.sort();
-
-    final filteredTopics = activeTag == 'Tümü' 
-        ? topics 
-        : topics.where((t) => t.tag == activeTag).toList();
-    final subjects = filteredTopics.map((e) => e.subject).toSet().toList();
-    subjects.sort();
-
-    return GlassPanel(
-      padding: EdgeInsets.zero,
-      radius: const BorderRadius.vertical(bottom: Radius.circular(24)),
-      child: SafeArea(
-        bottom: false,
-        child: Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    'Konular',
-                    style: Theme.of(context).textTheme.displaySmall?.copyWith(
-                          fontWeight: FontWeight.w700,
-                        ),
-                  ),
-                  Row(
-                    children: [
-                      IconButton(
-                        onPressed: onBulkAdd,
-                        icon: Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color: AppColors.of(context).primary.withValues(alpha: 0.15),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: const Icon(Icons.add, color: Colors.white70),
-                        ),
-                      ),
-                      IconButton(
-                        onPressed: onManageTags,
-                        icon: Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color: AppColors.of(context).primary.withValues(alpha: 0.15),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: const Icon(Icons.label_outline, color: Colors.white70),
-                        ),
-                      ),
-                      IconButton(
-                        onPressed: () => Navigator.of(context).push(
-                          MaterialPageRoute(builder: (_) => const RoadmapScreen()),
-                        ),
-                        icon: Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color: AppColors.of(context).primary.withValues(alpha: 0.15),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Icon(Icons.map, color: AppColors.of(context).primaryLight),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
+    final colors = AppColors.of(context);
+    return Tooltip(
+      message: tooltip,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          width: 38,
+          height: 38,
+          decoration: BoxDecoration(
+            color: highlighted ? colors.primary : colors.surface,
+            borderRadius: BorderRadius.circular(12),
+            border: highlighted ? null : Border.all(color: colors.border),
+          ),
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              Icon(
+                icon,
+                size: 20,
+                color: highlighted ? colors.onPrimary : colors.textPrimary,
               ),
-            ),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: TextField(
-                controller: controller,
-                decoration: InputDecoration(
-                  prefixIcon: Icon(Icons.search, color: AppColors.of(context).textSecondary),
-                  hintText: 'Konu, ders veya etiket ara...'
-                ),
-                onChanged: (_) => onFilterChanged(activeFilter),
-              ),
-            ),
-            const SizedBox(height: 12),
-            if (tags.length > 1) ...[
-              SizedBox(
-                height: 32,
-                child: ListView(
-                  scrollDirection: Axis.horizontal,
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                  children: [
-                    _TagChip(
-                      label: 'Tümü',
-                      active: activeTag == 'Tümü',
-                      onTap: () => onTagChanged('Tümü'),
+              if (showDot)
+                Positioned(
+                  right: 7,
+                  top: 7,
+                  child: Container(
+                    width: 7,
+                    height: 7,
+                    decoration: BoxDecoration(
+                      color: colors.primary,
+                      shape: BoxShape.circle,
                     ),
-                    ...tags.map((tag) => _TagChip(
-                      label: tag,
-                      active: activeTag == tag,
-                      onTap: () => onTagChanged(tag),
-                    )),
-                  ],
+                  ),
                 ),
-              ),
-              const SizedBox(height: 8),
             ],
-            SizedBox(
-              height: 36,
-              child: ListView(
-                scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                children: [
-                  _ChipButton(
-                    label: 'Tümü',
-                    active: activeFilter == 'Tümü',
-                    onTap: () => onFilterChanged('Tümü'),
-                  ),
-                  ...subjects.map((subject) => _ChipButton(
-                    label: subject,
-                    active: activeFilter == subject,
-                    onTap: () => onFilterChanged(subject),
-                  )),
-                ],
-              ),
-            ),
-            const SizedBox(height: 10),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: Row(
-                children: [
-                  GestureDetector(
-                    onTap: onOpenSort,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 12, vertical: 8),
-                      decoration: BoxDecoration(
-                        color: AppColors.of(context).surface,
-                        borderRadius: BorderRadius.circular(999),
-                      ),
-                      child: const Row(
-                        children: [
-                          Icon(Icons.sort, color: Colors.white70, size: 18),
-                          SizedBox(width: 6),
-                          Text(
-                            'Sırala',
-                            style: TextStyle(color: Colors.white70, fontSize: 11),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Container(width: 1, height: 24, color: Colors.white12),
-                  const SizedBox(width: 12),
-                  _FilterToggle(
-                    label: 'Zayıf',
-                    color: AppColors.of(context).danger,
-                    active: weakOnly,
-                    onTap: onToggleWeak,
-                  ),
-                  const SizedBox(width: 8),
-                  _FilterToggle(
-                    label: 'Uzun süre önce',
-                    color: AppColors.of(context).warning,
-                    icon: Icons.history,
-                    active: staleOnly,
-                    onTap: onToggleStale,
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 16),
-          ],
+          ),
         ),
       ),
     );
   }
 }
 
-class _TagChip extends StatelessWidget {
-  const _TagChip({
+class _SubjectFilterPill extends StatelessWidget {
+  const _SubjectFilterPill({
     required this.label,
-    required this.active,
+    required this.selected,
+    required this.dotColor,
     required this.onTap,
   });
 
   final String label;
-  final bool active;
+  final bool selected;
+  final Color? dotColor;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
+    final colors = AppColors.of(context);
+    final activeBg = dotColor ?? colors.primary;
     return Padding(
       padding: const EdgeInsets.only(right: 8),
-      child: GestureDetector(
+      child: InkWell(
         onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
         child: Container(
-          alignment: Alignment.center,
-          padding: const EdgeInsets.symmetric(horizontal: 12),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
           decoration: BoxDecoration(
-            color: active ? AppColors.of(context).primaryLight.withValues(alpha: 0.3) : Colors.transparent,
-            borderRadius: BorderRadius.circular(8),
+            color: selected
+                ? activeBg.withValues(alpha: colors.isDark ? 0.24 : 0.14)
+                : colors.surface,
+            borderRadius: BorderRadius.circular(12),
             border: Border.all(
-              color: active ? AppColors.of(context).primaryLight : Colors.white12,
+              color: selected ? activeBg : colors.border,
             ),
           ),
-          child: Text(
-            label,
-            style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                  color: active ? Colors.white : Colors.white38,
-                  fontWeight: active ? FontWeight.bold : FontWeight.normal,
-                ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _ChipButton extends StatelessWidget {
-  const _ChipButton({
-    required this.label,
-    required this.active,
-    required this.onTap,
-  });
-
-  final String label;
-  final bool active;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(right: 8),
-      child: GestureDetector(
-        onTap: onTap,
-        child: Container(
-          alignment: Alignment.center,
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-          decoration: BoxDecoration(
-            color: active ? AppColors.of(context).primary : AppColors.of(context).surface,
-            borderRadius: BorderRadius.circular(999),
-          ),
-          child: Text(
-            label,
-            style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                  color: active ? Theme.of(context).colorScheme.onPrimary : AppColors.of(context).textSecondary,
-                  fontWeight: FontWeight.w600,
-                ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _FilterToggle extends StatelessWidget {
-  const _FilterToggle({
-    required this.label,
-    required this.color,
-    this.icon,
-    required this.active,
-    required this.onTap,
-  });
-
-  final String label;
-  final Color color;
-  final IconData? icon;
-  final bool active;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        alignment: Alignment.center,
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-        decoration: BoxDecoration(
-          color: active ? color.withValues(alpha: 0.2) : color.withValues(alpha: 0.1),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: color.withValues(alpha: active ? 0.5 : 0.3)),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (icon != null) ...[
-              Icon(icon, size: 12, color: color),
-              const SizedBox(width: 4),
-            ] else
-              Container(
-                width: 6,
-                height: 6,
-                decoration: BoxDecoration(
-                  color: color,
-                  borderRadius: BorderRadius.circular(6),
-                ),
-              ),
-            const SizedBox(width: 4),
-            Text(
-              label,
-              style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                    color: color,
-                    fontWeight: FontWeight.w700,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (dotColor != null) ...[
+                Container(
+                  width: 8,
+                  height: 8,
+                  decoration: BoxDecoration(
+                    color: dotColor,
+                    shape: BoxShape.circle,
                   ),
-            ),
-          ],
+                ),
+                const SizedBox(width: 6),
+              ],
+              Text(
+                label,
+                style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                      color: selected ? activeBg : colors.textPrimary,
+                      fontWeight: selected ? FontWeight.w700 : FontWeight.w600,
+                    ),
+              ),
+            ],
+          ),
         ),
       ),
+    );
+  }
+}
+
+class _ActiveFilterBadge extends StatelessWidget {
+  const _ActiveFilterBadge({required this.label, required this.onClear});
+  final String label;
+  final VoidCallback onClear;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = AppColors.of(context);
+    return InputChip(
+      label: Text(label),
+      onDeleted: onClear,
+      visualDensity: VisualDensity.compact,
+      backgroundColor: colors.primary.withValues(alpha: 0.12),
+      deleteIconColor: colors.primary,
+      labelStyle: TextStyle(
+        color: colors.primary,
+        fontSize: 11.5,
+        fontWeight: FontWeight.w700,
+      ),
+      side: BorderSide(color: colors.primary.withValues(alpha: 0.28)),
     );
   }
 }
@@ -951,196 +1296,176 @@ class _FilterToggle extends StatelessWidget {
 class _TopicCard extends StatelessWidget {
   const _TopicCard({
     required this.progress,
+    required this.isSelected,
+    required this.isSelectionMode,
     required this.onTap,
-    this.onLongPress,
-    this.isSelected = false,
-    this.isSelectionMode = false,
+    required this.onLongPress,
   });
 
   final TopicProgress progress;
-  final VoidCallback onTap;
-  final VoidCallback? onLongPress;
   final bool isSelected;
   final bool isSelectionMode;
+  final VoidCallback onTap;
+  final VoidCallback onLongPress;
 
   @override
   Widget build(BuildContext context) {
-    final status = _statusFromProgress(context, progress);
-    final statusColor = status.color;
-    final timeLabel = progress.lastStudied == null
-        ? 'Hiç çalışılmadı'
-        : '${_daysAgo(progress.lastStudied!)} gün önce';
+    final colors = AppColors.of(context);
+    final subjectStyle = SubjectColors.of(
+      progress.topic.subject,
+      isDark: colors.isDark,
+    );
+    final hasData = progress.totalQuestions > 0;
+    final accuracyPct = (progress.accuracy * 100).round();
+    final progressVal = (progress.totalQuestions / 100).clamp(0.0, 1.0);
+    final statusColor = !hasData
+        ? colors.textMuted
+        : progress.accuracy < 0.5
+            ? colors.danger
+            : progress.accuracy >= 0.8
+                ? colors.success
+                : colors.warning;
 
-    return GestureDetector(
+    return InkWell(
       onTap: onTap,
       onLongPress: onLongPress,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(
-            color: isSelected ? AppColors.of(context).primary : Colors.transparent,
-            width: 2,
-          ),
-        ),
-        child: GlassPanel(
-          padding: const EdgeInsets.all(16),
-          radius: BorderRadius.circular(18),
-          child: Stack(
-            children: [
-              Column(
+      borderRadius: BorderRadius.circular(18),
+      child: GlassPanel(
+        padding: const EdgeInsets.all(14),
+        radius: BorderRadius.circular(18),
+        borderColor: isSelected ? colors.primary : colors.border,
+        color: isSelected
+            ? colors.primary.withValues(alpha: colors.isDark ? 0.16 : 0.08)
+            : colors.surface,
+        child: Row(
+          children: [
+            Container(
+              width: 4,
+              height: 46,
+              decoration: BoxDecoration(
+                color: subjectStyle.accent,
+                borderRadius: BorderRadius.circular(4),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: [
-                                Text(
-                                  progress.topic.title,
-                                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                                        fontWeight: FontWeight.w700,
-                                      ),
+                        child: Text(
+                          progress.topic.title,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: Theme.of(context)
+                              .textTheme
+                              .bodyLarge
+                              ?.copyWith(
+                                color: colors.textPrimary,
+                                fontWeight: FontWeight.w700,
+                              ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      if (isSelectionMode)
+                        Icon(
+                          isSelected
+                              ? Icons.check_circle_rounded
+                              : Icons.radio_button_unchecked_rounded,
+                          color: isSelected ? colors.primary : colors.textMuted,
+                          size: 20,
+                        )
+                      else
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 3,
+                          ),
+                          decoration: BoxDecoration(
+                            color: statusColor.withValues(alpha: 0.12),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text(
+                            hasData ? '%$accuracyPct' : 'Yeni',
+                            style: Theme.of(context)
+                                .textTheme
+                                .labelSmall
+                                ?.copyWith(
+                                  color: statusColor,
+                                  fontWeight: FontWeight.w700,
                                 ),
-                                if (progress.topic.importance >= 4) ...[
-                                  const SizedBox(width: 6),
-                                  const Icon(Icons.local_fire_department,
-                                      color: Colors.orangeAccent, size: 18),
-                                ],
-                              ],
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              '${progress.topic.subject} • ${progress.topic.tag}',
-                              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                    color: AppColors.of(context).textSecondary,
-                                  ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      if (!isSelectionMode)
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.end,
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                              decoration: BoxDecoration(
-                                color: statusColor.withValues(alpha: 0.2),
-                                borderRadius: BorderRadius.circular(12),
-                                border: Border.all(color: statusColor.withValues(alpha: 0.3)),
-                              ),
-                              child: Row(
-                                children: [
-                                  Icon(status.icon, color: statusColor, size: 14),
-                                  const SizedBox(width: 4),
-                                  Text(
-                                    progress.totalQuestions == 0 ? '—' : '%${progress.progressPercent}',
-                                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                                          color: statusColor,
-                                          fontWeight: FontWeight.w700,
-                                        ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            const SizedBox(height: 6),
-                            Text(
-                              timeLabel,
-                              style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                                    color: AppColors.of(context).textSecondary,
-                                  ),
-                            ),
-                          ],
+                          ),
                         ),
                     ],
                   ),
-                  const SizedBox(height: 12),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        'İlerleme',
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color: AppColors.of(context).textSecondary,
-                            ),
-                      ),
-                      Text(
-                        progress.totalQuestions == 0 ? '0%' : '%${progress.progressPercent}',
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color: Colors.white,
-                              fontWeight: FontWeight.w600,
-                            ),
-                      ),
-                    ],
+                  const SizedBox(height: 3),
+                  Text(
+                    '${progress.topic.subject} • ${progress.topic.tag}'
+                    '${hasData ? ' • ${progress.totalQuestions} soru' : ''}'
+                    '${progress.lastStudied != null ? ' • ${_daysAgoLabel(progress.lastStudied!)}' : ''}',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: colors.textSecondary,
+                        ),
                   ),
-                  const SizedBox(height: 6),
+                  const SizedBox(height: 8),
                   ClipRRect(
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: BorderRadius.circular(4),
                     child: LinearProgressIndicator(
-                      value: progress.progressRatio,
-                      minHeight: 6,
-                      backgroundColor: AppColors.of(context).surfaceLight,
-                      valueColor: AlwaysStoppedAnimation<Color>(statusColor),
+                      value: hasData ? progressVal.clamp(0.06, 1.0) : 0,
+                      minHeight: 4.5,
+                      backgroundColor: colors.subtleFill,
+                      valueColor:
+                          AlwaysStoppedAnimation<Color>(subjectStyle.accent),
                     ),
                   ),
                 ],
               ),
-              if (isSelectionMode)
-                Positioned(
-                  top: 0,
-                  right: 0,
-                  child: Container(
-                    padding: const EdgeInsets.all(4),
-                    decoration: BoxDecoration(
-                      color: isSelected ? AppColors.of(context).primary : Colors.black26,
-                      shape: BoxShape.circle,
-                      border: Border.all(color: Colors.white24),
-                    ),
-                    child: Icon(
-                      isSelected ? Icons.check : Icons.circle_outlined,
-                      size: 16,
-                      color: isSelected ? Colors.black : Colors.white38,
-                    ),
-                  ),
-                ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
   }
 }
 
-class _StatusInfo {
-  const _StatusInfo({required this.icon, required this.color});
-  final IconData icon;
-  final Color color;
+String _daysAgoLabel(DateTime date) {
+  final days = DateTime.now().difference(date).inDays;
+  if (days <= 0) return 'Bugün';
+  if (days == 1) return 'Dün';
+  return '$days gün önce';
 }
 
-_StatusInfo _statusFromProgress(BuildContext context, TopicProgress progress) {
-  if (progress.totalQuestions == 0) return const _StatusInfo(icon: Icons.remove, color: Colors.white54);
-  if (progress.accuracy < 0.5) return _StatusInfo(icon: Icons.warning, color: AppColors.of(context).danger);
-  if (progress.accuracy >= 0.8) return _StatusInfo(icon: Icons.check_circle, color: AppColors.of(context).success);
-  return _StatusInfo(icon: Icons.trending_up, color: AppColors.of(context).warning);
-}
-
-int _daysAgo(DateTime date) {
-  final now = DateTime.now();
-  return now.difference(date).inDays;
+String _sortLabel(TopicSort sort) {
+  switch (sort) {
+    case TopicSort.recent:
+      return 'En son çalışılan';
+    case TopicSort.accuracyLow:
+      return 'Doğruluk: Düşükten yükseğe';
+    case TopicSort.accuracyHigh:
+      return 'Doğruluk: Yüksekten düşüğe';
+    case TopicSort.totalQuestions:
+      return 'En çok çözülen';
+    case TopicSort.alphabetical:
+      return 'Alfabetik (A–Z)';
+  }
 }
 
 int _sortByActive(TopicProgress a, TopicProgress b, TopicSort sort) {
   switch (sort) {
-    case TopicSort.recent: return _compareDatesDesc(a.lastStudied, b.lastStudied);
-    case TopicSort.accuracyLow: return a.accuracy.compareTo(b.accuracy);
-    case TopicSort.accuracyHigh: return b.accuracy.compareTo(a.accuracy);
-    case TopicSort.totalQuestions: return b.totalQuestions.compareTo(a.totalQuestions);
-    case TopicSort.alphabetical: return a.topic.title.compareTo(b.topic.title);
+    case TopicSort.recent:
+      return _compareDatesDesc(a.lastStudied, b.lastStudied);
+    case TopicSort.accuracyLow:
+      return a.accuracy.compareTo(b.accuracy);
+    case TopicSort.accuracyHigh:
+      return b.accuracy.compareTo(a.accuracy);
+    case TopicSort.totalQuestions:
+      return b.totalQuestions.compareTo(a.totalQuestions);
+    case TopicSort.alphabetical:
+      return a.topic.title.compareTo(b.topic.title);
   }
 }
 
@@ -1149,22 +1474,4 @@ int _compareDatesDesc(DateTime? a, DateTime? b) {
   if (a == null) return 1;
   if (b == null) return -1;
   return b.compareTo(a);
-}
-
-enum TopicSort { recent, accuracyLow, accuracyHigh, totalQuestions, alphabetical }
-
-class _SortOption extends StatelessWidget {
-  const _SortOption({required this.label, required this.active, required this.onTap});
-  final String label;
-  final bool active;
-  final VoidCallback onTap;
-  @override
-  Widget build(BuildContext context) {
-    return ListTile(
-      onTap: onTap,
-      contentPadding: EdgeInsets.zero,
-      title: Text(label, style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Colors.white, fontWeight: active ? FontWeight.w700 : FontWeight.w500)),
-      trailing: active ? Icon(Icons.check_circle, color: AppColors.of(context).primary) : const Icon(Icons.circle_outlined, color: Colors.white38),
-    );
-  }
 }
