@@ -41,10 +41,8 @@ jobs:
           mkdir -p ~/.gradle/init.d
           cat << 'EOF' > ~/.gradle/init.d/maven-mirror.gradle
           def mirrorUrl = "https://maven-central.storage-download.googleapis.com/maven2"
-          def addMirror = { RepositoryHandler repos ->
-            def mirror = repos.maven { url = uri(mirrorUrl) }
-            repos.remove(mirror)
-            repos.addFirst(mirror)
+
+          def patchRepos = { RepositoryHandler repos, boolean prioritizeMirror ->
             repos.all { ArtifactRepository repo ->
               if (repo instanceof MavenArtifactRepository) {
                 def u = repo.url.toString()
@@ -53,22 +51,31 @@ jobs:
                 }
               }
             }
-          }
-
-          gradle.beforeSettings { settings ->
-            addMirror(settings.pluginManagement.repositories)
+            if (prioritizeMirror) {
+              def existing = repos.find { it instanceof MavenArtifactRepository && it.url.toString().startsWith(mirrorUrl) }
+              if (existing != null) {
+                repos.remove(existing)
+                repos.addFirst(existing)
+              } else {
+                def m = repos.maven { url = uri(mirrorUrl) }
+                repos.remove(m)
+                repos.addFirst(m)
+              }
+            }
           }
 
           gradle.settingsEvaluated { settings ->
-            addMirror(settings.pluginManagement.repositories)
-            addMirror(settings.dependencyResolutionManagement.repositories)
+            patchRepos(settings.pluginManagement.repositories, true)
+            if (!settings.dependencyResolutionManagement.repositories.isEmpty()) {
+              patchRepos(settings.dependencyResolutionManagement.repositories, true)
+            }
           }
 
           gradle.allprojects {
             buildscript {
-              addMirror(repositories)
+              patchRepos(repositories, true)
             }
-            addMirror(repositories)
+            patchRepos(repositories, false)
           }
           EOF
 
