@@ -30,9 +30,10 @@ jobs:
           java-version: '17'
           cache: 'gradle'
 
-      - name: Setup Flutter (stable)
+      - name: Setup Flutter (3.44.6)
         uses: subosito/flutter-action@v2
         with:
+          flutter-version: '3.44.6'
           channel: 'stable'
           cache: true
 
