@@ -12,6 +12,7 @@ import '../../../core/services/gemini_client.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/widgets/ai_loading_dialog.dart';
 import '../../../core/widgets/ambient_background.dart';
+import '../../../core/widgets/delete_helpers.dart';
 import '../../../core/widgets/glass_panel.dart';
 import '../../../core/widgets/in_app_notice.dart';
 
@@ -197,6 +198,11 @@ class _CurriculumHubScreenState extends State<CurriculumHubScreen> {
             .where((preset) => preset.category == _presetCategory)
             .toList();
 
+    final loadedFirst = [
+      ...filtered.where((p) => _loadedSubjectsForPreset(p, existingTopics).isNotEmpty),
+      ...filtered.where((p) => _loadedSubjectsForPreset(p, existingTopics).isEmpty),
+    ];
+
     return ListView(
       padding: const EdgeInsets.fromLTRB(20, 4, 20, 32),
       children: [
@@ -239,15 +245,20 @@ class _CurriculumHubScreenState extends State<CurriculumHubScreen> {
           ),
         ),
         const SizedBox(height: 14),
-        ...filtered.map((preset) {
+        ...loadedFirst.map((preset) {
+          final loadedSubjects =
+              _loadedSubjectsForPreset(preset, existingTopics);
           final loadedCount = existingTopics
-              .where((t) => t.tag.toLowerCase() == preset.name.toLowerCase())
+              .where((t) =>
+                  t.tag.trim().toLowerCase() ==
+                  preset.name.trim().toLowerCase())
               .length;
           return Padding(
             padding: const EdgeInsets.only(bottom: 12),
             child: _PresetCard(
               preset: preset,
               loadedTopicCount: loadedCount,
+              loadedSubjects: loadedSubjects,
               onImportAll: () async {
                 final added = await repository.importExamPreset(preset);
                 if (!context.mounted) return;
@@ -264,10 +275,94 @@ class _CurriculumHubScreenState extends State<CurriculumHubScreen> {
                 preset,
                 existingTopics,
               ),
+              onRemoveSubject: (subject) => _removePresetSubject(
+                context,
+                repository,
+                preset,
+                subject,
+                existingTopics,
+              ),
+              onRemovePreset: () => _removePreset(
+                context,
+                repository,
+                preset,
+                loadedCount,
+              ),
             ),
           );
         }),
       ],
+    );
+  }
+
+  Set<String> _loadedSubjectsForPreset(
+    ExamPreset preset,
+    List<TopicSummary> existingTopics,
+  ) {
+    final normalizedTag = preset.name.trim().toLowerCase();
+    final loadedSubjectKeys = existingTopics
+        .where((t) => t.tag.trim().toLowerCase() == normalizedTag)
+        .map((t) => t.subject.trim().toLowerCase())
+        .toSet();
+    if (loadedSubjectKeys.isEmpty) return const <String>{};
+    return preset.subjects.keys
+        .where((subject) => loadedSubjectKeys.contains(subject.trim().toLowerCase()))
+        .toSet();
+  }
+
+  Future<void> _removePresetSubject(
+    BuildContext context,
+    AppRepository repository,
+    ExamPreset preset,
+    String subject,
+    List<TopicSummary> existingTopics,
+  ) async {
+    final normalizedTag = preset.name.trim().toLowerCase();
+    final normalizedSubject = subject.trim().toLowerCase();
+    final topicCount = existingTopics
+        .where(
+          (t) =>
+              t.tag.trim().toLowerCase() == normalizedTag &&
+              t.subject.trim().toLowerCase() == normalizedSubject,
+        )
+        .length;
+
+    final confirmed = await confirmDeleteDialog(
+      context,
+      title: 'Dersi Kaldır: $subject',
+      message:
+          '${preset.name} paketindeki "$subject" dersi ($topicCount konu) müfredatından kaldırılacak. Geçmiş soru kayıtların korunur.',
+      confirmLabel: 'Kaldır',
+    );
+    if (!confirmed || !context.mounted) return;
+
+    await repository.deleteSubject(subject, tag: preset.name);
+    if (!context.mounted) return;
+    InAppNotice.show(context, '"$subject" (${preset.name}) kaldırıldı.');
+  }
+
+  Future<void> _removePreset(
+    BuildContext context,
+    AppRepository repository,
+    ExamPreset preset,
+    int loadedCount,
+  ) async {
+    final confirmed = await confirmDeleteDialog(
+      context,
+      title: 'Paketi Kaldır: ${preset.name}',
+      message:
+          '${preset.name} paketine ait $loadedCount konu müfredatından kaldırılacak. Geçmiş soru ve deneme kayıtların korunur.',
+      confirmLabel: 'Paketi Kaldır',
+    );
+    if (!confirmed || !context.mounted) return;
+
+    final removed = await repository.removeExamPreset(preset);
+    if (!context.mounted) return;
+    InAppNotice.show(
+      context,
+      removed > 0
+          ? '${preset.name} paketi ($removed konu) kaldırıldı.'
+          : '${preset.name} paketi kaldırıldı.',
     );
   }
 
@@ -277,7 +372,12 @@ class _CurriculumHubScreenState extends State<CurriculumHubScreen> {
     ExamPreset preset,
     List<TopicSummary> existingTopics,
   ) async {
-    final selected = preset.subjects.keys.toSet();
+    final initialLoaded = _loadedSubjectsForPreset(preset, existingTopics);
+    final hasLoaded = initialLoaded.isNotEmpty;
+    final selected = hasLoaded
+        ? Set<String>.from(initialLoaded)
+        : preset.subjects.keys.toSet();
+
     final result = await showModalBottomSheet<Set<String>>(
       context: context,
       isScrollControlled: true,
@@ -288,6 +388,30 @@ class _CurriculumHubScreenState extends State<CurriculumHubScreen> {
       builder: (sheetContext) {
         return StatefulBuilder(
           builder: (context, setModalState) {
+            final colors = AppColors.of(context);
+            final toAdd = selected.difference(initialLoaded);
+            final toRemove = initialLoaded.difference(selected);
+            final hasChanges = toAdd.isNotEmpty || toRemove.isNotEmpty;
+            final isPureRemoval =
+                hasLoaded && toRemove.isNotEmpty && toAdd.isEmpty;
+            final canSubmit = hasLoaded ? hasChanges : selected.isNotEmpty;
+
+            String submitLabel;
+            if (!hasLoaded) {
+              submitLabel = 'Seçili ${selected.length} Dersi Ekle';
+            } else if (!hasChanges) {
+              submitLabel = 'Değişiklik Yok';
+            } else if (selected.isEmpty) {
+              submitLabel = 'Paketi Kaldır (${toRemove.length} ders)';
+            } else if (isPureRemoval) {
+              submitLabel = '${toRemove.length} Dersi Kaldır';
+            } else if (toRemove.isEmpty) {
+              submitLabel = '${toAdd.length} Ders Ekle';
+            } else {
+              submitLabel =
+                  'Kaydet (+${toAdd.length} / -${toRemove.length} ders)';
+            }
+
             return SafeArea(
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
@@ -300,27 +424,70 @@ class _CurriculumHubScreenState extends State<CurriculumHubScreen> {
                         width: 40,
                         height: 4,
                         decoration: BoxDecoration(
-                          color: AppColors.of(context).textMuted,
+                          color: colors.textMuted,
                           borderRadius: BorderRadius.circular(4),
                         ),
                       ),
                     ),
                     const SizedBox(height: 14),
                     Text(
-                      '${preset.name} — Ders Seç',
+                      hasLoaded
+                          ? '${preset.name} — Dersleri Düzenle'
+                          : '${preset.name} — Ders Seç',
                       style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                            color: AppColors.of(context).textPrimary,
+                            color: colors.textPrimary,
                             fontWeight: FontWeight.w800,
                           ),
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      'Yalnızca çalışmak istediğin dersleri seçip diğer planlarınla birleştirebilirsin.',
+                      hasLoaded
+                          ? 'İşaretini kaldırdığın dersler müfredattan çıkarılır. Geçmiş soru kayıtların korunur.'
+                          : 'Yalnızca çalışmak istediğin dersleri seçip diğer planlarınla birleştirebilirsin.',
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: AppColors.of(context).textSecondary,
+                            color: colors.textSecondary,
                           ),
                     ),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        TextButton(
+                          onPressed: selected.length == preset.subjects.length
+                              ? null
+                              : () => setModalState(() {
+                                    selected
+                                      ..clear()
+                                      ..addAll(preset.subjects.keys);
+                                  }),
+                          style: TextButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 4,
+                            ),
+                            minimumSize: Size.zero,
+                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          ),
+                          child: const Text('Tümünü Seç'),
+                        ),
+                        const SizedBox(width: 8),
+                        TextButton(
+                          onPressed: selected.isEmpty
+                              ? null
+                              : () => setModalState(selected.clear),
+                          style: TextButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 4,
+                            ),
+                            minimumSize: Size.zero,
+                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                            foregroundColor: colors.danger,
+                          ),
+                          child: const Text('Seçimi Temizle'),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
                     ConstrainedBox(
                       constraints: BoxConstraints(
                         maxHeight: MediaQuery.of(context).size.height * 0.45,
@@ -329,22 +496,61 @@ class _CurriculumHubScreenState extends State<CurriculumHubScreen> {
                         shrinkWrap: true,
                         children: preset.subjects.entries.map((entry) {
                           final isChecked = selected.contains(entry.key);
+                          final wasLoaded = initialLoaded.contains(entry.key);
+                          String? statusLabel;
+                          Color? statusColor;
+                          if (wasLoaded && !isChecked) {
+                            statusLabel = 'Kaldırılacak';
+                            statusColor = colors.danger;
+                          } else if (wasLoaded && isChecked) {
+                            statusLabel = 'Yüklü';
+                            statusColor = colors.success;
+                          } else if (!wasLoaded && isChecked && hasLoaded) {
+                            statusLabel = 'Eklenecek';
+                            statusColor = colors.primary;
+                          }
+
                           return CheckboxListTile(
                             value: isChecked,
-                            activeColor: AppColors.of(context).primary,
-                            checkColor: AppColors.of(context).onPrimary,
+                            activeColor: colors.primary,
+                            checkColor: colors.onPrimary,
                             contentPadding: EdgeInsets.zero,
-                            title: Text(
-                              entry.key,
-                              style: TextStyle(
-                                color: AppColors.of(context).textPrimary,
-                                fontWeight: FontWeight.w600,
-                              ),
+                            title: Row(
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    entry.key,
+                                    style: TextStyle(
+                                      color: colors.textPrimary,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ),
+                                if (statusLabel != null && statusColor != null)
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 8,
+                                      vertical: 2,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: statusColor.withValues(alpha: 0.14),
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    child: Text(
+                                      statusLabel,
+                                      style: TextStyle(
+                                        color: statusColor,
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                    ),
+                                  ),
+                              ],
                             ),
                             subtitle: Text(
                               '${entry.value.length} konu',
                               style: TextStyle(
-                                color: AppColors.of(context).textSecondary,
+                                color: colors.textSecondary,
                                 fontSize: 12,
                               ),
                             ),
@@ -365,10 +571,17 @@ class _CurriculumHubScreenState extends State<CurriculumHubScreen> {
                     SizedBox(
                       width: double.infinity,
                       child: ElevatedButton(
-                        onPressed: selected.isEmpty
+                        onPressed: !canSubmit
                             ? null
-                            : () => Navigator.of(sheetContext).pop(selected),
-                        child: Text('Seçili ${selected.length} Dersi Ekle'),
+                            : () => Navigator.of(sheetContext)
+                                .pop(Set<String>.from(selected)),
+                        style: isPureRemoval
+                            ? ElevatedButton.styleFrom(
+                                backgroundColor: colors.danger,
+                                foregroundColor: Colors.white,
+                              )
+                            : null,
+                        child: Text(submitLabel),
                       ),
                     ),
                   ],
@@ -380,17 +593,48 @@ class _CurriculumHubScreenState extends State<CurriculumHubScreen> {
       },
     );
 
-    if (result != null && result.isNotEmpty && context.mounted) {
-      final added = await repository.importExamPreset(
-        preset,
-        selectedSubjects: result,
+    if (result == null || !context.mounted) return;
+
+    final removedSubjects = initialLoaded.difference(result);
+    if (removedSubjects.isNotEmpty) {
+      final removedList = removedSubjects.toList()..sort();
+      final confirmed = await confirmDeleteDialog(
+        context,
+        title: removedSubjects.length == 1
+            ? 'Dersi Kaldır: ${removedList.first}'
+            : '${removedSubjects.length} Dersi Kaldır',
+        message:
+            '${preset.name} paketinden şu dersler kaldırılacak: ${removedList.join(', ')}. Geçmiş soru kayıtların korunur.',
+        confirmLabel: 'Kaldır',
       );
-      if (!context.mounted) return;
+      if (!confirmed || !context.mounted) return;
+    }
+
+    final diff = await repository.syncExamPresetSubjects(
+      preset,
+      selectedSubjects: result,
+    );
+    if (!context.mounted) return;
+
+    if (diff.added > 0 && diff.removed > 0) {
       InAppNotice.show(
         context,
-        added > 0
-            ? '${preset.name} içinden $added konu eklendi.'
-            : 'Seçilen derslerin tüm konuları zaten yüklü.',
+        '${preset.name}: ${diff.added} konu eklendi, ${diff.removed} konu kaldırıldı.',
+      );
+    } else if (diff.removed > 0) {
+      InAppNotice.show(
+        context,
+        '${preset.name}: ${diff.removed} konu kaldırıldı.',
+      );
+    } else if (diff.added > 0) {
+      InAppNotice.show(
+        context,
+        '${preset.name} içinden ${diff.added} konu eklendi.',
+      );
+    } else {
+      InAppNotice.show(
+        context,
+        'Seçilen derslerin tüm konuları zaten yüklü.',
       );
     }
   }
@@ -1046,14 +1290,20 @@ class _PresetCard extends StatelessWidget {
   const _PresetCard({
     required this.preset,
     required this.loadedTopicCount,
+    required this.loadedSubjects,
     required this.onImportAll,
     required this.onPickSubjects,
+    required this.onRemoveSubject,
+    required this.onRemovePreset,
   });
 
   final ExamPreset preset;
   final int loadedTopicCount;
+  final Set<String> loadedSubjects;
   final VoidCallback onImportAll;
   final VoidCallback onPickSubjects;
+  final ValueChanged<String> onRemoveSubject;
+  final VoidCallback onRemovePreset;
 
   @override
   Widget build(BuildContext context) {
@@ -1061,6 +1311,9 @@ class _PresetCard extends StatelessWidget {
     final penaltyText = preset.defaultWrongPenalty <= 0.001
         ? 'Cezasız'
         : '4Y = 1D';
+    final hasLoaded = loadedSubjects.isNotEmpty || loadedTopicCount > 0;
+    final allSubjectsLoaded =
+        loadedSubjects.length >= preset.subjects.length && preset.subjects.isNotEmpty;
 
     return GlassPanel(
       padding: const EdgeInsets.all(16),
@@ -1080,7 +1333,7 @@ class _PresetCard extends StatelessWidget {
                           child: Text(
                             preset.name,
                             style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                                  color: AppColors.of(context).textPrimary,
+                                  color: colors.textPrimary,
                                   fontWeight: FontWeight.w800,
                                 ),
                           ),
@@ -1109,12 +1362,12 @@ class _PresetCard extends StatelessWidget {
                     const SizedBox(height: 4),
                     Text(
                       preset.subtitle,
-                      style: TextStyle(color: AppColors.of(context).textSecondary, fontSize: 12),
+                      style: TextStyle(color: colors.textSecondary, fontSize: 12),
                     ),
                   ],
                 ),
               ),
-              if (loadedTopicCount > 0)
+              if (hasLoaded)
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                   decoration: BoxDecoration(
@@ -1122,7 +1375,7 @@ class _PresetCard extends StatelessWidget {
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: Text(
-                    '$loadedTopicCount yüklü',
+                    '${loadedSubjects.length}/${preset.subjects.length} ders',
                     style: TextStyle(
                       color: colors.success,
                       fontSize: 11,
@@ -1137,15 +1390,59 @@ class _PresetCard extends StatelessWidget {
             spacing: 6,
             runSpacing: 6,
             children: preset.subjects.keys.map((subject) {
+              final isLoaded = loadedSubjects.contains(subject);
+              if (isLoaded) {
+                return Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    onTap: () => onRemoveSubject(subject),
+                    borderRadius: BorderRadius.circular(8),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: colors.primary.withValues(
+                          alpha: colors.isDark ? 0.22 : 0.12,
+                        ),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: colors.primary.withValues(alpha: 0.32),
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            subject,
+                            style: TextStyle(
+                              color: colors.primary,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          const SizedBox(width: 4),
+                          Icon(
+                            Icons.close_rounded,
+                            size: 13,
+                            color: colors.primary,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                );
+              }
               return Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
-                  color: AppColors.of(context).subtleFill,
+                  color: colors.subtleFill,
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(
                   subject,
-                  style: TextStyle(color: AppColors.of(context).textSecondary, fontSize: 11),
+                  style: TextStyle(color: colors.textSecondary, fontSize: 11),
                 ),
               );
             }).toList(),
@@ -1158,27 +1455,77 @@ class _PresetCard extends StatelessWidget {
                   onPressed: onPickSubjects,
                   style: OutlinedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 11),
-                    side: BorderSide(color: AppColors.of(context).border),
+                    side: BorderSide(color: colors.border),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(14),
                     ),
                   ),
-                  child: const Text('Ders Seç'),
+                  child: Text(hasLoaded ? 'Dersleri Düzenle' : 'Ders Seç'),
                 ),
               ),
               const SizedBox(width: 10),
-              Expanded(
-                child: ElevatedButton(
-                  onPressed: onImportAll,
-                  style: ElevatedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 11),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14),
+              if (allSubjectsLoaded)
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: onRemovePreset,
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 11),
+                      foregroundColor: colors.danger,
+                      side: BorderSide(
+                        color: colors.danger.withValues(alpha: 0.45),
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                    ),
+                    icon: const Icon(Icons.delete_outline_rounded, size: 18),
+                    label: const Text('Paketi Kaldır'),
+                  ),
+                )
+              else ...[
+                Expanded(
+                  child: ElevatedButton(
+                    onPressed: onImportAll,
+                    style: ElevatedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 11),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                    ),
+                    child: Text(
+                      hasLoaded
+                          ? 'Kalanları Ekle'
+                          : 'Tümünü Ekle (${preset.totalTopics})',
                     ),
                   ),
-                  child: Text('Tümünü Ekle (${preset.totalTopics})'),
                 ),
-              ),
+                if (hasLoaded) ...[
+                  const SizedBox(width: 8),
+                  Tooltip(
+                    message: 'Paketi Kaldır',
+                    child: InkWell(
+                      onTap: onRemovePreset,
+                      borderRadius: BorderRadius.circular(14),
+                      child: Container(
+                        width: 44,
+                        height: 44,
+                        decoration: BoxDecoration(
+                          color: colors.danger.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(
+                            color: colors.danger.withValues(alpha: 0.35),
+                          ),
+                        ),
+                        child: Icon(
+                          Icons.delete_outline_rounded,
+                          color: colors.danger,
+                          size: 20,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ],
             ],
           ),
         ],

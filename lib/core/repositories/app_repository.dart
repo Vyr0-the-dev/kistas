@@ -44,6 +44,8 @@ const _userNameKey = 'user_name_v1';
 const _catalogInitializedKey = 'catalog_initialized_v2';
 
 class AppRepository {
+  static int _customTopicSeq = 0;
+
   AppRepository._(this._prefs, this._db)
       : questionEntries = ValueNotifier<List<QuestionEntry>>([]),
         mockExams = ValueNotifier<List<MockExam>>([]),
@@ -233,6 +235,61 @@ class AppRepository {
     return uniqueToAdd.length;
   }
 
+  /// Synchronizes an exam preset's loaded subjects with [selectedSubjects].
+  /// Removes preset subjects that were unchecked, adds any missing topics for
+  /// newly selected subjects, and removes the preset's exam profile if no
+  /// topics remain under its tag. Past question and mock exam logs are kept.
+  Future<({int added, int removed})> syncExamPresetSubjects(
+    ExamPreset preset, {
+    required Set<String> selectedSubjects,
+  }) async {
+    final normalizedTag = preset.name.trim().toLowerCase();
+    final normalizedSelected =
+        selectedSubjects.map((s) => s.trim().toLowerCase()).toSet();
+    final normalizedPresetSubjects =
+        preset.subjects.keys.map((s) => s.trim().toLowerCase()).toSet();
+
+    final idsToRemove = userTopics.value
+        .where((t) {
+          if (t.tag.trim().toLowerCase() != normalizedTag) return false;
+          final subjectKey = t.subject.trim().toLowerCase();
+          return normalizedPresetSubjects.contains(subjectKey) &&
+              !normalizedSelected.contains(subjectKey);
+        })
+        .map((t) => t.id)
+        .toList();
+
+    if (idsToRemove.isNotEmpty) {
+      await deleteUserTopics(idsToRemove);
+    }
+
+    var addedCount = 0;
+    if (selectedSubjects.isNotEmpty) {
+      addedCount = await importExamPreset(
+        preset,
+        selectedSubjects: selectedSubjects,
+      );
+    } else {
+      final hasRemainingTopics = userTopics.value.any(
+        (t) => t.tag.trim().toLowerCase() == normalizedTag,
+      );
+      if (!hasRemainingTopics) {
+        await deleteExamProfile(preset.name);
+      }
+    }
+
+    return (added: addedCount, removed: idsToRemove.length);
+  }
+
+  /// Removes all subjects belonging to [preset] from the user's curriculum.
+  Future<int> removeExamPreset(ExamPreset preset) async {
+    final result = await syncExamPresetSubjects(
+      preset,
+      selectedSubjects: const <String>{},
+    );
+    return result.removed;
+  }
+
   Future<int> addCourseTopics({
     required String subject,
     required List<String> topicTitles,
@@ -261,7 +318,7 @@ class AppRepository {
       if (existingKeys.add(key)) {
         toAdd.add(
           TopicSummary(
-            id: 'custom-$now-$i',
+            id: 'custom-$now-${++_customTopicSeq}-$i',
             subject: cleanSubject,
             title: title,
             nextReview: '',
@@ -305,12 +362,32 @@ class AppRepository {
     await _saveWeeklySchedule(updatedSchedule);
   }
 
-  Future<void> deleteSubject(String subject, {String? tag}) async {
-    final ids = userTopics.value
-        .where((t) => t.subject == subject && (tag == null || t.tag == tag))
-        .map((t) => t.id)
+  Future<int> deleteSubject(String subject, {String? tag}) async {
+    final normalizedSubject = subject.trim().toLowerCase();
+    final normalizedTag = tag?.trim().toLowerCase();
+    final matchingTopics = userTopics.value
+        .where(
+          (t) =>
+              t.subject.trim().toLowerCase() == normalizedSubject &&
+              (normalizedTag == null ||
+                  t.tag.trim().toLowerCase() == normalizedTag),
+        )
         .toList();
-    await deleteUserTopics(ids);
+    if (matchingTopics.isEmpty) return 0;
+
+    final affectedTags = matchingTopics.map((t) => t.tag).toSet();
+    await deleteUserTopics(matchingTopics.map((t) => t.id).toList());
+
+    for (final affectedTag in affectedTags) {
+      final normTag = affectedTag.trim().toLowerCase();
+      final hasRemaining = userTopics.value.any(
+        (t) => t.tag.trim().toLowerCase() == normTag,
+      );
+      if (!hasRemaining) {
+        await deleteExamProfile(affectedTag);
+      }
+    }
+    return matchingTopics.length;
   }
 
   Future<void> _refreshTopics() async {

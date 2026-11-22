@@ -140,7 +140,6 @@ class _TopicSummariesScreenState extends State<TopicSummariesScreen> {
   @override
   Widget build(BuildContext context) {
     final repository = AppRepositoryScope.of(context);
-    final colors = AppColors.of(context);
 
     return ValueListenableBuilder<List<TopicSummary>>(
       valueListenable: repository.userTopics,
@@ -153,14 +152,22 @@ class _TopicSummariesScreenState extends State<TopicSummariesScreen> {
 
             final tags = currentTopics.map((e) => e.tag).toSet().toList()
               ..sort();
-            final tagScopedTopics = _activeTag == 'Tümü'
+            final effectiveTag =
+                (_activeTag != 'Tümü' && tags.contains(_activeTag))
+                    ? _activeTag
+                    : 'Tümü';
+            final tagScopedTopics = effectiveTag == 'Tümü'
                 ? currentTopics
-                : currentTopics.where((t) => t.tag == _activeTag).toList();
+                : currentTopics.where((t) => t.tag == effectiveTag).toList();
             final subjects = tagScopedTopics
                 .map((e) => e.subject)
                 .toSet()
                 .toList()
               ..sort();
+            final effectiveFilter =
+                (_activeFilter != 'Tümü' && subjects.contains(_activeFilter))
+                    ? _activeFilter
+                    : 'Tümü';
 
             return PopScope(
               canPop: !_isSelectionMode,
@@ -181,8 +188,11 @@ class _TopicSummariesScreenState extends State<TopicSummariesScreen> {
                         _buildCompactHeader(
                           context,
                           currentTopics: currentTopics,
+                          tagScopedTopics: tagScopedTopics,
                           tags: tags,
                           subjects: subjects,
+                          effectiveTag: effectiveTag,
+                          effectiveFilter: effectiveFilter,
                           totalFiltered: filtered.length,
                         ),
                       Expanded(
@@ -286,8 +296,11 @@ class _TopicSummariesScreenState extends State<TopicSummariesScreen> {
   Widget _buildCompactHeader(
     BuildContext context, {
     required List<TopicSummary> currentTopics,
+    required List<TopicSummary> tagScopedTopics,
     required List<String> tags,
     required List<String> subjects,
+    required String effectiveTag,
+    required String effectiveFilter,
     required int totalFiltered,
   }) {
     final colors = AppColors.of(context);
@@ -435,7 +448,7 @@ class _TopicSummariesScreenState extends State<TopicSummariesScreen> {
                 children: [
                   _SubjectFilterPill(
                     label: 'Tümü',
-                    selected: _activeFilter == 'Tümü',
+                    selected: effectiveFilter == 'Tümü',
                     dotColor: null,
                     onTap: () => setState(() => _activeFilter = 'Tümü'),
                   ),
@@ -446,24 +459,34 @@ class _TopicSummariesScreenState extends State<TopicSummariesScreen> {
                     );
                     return _SubjectFilterPill(
                       label: subject,
-                      selected: _activeFilter == subject,
+                      selected: effectiveFilter == subject,
                       dotColor: style.accent,
                       onTap: () => setState(() => _activeFilter = subject),
+                      onLongPress: () => _openSubjectQuickActions(
+                        context,
+                        subject: subject,
+                        scopedTopics: tagScopedTopics,
+                        scopedTag:
+                            effectiveTag == 'Tümü' ? null : effectiveTag,
+                      ),
                     );
                   }),
                 ],
               ),
             ),
           ],
-          if (_hasSecondaryFilters) ...[
+          if (effectiveTag != 'Tümü' ||
+              _weakOnly ||
+              _staleOnly ||
+              _activeSort != TopicSort.recent) ...[
             const SizedBox(height: 8),
             Wrap(
               spacing: 6,
               runSpacing: 6,
               children: [
-                if (_activeTag != 'Tümü')
+                if (effectiveTag != 'Tümü')
                   _ActiveFilterBadge(
-                    label: _activeTag,
+                    label: effectiveTag,
                     onClear: () => setState(() {
                       _activeTag = 'Tümü';
                       _activeFilter = 'Tümü';
@@ -797,8 +820,21 @@ class _TopicSummariesScreenState extends State<TopicSummariesScreen> {
             valueListenable: repository.userTopics,
             builder: (sheetContext, liveTopics, __) {
               final tags = liveTopics.map((e) => e.tag).toSet().toList()..sort();
-              final subjects = liveTopics.map((e) => e.subject).toSet().toList()
-                ..sort();
+              final subjectEntriesMap = <String, ({String tag, String subject, int count})>{};
+              for (final topic in liveTopics) {
+                final key = '${topic.tag}||${topic.subject}';
+                final existing = subjectEntriesMap[key];
+                subjectEntriesMap[key] = (
+                  tag: topic.tag,
+                  subject: topic.subject,
+                  count: (existing?.count ?? 0) + 1,
+                );
+              }
+              final subjectEntries = subjectEntriesMap.values.toList()
+                ..sort((a, b) {
+                  final byTag = a.tag.compareTo(b.tag);
+                  return byTag != 0 ? byTag : a.subject.compareTo(b.subject);
+                });
               final colors = AppColors.of(sheetContext);
 
               return SafeArea(
@@ -840,7 +876,7 @@ class _TopicSummariesScreenState extends State<TopicSummariesScreen> {
                           const SizedBox(width: 8),
                           Expanded(
                             child: ChoiceChip(
-                              label: Text('Dersler (${subjects.length})'),
+                              label: Text('Dersler (${subjectEntries.length})'),
                               selected: showSubjects,
                               onSelected: (_) =>
                                   setModalState(() => showSubjects = true),
@@ -915,7 +951,7 @@ class _TopicSummariesScreenState extends State<TopicSummariesScreen> {
                             ),
                           ),
                       ] else ...[
-                        if (subjects.isEmpty)
+                        if (subjectEntries.isEmpty)
                           Padding(
                             padding: const EdgeInsets.symmetric(vertical: 20),
                             child: Text(
@@ -931,18 +967,11 @@ class _TopicSummariesScreenState extends State<TopicSummariesScreen> {
                             ),
                             child: ListView.builder(
                               shrinkWrap: true,
-                              itemCount: subjects.length,
+                              itemCount: subjectEntries.length,
                               itemBuilder: (context, index) {
-                                final subject = subjects[index];
-                                final subjectTopics = liveTopics
-                                    .where((t) => t.subject == subject)
-                                    .toList();
-                                final subjectTags = subjectTopics
-                                    .map((t) => t.tag)
-                                    .toSet()
-                                    .join(', ');
+                                final entry = subjectEntries[index];
                                 final style = SubjectColors.of(
-                                  subject,
+                                  entry.subject,
                                   isDark: colors.isDark,
                                 );
                                 return ListTile(
@@ -956,14 +985,14 @@ class _TopicSummariesScreenState extends State<TopicSummariesScreen> {
                                     ),
                                   ),
                                   title: Text(
-                                    subject,
+                                    entry.subject,
                                     style: TextStyle(
                                       color: colors.textPrimary,
                                       fontWeight: FontWeight.w600,
                                     ),
                                   ),
                                   subtitle: Text(
-                                    '${subjectTopics.length} konu • $subjectTags',
+                                    '${entry.count} konu • ${entry.tag}',
                                     style: TextStyle(
                                       color: colors.textSecondary,
                                       fontSize: 12,
@@ -981,11 +1010,12 @@ class _TopicSummariesScreenState extends State<TopicSummariesScreen> {
                                         ),
                                         onPressed: () => _renameSubject(
                                           sheetContext,
-                                          subject,
+                                          entry.subject,
+                                          tag: entry.tag,
                                         ),
                                       ),
                                       IconButton(
-                                        tooltip: 'Dersi ve Konularını Sil',
+                                        tooltip: 'Dersi ve Konularını Kaldır',
                                         icon: Icon(
                                           Icons.delete_outline,
                                           color: colors.danger,
@@ -993,8 +1023,9 @@ class _TopicSummariesScreenState extends State<TopicSummariesScreen> {
                                         ),
                                         onPressed: () => _deleteSubject(
                                           sheetContext,
-                                          subject,
-                                          subjectTopics.length,
+                                          entry.subject,
+                                          entry.count,
+                                          tag: entry.tag,
                                         ),
                                       ),
                                     ],
@@ -1015,10 +1046,161 @@ class _TopicSummariesScreenState extends State<TopicSummariesScreen> {
     );
   }
 
+  void _openSubjectQuickActions(
+    BuildContext context, {
+    required String subject,
+    required List<TopicSummary> scopedTopics,
+    required String? scopedTag,
+  }) {
+    final matching = scopedTopics.where((t) => t.subject == subject).toList();
+    if (matching.isEmpty) return;
+
+    final tagsForSubject = matching.map((t) => t.tag).toSet().toList()..sort();
+    final effectiveTag = scopedTag ??
+        (tagsForSubject.length == 1 ? tagsForSubject.first : null);
+    final colors = AppColors.of(context);
+
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: colors.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (sheetContext) {
+        final sheetColors = AppColors.of(sheetContext);
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 14, 20, 20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Center(
+                  child: Container(
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: sheetColors.border,
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 14),
+                Text(
+                  subject,
+                  style: Theme.of(sheetContext).textTheme.titleMedium?.copyWith(
+                        color: sheetColors.textPrimary,
+                        fontWeight: FontWeight.w800,
+                      ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  effectiveTag != null
+                      ? '${matching.length} konu • $effectiveTag'
+                      : '${matching.length} konu • ${tagsForSubject.join(', ')}',
+                  style: Theme.of(sheetContext).textTheme.bodySmall?.copyWith(
+                        color: sheetColors.textSecondary,
+                      ),
+                ),
+                const SizedBox(height: 12),
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: Icon(
+                    Icons.edit_outlined,
+                    color: sheetColors.textPrimary,
+                  ),
+                  title: const Text('Dersi Yeniden Adlandır'),
+                  onTap: () {
+                    Navigator.of(sheetContext).pop();
+                    _renameSubject(context, subject, tag: effectiveTag);
+                  },
+                ),
+                if (effectiveTag != null)
+                  ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: Icon(
+                      Icons.delete_outline_rounded,
+                      color: sheetColors.danger,
+                    ),
+                    title: Text(
+                      'Dersi Kaldır ($effectiveTag)',
+                      style: TextStyle(
+                        color: sheetColors.danger,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    onTap: () {
+                      Navigator.of(sheetContext).pop();
+                      _deleteSubject(
+                        context,
+                        subject,
+                        matching.length,
+                        tag: effectiveTag,
+                      );
+                    },
+                  )
+                else ...[
+                  ...tagsForSubject.map((tag) {
+                    final tagCount =
+                        matching.where((t) => t.tag == tag).length;
+                    return ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: Icon(
+                        Icons.remove_circle_outline_rounded,
+                        color: sheetColors.danger,
+                      ),
+                      title: Text(
+                        '$tag paketinden kaldır',
+                        style: TextStyle(
+                          color: sheetColors.danger,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      subtitle: Text('$tagCount konu'),
+                      onTap: () {
+                        Navigator.of(sheetContext).pop();
+                        _deleteSubject(
+                          context,
+                          subject,
+                          tagCount,
+                          tag: tag,
+                        );
+                      },
+                    );
+                  }),
+                  ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: Icon(
+                      Icons.delete_outline_rounded,
+                      color: sheetColors.danger,
+                    ),
+                    title: Text(
+                      'Tüm paketlerden kaldır',
+                      style: TextStyle(
+                        color: sheetColors.danger,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    subtitle: Text('${matching.length} konu'),
+                    onTap: () {
+                      Navigator.of(sheetContext).pop();
+                      _deleteSubject(context, subject, matching.length);
+                    },
+                  ),
+                ],
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   Future<void> _renameSubject(
     BuildContext sheetContext,
-    String oldSubject,
-  ) async {
+    String oldSubject, {
+    String? tag,
+  }) async {
     final controller = TextEditingController(text: oldSubject);
     final newName = await showDialog<String>(
       context: sheetContext,
@@ -1048,6 +1230,7 @@ class _TopicSummariesScreenState extends State<TopicSummariesScreen> {
       await repository.renameSubject(
         oldSubject: oldSubject,
         newSubject: newName,
+        tag: tag,
       );
       if (mounted) {
         if (_activeFilter == oldSubject) {
@@ -1061,21 +1244,23 @@ class _TopicSummariesScreenState extends State<TopicSummariesScreen> {
   Future<void> _deleteSubject(
     BuildContext sheetContext,
     String subject,
-    int topicCount,
-  ) async {
+    int topicCount, {
+    String? tag,
+  }) async {
+    final scopeText = tag != null ? '$tag paketindeki "$subject"' : '"$subject"';
     final confirmed = await confirmDeleteDialog(
       sheetContext,
-      title: 'Dersi Sil: $subject',
+      title: 'Dersi Kaldır: $subject',
       message:
-          'Bu derse ait $topicCount konu müfredattan silinecek (geçmiş soru kayıtların korunur). Emin misin?',
-      confirmLabel: 'Dersi Sil',
+          '$scopeText dersine ait $topicCount konu müfredattan kaldırılacak (geçmiş soru kayıtların korunur). Emin misin?',
+      confirmLabel: 'Dersi Kaldır',
     );
     if (confirmed && mounted) {
       final repository = AppRepositoryScope.of(context);
-      await repository.deleteSubject(subject);
+      await repository.deleteSubject(subject, tag: tag);
       if (mounted) {
         if (_activeFilter == subject) setState(() => _activeFilter = 'Tümü');
-        _showSnack(context, '"$subject" dersi ve konuları silindi.');
+        _showSnack(context, '$scopeText dersi kaldırıldı.');
       }
     }
   }
@@ -1213,12 +1398,14 @@ class _SubjectFilterPill extends StatelessWidget {
     required this.selected,
     required this.dotColor,
     required this.onTap,
+    this.onLongPress,
   });
 
   final String label;
   final bool selected;
   final Color? dotColor;
   final VoidCallback onTap;
+  final VoidCallback? onLongPress;
 
   @override
   Widget build(BuildContext context) {
@@ -1228,6 +1415,7 @@ class _SubjectFilterPill extends StatelessWidget {
       padding: const EdgeInsets.only(right: 8),
       child: InkWell(
         onTap: onTap,
+        onLongPress: onLongPress,
         borderRadius: BorderRadius.circular(12),
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),

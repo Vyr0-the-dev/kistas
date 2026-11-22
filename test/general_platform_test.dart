@@ -813,13 +813,161 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Fizik'), findsWidgets);
-      await tester.tap(find.byTooltip('Dersi ve Konularını Sil').first);
+      await tester.tap(find.byTooltip('Dersi ve Konularını Kaldır').first);
       await tester.pumpAndSettle();
 
-      await tester.tap(find.text('Dersi Sil'));
+      await tester.tap(find.text('Dersi Kaldır'));
       await tester.pumpAndSettle();
 
       expect(repo.userTopics.value.map((t) => t.subject).toSet(), {'Kimya'});
+    });
+
+    test('syncExamPresetSubjects removes unchecked courses and keeps history', () async {
+      SharedPreferences.setMockInitialValues({});
+      final repo = await AppRepository.init(_InMemoryDatabaseService());
+      final tytMaarif = examCatalogPresets.firstWhere(
+        (p) => p.id == 'tyt-maarif',
+      );
+
+      final initialAdded = await repo.importExamPreset(tytMaarif);
+      expect(initialAdded, tytMaarif.totalTopics);
+      expect(repo.profileForTag(tytMaarif.name), isNotNull);
+
+      await repo.addQuestionEntry(
+        QuestionEntry(
+          id: 'hist-felsefe-1',
+          subject: 'Maarif TYT Felsefe',
+          topic: 'Felsefeyi Tanıma ve Düşünme-Akıl Yürütme',
+          bookName: 'Soru Bankası',
+          correct: 8,
+          wrong: 2,
+          blank: 0,
+          minutes: 12,
+          note: '',
+          createdAt: DateTime.now(),
+        ),
+      );
+
+      final keepSubjects = Set<String>.from(tytMaarif.subjects.keys)
+        ..remove('Maarif TYT Felsefe')
+        ..remove('Maarif TYT Din Kültürü');
+
+      final diff = await repo.syncExamPresetSubjects(
+        tytMaarif,
+        selectedSubjects: keepSubjects,
+      );
+      expect(diff.added, 0);
+      expect(diff.removed, greaterThan(0));
+
+      final remainingSubjects = repo.userTopics.value
+          .where((t) => t.tag == tytMaarif.name)
+          .map((t) => t.subject)
+          .toSet();
+      expect(remainingSubjects, keepSubjects);
+      expect(remainingSubjects.contains('Maarif TYT Felsefe'), isFalse);
+      expect(remainingSubjects.contains('Maarif TYT Din Kültürü'), isFalse);
+      // Past question history must be preserved
+      expect(repo.questionEntries.value.length, 1);
+
+      // Re-adding a removed subject restores its topics
+      final reAddDiff = await repo.syncExamPresetSubjects(
+        tytMaarif,
+        selectedSubjects: {...keepSubjects, 'Maarif TYT Felsefe'},
+      );
+      expect(reAddDiff.added, tytMaarif.subjects['Maarif TYT Felsefe']!.length);
+      expect(reAddDiff.removed, 0);
+
+      // Removing the full preset removes all topics and its exam profile
+      final removedAll = await repo.removeExamPreset(tytMaarif);
+      expect(removedAll, greaterThan(0));
+      expect(
+        repo.userTopics.value.where((t) => t.tag == tytMaarif.name),
+        isEmpty,
+      );
+      expect(repo.profileForTag(tytMaarif.name), isNull);
+      expect(repo.questionEntries.value.length, 1);
+    });
+
+    test('deleteSubject with tag only removes subject from target package', () async {
+      SharedPreferences.setMockInitialValues({});
+      final repo = await AppRepository.init(_InMemoryDatabaseService());
+      await repo.addCourseTopics(
+        subject: 'Matematik',
+        topicTitles: ['Sayılar'],
+        tag: 'TYT',
+      );
+      await repo.addCourseTopics(
+        subject: 'Matematik',
+        topicTitles: ['Türev'],
+        tag: 'AYT',
+      );
+
+      final removed = await repo.deleteSubject('Matematik', tag: 'TYT');
+      expect(removed, 1);
+      expect(repo.userTopics.value.length, 1);
+      expect(repo.userTopics.value.first.tag, 'AYT');
+      expect(repo.userTopics.value.first.title, 'Türev');
+    });
+
+    testWidgets('CurriculumHubScreen removes unwanted courses from imported preset', (tester) async {
+      SharedPreferences.setMockInitialValues({});
+      final repo = await AppRepository.init(_InMemoryDatabaseService());
+      final tytMaarif = examCatalogPresets.firstWhere(
+        (p) => p.id == 'tyt-maarif',
+      );
+      await repo.importExamPreset(tytMaarif);
+
+      await tester.pumpWidget(wrapWithApp(repo, const CurriculumHubScreen()));
+      await tester.pumpAndSettle();
+
+      // Loaded preset should appear at top with edit & remove buttons
+      expect(find.text('Dersleri Düzenle'), findsOneWidget);
+      expect(find.text('Paketi Kaldır'), findsOneWidget);
+
+      // Open two-way subject editor and uncheck 'Maarif TYT Felsefe'
+      await tester.tap(find.text('Dersleri Düzenle'));
+      await tester.pumpAndSettle();
+      expect(find.text('${tytMaarif.name} — Dersleri Düzenle'), findsOneWidget);
+
+      final felsefeTile =
+          find.widgetWithText(CheckboxListTile, 'Maarif TYT Felsefe');
+      await tester.scrollUntilVisible(
+        felsefeTile,
+        150,
+        scrollable: find.byType(Scrollable).last,
+      );
+      await tester.tap(felsefeTile);
+      await tester.pumpAndSettle();
+
+      expect(find.text('Kaldırılacak'), findsOneWidget);
+      expect(find.text('1 Dersi Kaldır'), findsOneWidget);
+
+      await tester.tap(find.text('1 Dersi Kaldır'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(ElevatedButton, 'Kaldır'));
+      await tester.pumpAndSettle();
+
+      final remainingAfterEdit = repo.userTopics.value
+          .where((t) => t.tag == tytMaarif.name)
+          .map((t) => t.subject)
+          .toSet();
+      expect(remainingAfterEdit.contains('Maarif TYT Felsefe'), isFalse);
+      expect(remainingAfterEdit.contains('Maarif TYT Matematik'), isTrue);
+
+      // Also verify 1-tap removal directly from a loaded subject chip on the card
+      await tester.tap(find.text('Maarif TYT Din Kültürü').first);
+      await tester.pumpAndSettle();
+      expect(find.text('Dersi Kaldır: Maarif TYT Din Kültürü'), findsOneWidget);
+
+      await tester.tap(find.widgetWithText(ElevatedButton, 'Kaldır'));
+      await tester.pumpAndSettle();
+
+      final remainingAfterChip = repo.userTopics.value
+          .where((t) => t.tag == tytMaarif.name)
+          .map((t) => t.subject)
+          .toSet();
+      expect(remainingAfterChip.contains('Maarif TYT Din Kültürü'), isFalse);
+      expect(remainingAfterChip.contains('Maarif TYT Matematik'), isTrue);
     });
   });
 }
