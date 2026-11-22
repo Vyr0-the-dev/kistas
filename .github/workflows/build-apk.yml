@@ -24,7 +24,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Setup Java 17
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: 'temurin'
           java-version: '17'
@@ -36,6 +36,42 @@ jobs:
           channel: 'stable'
           cache: true
 
+      - name: Configure Google Maven Central mirror for CI reliability
+        run: |
+          mkdir -p ~/.gradle/init.d
+          cat << 'EOF' > ~/.gradle/init.d/maven-mirror.gradle
+          def mirrorUrl = "https://maven-central.storage-download.googleapis.com/maven2"
+          def addMirror = { RepositoryHandler repos ->
+            def mirror = repos.maven { url = uri(mirrorUrl) }
+            repos.remove(mirror)
+            repos.addFirst(mirror)
+            repos.all { ArtifactRepository repo ->
+              if (repo instanceof MavenArtifactRepository) {
+                def u = repo.url.toString()
+                if (u.startsWith("https://repo.maven.apache.org/maven2") || u.startsWith("https://repo1.maven.org/maven2")) {
+                  repo.url = uri(mirrorUrl)
+                }
+              }
+            }
+          }
+
+          gradle.beforeSettings { settings ->
+            addMirror(settings.pluginManagement.repositories)
+          }
+
+          gradle.settingsEvaluated { settings ->
+            addMirror(settings.pluginManagement.repositories)
+            addMirror(settings.dependencyResolutionManagement.repositories)
+          }
+
+          gradle.allprojects {
+            buildscript {
+              addMirror(repositories)
+            }
+            addMirror(repositories)
+          }
+          EOF
+
       - name: Install dependencies
         run: flutter pub get
 
@@ -43,7 +79,8 @@ jobs:
         run: flutter test --reporter compact
 
       - name: Build release APK
-        run: flutter build apk --release
+        run: |
+          flutter build apk --release || (sleep 10 && flutter build apk --release)
 
       - name: Prepare APK artifact
         run: |
