@@ -42,7 +42,12 @@ jobs:
           cat << 'EOF' > ~/.gradle/init.d/maven-mirror.gradle
           def mirrorUrl = "https://maven-central.storage-download.googleapis.com/maven2"
 
-          def patchRepos = { RepositoryHandler repos, boolean prioritizeMirror ->
+          def patchRepos = { RepositoryHandler repos, boolean prioritizeMirror, boolean keepPluginPortal ->
+            if (keepPluginPortal && repos.isEmpty()) {
+              repos.maven { url = uri(mirrorUrl) }
+              repos.gradlePluginPortal()
+              return
+            }
             repos.all { ArtifactRepository repo ->
               if (repo instanceof MavenArtifactRepository) {
                 def u = repo.url.toString()
@@ -65,17 +70,17 @@ jobs:
           }
 
           gradle.settingsEvaluated { settings ->
-            patchRepos(settings.pluginManagement.repositories, true)
+            patchRepos(settings.pluginManagement.repositories, true, true)
             if (!settings.dependencyResolutionManagement.repositories.isEmpty()) {
-              patchRepos(settings.dependencyResolutionManagement.repositories, true)
+              patchRepos(settings.dependencyResolutionManagement.repositories, true, false)
             }
           }
 
           gradle.allprojects {
             buildscript {
-              patchRepos(repositories, true)
+              patchRepos(repositories, true, false)
             }
-            patchRepos(repositories, false)
+            patchRepos(repositories, false, false)
           }
           EOF
 
