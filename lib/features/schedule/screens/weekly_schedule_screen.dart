@@ -1,17 +1,12 @@
 import 'dart:convert';
-import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:image_picker/image_picker.dart';
-import 'package:path_provider/path_provider.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/models/study_schedule_block.dart';
 import '../../../core/models/topic_summary.dart';
 import '../../../core/repositories/app_repository.dart';
 import '../../../core/services/gemini_client.dart';
-import '../../../core/services/notification_service.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/subject_colors.dart';
 import '../../../core/widgets/ai_loading_dialog.dart';
@@ -21,6 +16,7 @@ import '../../../core/widgets/glass_panel.dart';
 import '../../../core/widgets/in_app_notice.dart';
 import '../../curriculum/screens/curriculum_hub_screen.dart';
 import '../../questions/screens/entry_wizard_screen.dart';
+import '../widgets/schedule_sheets.dart';
 
 sealed class _ScheduleDragPayload {
   const _ScheduleDragPayload();
@@ -208,8 +204,16 @@ class _WeeklyScheduleScreenState extends State<WeeklyScheduleScreen> {
   ) {
     final colors = AppColors.of(context);
     final weekKey = _selectedWeekKey;
-    final completedCount =
-        weekBlocks.where((b) => b.isCompletedForWeek(weekKey)).length;
+    var totalTasks = 0;
+    var completedCount = 0;
+    for (final block in weekBlocks) {
+      for (final day in block.activeWeekdaysInWeek()) {
+        totalTasks++;
+        if (block.isCompletedForWeek(weekKey, weekday: day)) {
+          completedCount++;
+        }
+      }
+    }
 
     return Container(
       padding: const EdgeInsets.fromLTRB(8, 8, 8, 8),
@@ -235,9 +239,9 @@ class _WeeklyScheduleScreenState extends State<WeeklyScheduleScreen> {
                       ),
                 ),
                 Text(
-                  weekBlocks.isEmpty
+                  totalTasks == 0
                       ? 'Ders veya konu sürükleyip günlere bırak'
-                      : '$completedCount / ${weekBlocks.length} görev tamamlandı',
+                      : '$completedCount / $totalTasks görev tamamlandı',
                   style: Theme.of(context).textTheme.labelSmall?.copyWith(
                         color: colors.textSecondary,
                       ),
@@ -410,8 +414,9 @@ class _WeeklyScheduleScreenState extends State<WeeklyScheduleScreen> {
           final isToday = dayDate.year == now.year &&
               dayDate.month == now.month &&
               dayDate.day == now.day;
-          final dayCount =
-              weekBlocks.where((b) => b.weekday == weekday).length;
+          final dayCount = weekBlocks
+              .where((b) => b.occursOnDay(_selectedWeekMonday, weekday))
+              .length;
 
           return Expanded(
             child: DragTarget<_ScheduleDragPayload>(
@@ -768,7 +773,10 @@ class _WeeklyScheduleScreenState extends State<WeeklyScheduleScreen> {
                         },
                         itemBuilder: (context, index) {
                           final block = dayBlocks[index];
-                          final completed = block.isCompletedForWeek(weekKey);
+                          final completed = block.isCompletedForWeek(
+                            weekKey,
+                            weekday: _selectedWeekday,
+                          );
                           return Padding(
                             key: ValueKey(block.id),
                             padding: const EdgeInsets.only(bottom: 10),
@@ -820,6 +828,7 @@ class _WeeklyScheduleScreenState extends State<WeeklyScheduleScreen> {
                                     repository.toggleScheduleBlockCompleted(
                                   block.id,
                                   weekKey: weekKey,
+                                  weekday: _selectedWeekday,
                                 ),
                                 onEdit: () => _openBlockEditor(
                                   context,
@@ -832,9 +841,15 @@ class _WeeklyScheduleScreenState extends State<WeeklyScheduleScreen> {
                                   block,
                                   allTopics,
                                 ),
+                                onCopy: () => showCopyScheduleBlockSheet(
+                                  context,
+                                  repository,
+                                  source: block,
+                                  currentWeekMonday: _selectedWeekMonday,
+                                ),
                                 onOpenVideo: () =>
-                                    _openVideoUrl(context, block.videoUrl),
-                                onOpenImages: () => _openImageGallery(
+                                    openScheduleVideoUrl(context, block.videoUrl),
+                                onOpenImages: () => openScheduleImageGallery(
                                   context,
                                   block.imagePaths,
                                   block.subject,
@@ -1004,7 +1019,10 @@ class _WeeklyScheduleScreenState extends State<WeeklyScheduleScreen> {
                       spacing: 8,
                       runSpacing: 8,
                       children: dayBlocks.map((block) {
-                        final completed = block.isCompletedForWeek(weekKey);
+                        final completed = block.isCompletedForWeek(
+                          weekKey,
+                          weekday: weekday,
+                        );
                         final pill = _OverviewBlockChip(
                           block: block,
                           completed: completed,
@@ -1089,104 +1107,8 @@ class _WeeklyScheduleScreenState extends State<WeeklyScheduleScreen> {
     }
   }
 
-  Future<void> _syncWeeklyNotification(AppRepository repository) async {
-    if (!repository.weeklyPlanEnabled.value) return;
-    await NotificationService.scheduleWeeklyPlanWithBody(
-      time: repository.weeklyPlanTime.value,
-      weekday: repository.weeklyPlanWeekday.value,
-      body: repository.buildWeeklyScheduleSummary(),
-    );
-  }
-
-  Future<void> _openVideoUrl(BuildContext context, String rawUrl) async {
-    final trimmed = rawUrl.trim();
-    if (trimmed.isEmpty) return;
-    final normalized =
-        trimmed.startsWith('http://') || trimmed.startsWith('https://')
-            ? trimmed
-            : 'https://$trimmed';
-    final uri = Uri.tryParse(normalized);
-    if (uri == null) {
-      InAppNotice.show(context, 'Geçersiz video bağlantısı.');
-      return;
-    }
-    try {
-      final launched = await launchUrl(
-        uri,
-        mode: LaunchMode.externalApplication,
-      );
-      if (!launched && context.mounted) {
-        InAppNotice.show(context, 'Video bağlantısı açılamadı.');
-      }
-    } catch (e) {
-      debugPrint('WeeklyScheduleScreen: Video launch failed: $e');
-      if (context.mounted) {
-        InAppNotice.show(context, 'Video bağlantısı açılamadı.');
-      }
-    }
-  }
-
-  void _openImageGallery(
-    BuildContext context,
-    List<String> imagePaths,
-    String title,
-  ) {
-    if (imagePaths.isEmpty) return;
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => _SchedulePhotoViewerScreen(
-          title: title,
-          imagePaths: imagePaths,
-        ),
-      ),
-    );
-  }
-
-  Future<String?> _pickAndSavePhoto(BuildContext context) async {
-    final source = await showModalBottomSheet<ImageSource>(
-      context: context,
-      backgroundColor: AppColors.of(context).surface,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (sheetContext) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(
-              leading: Icon(Icons.camera_alt_outlined, color: AppColors.of(context).textPrimary),
-              title: Text('Kameradan Çek',
-                  style: TextStyle(color: AppColors.of(context).textPrimary)),
-              onTap: () => Navigator.pop(sheetContext, ImageSource.camera),
-            ),
-            ListTile(
-              leading:
-                  Icon(Icons.photo_library_outlined, color: AppColors.of(context).textPrimary),
-              title: Text('Galeriden Seç',
-                  style: TextStyle(color: AppColors.of(context).textPrimary)),
-              onTap: () => Navigator.pop(sheetContext, ImageSource.gallery),
-            ),
-          ],
-        ),
-      ),
-    );
-    if (source == null) return null;
-    try {
-      final picker = ImagePicker();
-      final picked = await picker.pickImage(source: source);
-      if (picked == null) return null;
-      final dir = await getApplicationDocumentsDirectory();
-      final name = 'schedule_${DateTime.now().millisecondsSinceEpoch}.jpg';
-      final saved = await File(picked.path).copy('${dir.path}/$name');
-      return saved.path;
-    } catch (e) {
-      debugPrint('WeeklyScheduleScreen: Photo pick failed: $e');
-      if (context.mounted) {
-        InAppNotice.show(context, 'Fotoğraf eklenemedi.');
-      }
-      return null;
-    }
-  }
+  Future<void> _syncWeeklyNotification(AppRepository repository) =>
+      syncWeeklyScheduleNotification(repository);
 
   void _openEntryForBlock(
     BuildContext context,
@@ -1227,425 +1149,18 @@ class _WeeklyScheduleScreenState extends State<WeeklyScheduleScreen> {
     String? initialTopic,
     String? initialTag,
   }) async {
-    final allTopics = repository.userTopics.value;
-    final subjects = allTopics.map((e) => e.subject).toSet().toList()..sort();
-
-    var selectedDay = existing?.weekday ?? weekday;
-    var selectedRecurrence = existing?.recurrence ?? ScheduleRecurrence.weekly;
-    final attachedImages = List<String>.from(existing?.imagePaths ?? const []);
-
-    final subjectCtrl = TextEditingController(
-      text: existing?.subject ??
-          initialSubject ??
-          (subjects.isNotEmpty ? subjects.first : ''),
+    final savedDay = await showScheduleBlockEditorSheet(
+      context,
+      repository,
+      weekday: weekday,
+      weekMonday: _selectedWeekMonday,
+      existing: existing,
+      initialSubject: initialSubject,
+      initialTopic: initialTopic,
+      initialTag: initialTag,
     );
-    final topicCtrl = TextEditingController(
-      text: existing?.topic ?? initialTopic ?? '',
-    );
-    final tagCtrl = TextEditingController(
-      text: existing?.tag ?? initialTag ?? 'Genel',
-    );
-    final timeCtrl = TextEditingController(text: existing?.startTime ?? '');
-    final durationCtrl = TextEditingController(
-      text: (existing?.durationMinutes ?? 45).toString(),
-    );
-    final questionsCtrl = TextEditingController(
-      text: (existing?.targetQuestions ?? 30).toString(),
-    );
-    final videoCtrl = TextEditingController(text: existing?.videoUrl ?? '');
-    final noteCtrl = TextEditingController(text: existing?.note ?? '');
-
-    final saved = await showModalBottomSheet<bool>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: AppColors.of(context).surface,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      builder: (sheetContext) {
-        return StatefulBuilder(
-          builder: (context, setModalState) {
-            final matchingTopics = allTopics
-                .where((t) =>
-                    t.subject.toLowerCase() ==
-                    subjectCtrl.text.trim().toLowerCase())
-                .map((t) => t.title)
-                .toSet()
-                .toList();
-
-            return Padding(
-              padding: EdgeInsets.fromLTRB(
-                20,
-                16,
-                20,
-                MediaQuery.of(context).viewInsets.bottom + 20,
-              ),
-              child: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Center(
-                      child: Container(
-                        width: 40,
-                        height: 4,
-                        decoration: BoxDecoration(
-                          color: AppColors.of(context).textMuted,
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 14),
-                    Text(
-                      existing == null
-                          ? 'Çalışma Görevi Ekle'
-                          : 'Görevi Düzenle',
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                            color: AppColors.of(context).textPrimary,
-                            fontWeight: FontWeight.w800,
-                          ),
-                    ),
-                    const SizedBox(height: 12),
-                    Wrap(
-                      spacing: 6,
-                      runSpacing: 6,
-                      children: List.generate(7, (i) {
-                        final day = i + 1;
-                        return ChoiceChip(
-                          label: Text(_shortWeekdays[i]),
-                          selected: selectedDay == day,
-                          onSelected: (_) =>
-                              setModalState(() => selectedDay = day),
-                        );
-                      }),
-                    ),
-                    const SizedBox(height: 10),
-                    Text(
-                      'Tekrar / Periyot',
-                      style: TextStyle(color: AppColors.of(context).textSecondary, fontSize: 12),
-                    ),
-                    const SizedBox(height: 6),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 6,
-                      children: ScheduleRecurrence.values.map((rec) {
-                        return ChoiceChip(
-                          label: Text(rec.label),
-                          selected: selectedRecurrence == rec,
-                          onSelected: (_) =>
-                              setModalState(() => selectedRecurrence = rec),
-                        );
-                      }).toList(),
-                    ),
-                    const SizedBox(height: 12),
-                    TextField(
-                      controller: subjectCtrl,
-                      onChanged: (_) => setModalState(() {}),
-                      decoration: const InputDecoration(
-                        labelText: 'Ders',
-                        hintText: 'Örn: Matematik, YDS, Fizik',
-                      ),
-                    ),
-                    if (subjects.isNotEmpty) ...[
-                      const SizedBox(height: 6),
-                      SizedBox(
-                        height: 34,
-                        child: ListView.separated(
-                          scrollDirection: Axis.horizontal,
-                          itemCount: subjects.length,
-                          separatorBuilder: (_, __) => const SizedBox(width: 6),
-                          itemBuilder: (_, idx) {
-                            final subj = subjects[idx];
-                            return ActionChip(
-                              label: Text(subj,
-                                  style: const TextStyle(fontSize: 11)),
-                              onPressed: () {
-                                final matchTopic = allTopics.firstWhere(
-                                  (t) => t.subject == subj,
-                                  orElse: () => TopicSummary(
-                                    id: '',
-                                    subject: subj,
-                                    title: '',
-                                    nextReview: '',
-                                  ),
-                                );
-                                setModalState(() {
-                                  subjectCtrl.text = subj;
-                                  tagCtrl.text = matchTopic.tag;
-                                });
-                              },
-                            );
-                          },
-                        ),
-                      ),
-                    ],
-                    const SizedBox(height: 10),
-                    TextField(
-                      controller: topicCtrl,
-                      decoration: const InputDecoration(
-                        labelText: 'Konu (Konu bazlı görev için)',
-                        hintText: 'Örn: Limit ve Süreklilik, Paragraf',
-                      ),
-                    ),
-                    if (matchingTopics.isNotEmpty) ...[
-                      const SizedBox(height: 6),
-                      SizedBox(
-                        height: 34,
-                        child: ListView.separated(
-                          scrollDirection: Axis.horizontal,
-                          itemCount: matchingTopics.take(14).length,
-                          separatorBuilder: (_, __) => const SizedBox(width: 6),
-                          itemBuilder: (_, idx) {
-                            final title = matchingTopics[idx];
-                            return ActionChip(
-                              label: Text(title,
-                                  style: const TextStyle(fontSize: 11)),
-                              onPressed: () =>
-                                  setModalState(() => topicCtrl.text = title),
-                            );
-                          },
-                        ),
-                      ),
-                    ],
-                    const SizedBox(height: 10),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: TextField(
-                            controller: timeCtrl,
-                            decoration: const InputDecoration(
-                              labelText: 'Saat',
-                              hintText: '09:00',
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: TextField(
-                            controller: durationCtrl,
-                            keyboardType: TextInputType.number,
-                            decoration: const InputDecoration(
-                              labelText: 'Süre (dk)',
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: TextField(
-                            controller: questionsCtrl,
-                            keyboardType: TextInputType.number,
-                            decoration: const InputDecoration(
-                              labelText: 'Hedef Soru',
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 10),
-                    TextField(
-                      controller: videoCtrl,
-                      keyboardType: TextInputType.url,
-                      decoration: InputDecoration(
-                        labelText: 'Ders Videosu Linki (Opsiyonel)',
-                        hintText: 'https://youtube.com/watch?v=...',
-                        prefixIcon: const Icon(Icons.play_circle_outline),
-                        suffixIcon: videoCtrl.text.trim().isNotEmpty
-                            ? IconButton(
-                                tooltip: 'Videoyu Aç',
-                                icon: const Icon(Icons.open_in_new, size: 18),
-                                onPressed: () =>
-                                    _openVideoUrl(context, videoCtrl.text),
-                              )
-                            : null,
-                      ),
-                      onChanged: (_) => setModalState(() {}),
-                    ),
-                    const SizedBox(height: 12),
-                    Row(
-                      children: [
-                        Text(
-                          'Ekli Fotoğraflar (Not / Soru / Kaynak)',
-                          style: TextStyle(color: AppColors.of(context).textSecondary, fontSize: 12),
-                        ),
-                        const Spacer(),
-                        TextButton.icon(
-                          onPressed: () async {
-                            final path = await _pickAndSavePhoto(context);
-                            if (path != null) {
-                              setModalState(() => attachedImages.add(path));
-                            }
-                          },
-                          icon: const Icon(Icons.add_a_photo_outlined, size: 16),
-                          label: const Text('Fotoğraf Ekle'),
-                        ),
-                      ],
-                    ),
-                    if (attachedImages.isNotEmpty) ...[
-                      const SizedBox(height: 6),
-                      SizedBox(
-                        height: 84,
-                        child: ListView.separated(
-                          scrollDirection: Axis.horizontal,
-                          itemCount: attachedImages.length,
-                          separatorBuilder: (_, __) => const SizedBox(width: 8),
-                          itemBuilder: (_, idx) {
-                            final path = attachedImages[idx];
-                            return Stack(
-                              children: [
-                                GestureDetector(
-                                  onTap: () => _openImageGallery(
-                                    context,
-                                    attachedImages,
-                                    subjectCtrl.text.trim().isEmpty
-                                        ? 'Ekli Fotoğraf'
-                                        : subjectCtrl.text.trim(),
-                                  ),
-                                  child: ClipRRect(
-                                    borderRadius: BorderRadius.circular(12),
-                                    child: Image.file(
-                                      File(path),
-                                      width: 84,
-                                      height: 84,
-                                      fit: BoxFit.cover,
-                                      errorBuilder: (_, __, ___) => Container(
-                                        width: 84,
-                                        height: 84,
-                                        color: AppColors.of(context).subtleFill,
-                                        child: Icon(Icons.broken_image,
-                                            color: AppColors.of(context).textMuted),
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                                Positioned(
-                                  top: 4,
-                                  right: 4,
-                                  child: GestureDetector(
-                                    onTap: () => setModalState(
-                                      () => attachedImages.removeAt(idx),
-                                    ),
-                                    child: Container(
-                                      padding: const EdgeInsets.all(3),
-                                      decoration: const BoxDecoration(
-                                        color: Colors.black87,
-                                        shape: BoxShape.circle,
-                                      ),
-                                      child: Icon(Icons.close,
-                                          size: 13, color: AppColors.of(context).textPrimary),
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            );
-                          },
-                        ),
-                      ),
-                    ],
-                    const SizedBox(height: 10),
-                    TextField(
-                      controller: noteCtrl,
-                      decoration: const InputDecoration(
-                        labelText: 'Not (Opsiyonel)',
-                        hintText: 'Örn: Süre tutarak çöz',
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    Row(
-                      children: [
-                        if (existing != null) ...[
-                          OutlinedButton(
-                            onPressed: () async {
-                              final deleted = await deleteScheduleBlockWithUndo(
-                                context,
-                                existing,
-                              );
-                              if (deleted && sheetContext.mounted) {
-                                Navigator.of(sheetContext).pop(false);
-                              }
-                            },
-                            style: OutlinedButton.styleFrom(
-                              foregroundColor: Colors.redAccent,
-                              side: const BorderSide(color: Colors.redAccent),
-                            ),
-                            child: const Text('Sil'),
-                          ),
-                          const SizedBox(width: 10),
-                        ],
-                        Expanded(
-                          child: ElevatedButton(
-                            onPressed: () async {
-                              final subject = subjectCtrl.text.trim();
-                              if (subject.isEmpty) {
-                                InAppNotice.show(
-                                    context, 'Ders adı boş olamaz.');
-                                return;
-                              }
-                              final block = StudyScheduleBlock(
-                                id: existing?.id ??
-                                    'blk-${DateTime.now().microsecondsSinceEpoch}',
-                                weekday: selectedDay,
-                                subject: subject,
-                                topic: topicCtrl.text.trim(),
-                                tag: tagCtrl.text.trim().isEmpty
-                                    ? 'Genel'
-                                    : tagCtrl.text.trim(),
-                                startTime: timeCtrl.text.trim(),
-                                durationMinutes:
-                                    (int.tryParse(durationCtrl.text.trim()) ??
-                                            45)
-                                        .clamp(5, 600),
-                                targetQuestions:
-                                    (int.tryParse(questionsCtrl.text.trim()) ??
-                                            0)
-                                        .clamp(0, 1000),
-                                isCompleted: existing?.isCompleted ?? false,
-                                sortOrder: existing?.sortOrder ?? 0,
-                                note: noteCtrl.text.trim(),
-                                recurrence: selectedRecurrence,
-                                startWeekKey: (existing?.startWeekKey ?? '')
-                                        .isNotEmpty
-                                    ? existing!.startWeekKey
-                                    : _selectedWeekKey,
-                                completedWeeks:
-                                    existing?.completedWeeks ?? const [],
-                                videoUrl: videoCtrl.text.trim(),
-                                imagePaths: List<String>.from(attachedImages),
-                              );
-                              if (existing == null) {
-                                await repository.addScheduleBlock(block);
-                              } else {
-                                await repository.updateScheduleBlock(block);
-                              }
-                              await _syncWeeklyNotification(repository);
-                              if (sheetContext.mounted) {
-                                Navigator.of(sheetContext).pop(true);
-                              }
-                            },
-                            child: Text(existing == null ? 'Ekle' : 'Kaydet'),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            );
-          },
-        );
-      },
-    );
-
-    subjectCtrl.dispose();
-    topicCtrl.dispose();
-    tagCtrl.dispose();
-    timeCtrl.dispose();
-    durationCtrl.dispose();
-    questionsCtrl.dispose();
-    videoCtrl.dispose();
-    noteCtrl.dispose();
-
-    if (saved == true && mounted) {
-      setState(() => _selectedWeekday = selectedDay);
+    if (savedDay != null && mounted) {
+      setState(() => _selectedWeekday = savedDay);
     }
   }
 
@@ -1964,6 +1479,7 @@ class _ScheduleBlockCard extends StatelessWidget {
     required this.onLogStudy,
     required this.onOpenVideo,
     required this.onOpenImages,
+    this.onCopy,
     this.onDelete,
     this.isFeedback = false,
   });
@@ -1976,6 +1492,7 @@ class _ScheduleBlockCard extends StatelessWidget {
   final VoidCallback onLogStudy;
   final VoidCallback onOpenVideo;
   final VoidCallback onOpenImages;
+  final VoidCallback? onCopy;
   final VoidCallback? onDelete;
   final bool isFeedback;
 
@@ -2054,8 +1571,8 @@ class _ScheduleBlockCard extends StatelessWidget {
                       ),
                     ),
                     child: completed
-                        ? Icon(Icons.check_rounded,
-                            size: 15, color: AppColors.of(context).textPrimary)
+                        ? const Icon(Icons.check_rounded,
+                            size: 15, color: Colors.white)
                         : null,
                   ),
                 ),
@@ -2125,17 +1642,36 @@ class _ScheduleBlockCard extends StatelessWidget {
                   IconButton(
                     tooltip: 'Soru Kaydı Ekle',
                     visualDensity: VisualDensity.compact,
+                    constraints: const BoxConstraints(minWidth: 34, minHeight: 34),
+                    padding: const EdgeInsets.all(4),
                     onPressed: onLogStudy,
                     icon: Icon(
                       Icons.add_task_rounded,
                       color: colors.primary,
-                      size: 20,
+                      size: 19,
                     ),
                   ),
+                  if (onCopy != null)
+                    IconButton(
+                      tooltip: 'Görevi Kopyala',
+                      visualDensity: VisualDensity.compact,
+                      constraints:
+                          const BoxConstraints(minWidth: 34, minHeight: 34),
+                      padding: const EdgeInsets.all(4),
+                      onPressed: onCopy,
+                      icon: Icon(
+                        Icons.copy_rounded,
+                        color: colors.textSecondary,
+                        size: 18,
+                      ),
+                    ),
                   if (onDelete != null)
                     IconButton(
                       tooltip: 'Görevi Sil',
                       visualDensity: VisualDensity.compact,
+                      constraints:
+                          const BoxConstraints(minWidth: 34, minHeight: 34),
+                      padding: const EdgeInsets.all(4),
                       onPressed: onDelete,
                       icon: Icon(
                         Icons.delete_outline_rounded,
@@ -2308,53 +1844,6 @@ class _OverviewBlockChip extends StatelessWidget {
             ],
           ],
         ),
-      ),
-    );
-  }
-}
-
-class _SchedulePhotoViewerScreen extends StatelessWidget {
-  const _SchedulePhotoViewerScreen({
-    required this.title,
-    required this.imagePaths,
-  });
-
-  final String title;
-  final List<String> imagePaths;
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.black,
-      appBar: AppBar(
-        backgroundColor: Colors.black,
-        foregroundColor: Colors.white,
-        title: Text('$title (${imagePaths.length})'),
-      ),
-      body: PageView.builder(
-        itemCount: imagePaths.length,
-        itemBuilder: (context, index) {
-          return Center(
-            child: InteractiveViewer(
-              minScale: 0.8,
-              maxScale: 4.0,
-              child: Image.file(
-                File(imagePaths[index]),
-                fit: BoxFit.contain,
-                errorBuilder: (_, __, ___) => const Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.broken_image_outlined,
-                        color: Colors.white38, size: 48),
-                    SizedBox(height: 8),
-                    Text('Görsel bulunamadı',
-                        style: TextStyle(color: Colors.white54)),
-                  ],
-                ),
-              ),
-            ),
-          );
-        },
       ),
     );
   }

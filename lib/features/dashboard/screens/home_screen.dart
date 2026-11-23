@@ -23,6 +23,7 @@ import '../../mistakes/screens/mistake_gallery_screen.dart';
 import '../../questions/screens/entry_wizard_screen.dart';
 import '../../questions/screens/focus_timer_screen.dart';
 import '../../schedule/screens/weekly_schedule_screen.dart';
+import '../../schedule/widgets/schedule_sheets.dart';
 import 'main_screen.dart';
 import 'streak_detail_screen.dart';
 
@@ -39,6 +40,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   int _rangeIndex = 0; // 0: Bugün, 1: Hafta, 2: 30 Gün
   int _lastSetMinutes = 25;
+  int _selectedScheduleWeekday = DateTime.now().weekday;
 
   @override
   Widget build(BuildContext context) {
@@ -205,7 +207,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         ),
                       ),
 
-                      // BLOCK 2: Today's Study Schedule
+                      // BLOCK 2: Study Schedule (View, Add, Edit, Copy right from Home)
                       SliverToBoxAdapter(
                         child: Padding(
                           padding: const EdgeInsets.fromLTRB(20, 0, 20, 14),
@@ -213,21 +215,88 @@ class _HomeScreenState extends State<HomeScreen> {
                             valueListenable: repository.weeklySchedule,
                             builder: (context, _, __) {
                               final now = DateTime.now();
-                              final weekKey = StudyScheduleBlock.weekKeyFor(now);
-                              final todayBlocks = repository.scheduleForDay(
-                                now.weekday,
-                                weekMonday: StudyScheduleBlock.mondayOf(now),
+                              final currentMonday =
+                                  StudyScheduleBlock.mondayOf(now);
+                              final weekKey =
+                                  StudyScheduleBlock.weekKeyFor(currentMonday);
+                              final dayBlocks = repository.scheduleForDay(
+                                _selectedScheduleWeekday,
+                                weekMonday: currentMonday,
                               );
+                              final dayCounts = {
+                                for (var d = DateTime.monday;
+                                    d <= DateTime.sunday;
+                                    d++)
+                                  d: repository
+                                      .scheduleForDay(
+                                        d,
+                                        weekMonday: currentMonday,
+                                      )
+                                      .length,
+                              };
                               return _TodayScheduleCard(
-                                todayBlocks: todayBlocks,
+                                selectedWeekday: _selectedScheduleWeekday,
+                                todayWeekday: now.weekday,
+                                dayBlocks: dayBlocks,
+                                dayCounts: dayCounts,
                                 weekKey: weekKey,
+                                onSelectWeekday: (day) => setState(
+                                  () => _selectedScheduleWeekday = day,
+                                ),
                                 onToggleBlock: (id) =>
                                     repository.toggleScheduleBlockCompleted(
                                   id,
                                   weekKey: weekKey,
+                                  weekday: _selectedScheduleWeekday,
                                 ),
-                                onOpenFullSchedule: () =>
-                                    _openWeeklySchedule(context),
+                                onAddBlock: () async {
+                                  final savedDay =
+                                      await showScheduleBlockEditorSheet(
+                                    context,
+                                    repository,
+                                    weekday: _selectedScheduleWeekday,
+                                    weekMonday: currentMonday,
+                                  );
+                                  if (savedDay != null && mounted) {
+                                    setState(
+                                      () => _selectedScheduleWeekday = savedDay,
+                                    );
+                                  }
+                                },
+                                onEditBlock: (block) async {
+                                  final savedDay =
+                                      await showScheduleBlockEditorSheet(
+                                    context,
+                                    repository,
+                                    weekday: block.weekday,
+                                    weekMonday: currentMonday,
+                                    existing: block,
+                                  );
+                                  if (savedDay != null && mounted) {
+                                    setState(
+                                      () => _selectedScheduleWeekday = savedDay,
+                                    );
+                                  }
+                                },
+                                onCopyBlock: (block) =>
+                                    showCopyScheduleBlockSheet(
+                                  context,
+                                  repository,
+                                  source: block,
+                                  currentWeekMonday: currentMonday,
+                                ),
+                                onOpenVideo: (url) =>
+                                    openScheduleVideoUrl(context, url),
+                                onOpenImages: (block) =>
+                                    openScheduleImageGallery(
+                                  context,
+                                  block.imagePaths,
+                                  block.subject,
+                                ),
+                                onOpenFullSchedule: () => _openWeeklySchedule(
+                                  context,
+                                  initialWeekday: _selectedScheduleWeekday,
+                                ),
                               );
                             },
                           ),
@@ -311,10 +380,12 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  void _openWeeklySchedule(BuildContext context) {
+  void _openWeeklySchedule(BuildContext context, {int? initialWeekday}) {
     Navigator.of(context, rootNavigator: true).push(
       MaterialPageRoute(
-        builder: (_) => const WeeklyScheduleScreen(),
+        builder: (_) => WeeklyScheduleScreen(
+          initialWeekday: initialWeekday,
+        ),
       ),
     );
   }
@@ -1140,22 +1211,41 @@ class _HeroMetric extends StatelessWidget {
 
 class _TodayScheduleCard extends StatelessWidget {
   const _TodayScheduleCard({
-    required this.todayBlocks,
+    required this.selectedWeekday,
+    required this.todayWeekday,
+    required this.dayBlocks,
+    required this.dayCounts,
     required this.weekKey,
+    required this.onSelectWeekday,
     required this.onToggleBlock,
+    required this.onAddBlock,
+    required this.onEditBlock,
+    required this.onCopyBlock,
+    required this.onOpenVideo,
+    required this.onOpenImages,
     required this.onOpenFullSchedule,
   });
 
-  final List<StudyScheduleBlock> todayBlocks;
+  final int selectedWeekday;
+  final int todayWeekday;
+  final List<StudyScheduleBlock> dayBlocks;
+  final Map<int, int> dayCounts;
   final String weekKey;
+  final ValueChanged<int> onSelectWeekday;
   final ValueChanged<String> onToggleBlock;
+  final VoidCallback onAddBlock;
+  final ValueChanged<StudyScheduleBlock> onEditBlock;
+  final ValueChanged<StudyScheduleBlock> onCopyBlock;
+  final ValueChanged<String> onOpenVideo;
+  final ValueChanged<StudyScheduleBlock> onOpenImages;
   final VoidCallback onOpenFullSchedule;
 
   @override
   Widget build(BuildContext context) {
     final colors = AppColors.of(context);
-    final completedCount =
-        todayBlocks.where((b) => b.isCompletedForWeek(weekKey)).length;
+    final completedCount = dayBlocks
+        .where((b) => b.isCompletedForWeek(weekKey, weekday: selectedWeekday))
+        .length;
 
     return GlassPanel(
       padding: const EdgeInsets.all(16),
@@ -1171,53 +1261,196 @@ class _TodayScheduleCard extends StatelessWidget {
               ),
               const SizedBox(width: 8),
               Expanded(
-                child: Text(
-                  'Bugünün Programı',
-                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                        color: colors.textPrimary,
-                        fontWeight: FontWeight.w700,
+                child: Row(
+                  children: [
+                    Flexible(
+                      child: Text(
+                        'Ders Programı',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                              color: colors.textPrimary,
+                              fontWeight: FontWeight.w700,
+                            ),
                       ),
+                    ),
+                    if (dayBlocks.isNotEmpty) ...[
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 7,
+                          vertical: 2,
+                        ),
+                        decoration: BoxDecoration(
+                          color: colors.subtleFill,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
+                          '$completedCount/${dayBlocks.length}',
+                          style: Theme.of(context)
+                              .textTheme
+                              .labelSmall
+                              ?.copyWith(
+                                color: colors.textSecondary,
+                                fontWeight: FontWeight.w700,
+                              ),
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
               ),
-              if (todayBlocks.isNotEmpty)
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                  decoration: BoxDecoration(
-                    color: colors.subtleFill,
-                    borderRadius: BorderRadius.circular(8),
+              TextButton.icon(
+                onPressed: onAddBlock,
+                style: TextButton.styleFrom(
+                  backgroundColor: colors.primary.withValues(
+                    alpha: colors.isDark ? 0.18 : 0.10,
                   ),
-                  child: Text(
-                    '$completedCount/${todayBlocks.length}',
-                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                          color: colors.textSecondary,
-                          fontWeight: FontWeight.w700,
-                        ),
+                  foregroundColor: colors.primary,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 6,
+                  ),
+                  minimumSize: const Size(0, 30),
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
                   ),
                 ),
+                icon: const Icon(Icons.add_rounded, size: 16),
+                label: const Text(
+                  'Görev',
+                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+                ),
+              ),
+              const SizedBox(width: 4),
               TextButton(
                 onPressed: onOpenFullSchedule,
                 style: TextButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(horizontal: 8),
-                  minimumSize: const Size(0, 32),
+                  padding: const EdgeInsets.symmetric(horizontal: 6),
+                  minimumSize: const Size(0, 30),
                   tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                 ),
-                child: Text(todayBlocks.isEmpty ? 'Hazırla' : 'Tümü'),
+                child: const Text(
+                  'Tamamını Aç',
+                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+                ),
               ),
             ],
           ),
-          if (todayBlocks.isEmpty) ...[
-            const SizedBox(height: 6),
+          const SizedBox(height: 12),
+          // 7-day compact weekday selector right on Home
+          Row(
+            children: List.generate(7, (index) {
+              final day = index + 1;
+              final selected = day == selectedWeekday;
+              final isToday = day == todayWeekday;
+              final count = dayCounts[day] ?? 0;
+              return Expanded(
+                child: GestureDetector(
+                  onTap: () => onSelectWeekday(day),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 140),
+                    margin: const EdgeInsets.symmetric(horizontal: 2),
+                    padding: const EdgeInsets.symmetric(vertical: 6),
+                    decoration: BoxDecoration(
+                      color: selected ? colors.primary : colors.subtleFill,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(
+                        color: selected
+                            ? colors.primary
+                            : isToday
+                                ? colors.primary.withValues(alpha: 0.55)
+                                : colors.border,
+                      ),
+                    ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          scheduleShortWeekdays[index],
+                          style: TextStyle(
+                            color: selected
+                                ? colors.onPrimary
+                                : colors.textSecondary,
+                            fontSize: 10.5,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        const SizedBox(height: 3),
+                        Container(
+                          width: 16,
+                          height: 14,
+                          alignment: Alignment.center,
+                          decoration: BoxDecoration(
+                            color: selected
+                                ? colors.onPrimary.withValues(alpha: 0.18)
+                                : count > 0
+                                    ? colors.primary.withValues(alpha: 0.14)
+                                    : Colors.transparent,
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text(
+                            count > 0 ? '$count' : '·',
+                            style: TextStyle(
+                              color: selected
+                                  ? colors.onPrimary
+                                  : count > 0
+                                      ? colors.primary
+                                      : colors.textMuted,
+                              fontSize: 9.5,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              );
+            }),
+          ),
+          if (dayBlocks.isEmpty) ...[
+            const SizedBox(height: 12),
             Text(
-              'Bugün için planlı görev yok. Haftalık programdan sürükle-bırak ile ekle.',
+              '${scheduleFullWeekdays[selectedWeekday - 1]} için planlı görev yok.',
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
                     color: colors.textSecondary,
                   ),
             ),
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                Expanded(
+                  child: ElevatedButton.icon(
+                    onPressed: onAddBlock,
+                    style: ElevatedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 10),
+                    ),
+                    icon: const Icon(Icons.add_rounded, size: 17),
+                    label: const Text('Görev Ekle'),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: onOpenFullSchedule,
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 10),
+                    ),
+                    icon: const Icon(Icons.calendar_view_week_rounded, size: 17),
+                    label: const Text('Haftalık Plan'),
+                  ),
+                ),
+              ],
+            ),
           ] else ...[
             const SizedBox(height: 10),
-            ...todayBlocks.take(4).map((block) {
-              final completed = block.isCompletedForWeek(weekKey);
+            ...dayBlocks.take(5).map((block) {
+              final completed = block.isCompletedForWeek(
+                weekKey,
+                weekday: selectedWeekday,
+              );
               final subjectStyle = SubjectColors.of(
                 block.subject,
                 isDark: colors.isDark,
@@ -1225,12 +1458,12 @@ class _TodayScheduleCard extends StatelessWidget {
               return Padding(
                 padding: const EdgeInsets.only(bottom: 8),
                 child: InkWell(
-                  onTap: () => onToggleBlock(block.id),
+                  onTap: () => onEditBlock(block),
                   borderRadius: BorderRadius.circular(12),
                   child: Container(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 10,
-                      vertical: 10,
+                      vertical: 9,
                     ),
                     decoration: BoxDecoration(
                       color: colors.subtleFill,
@@ -1249,31 +1482,38 @@ class _TodayScheduleCard extends StatelessWidget {
                             borderRadius: BorderRadius.circular(4),
                           ),
                         ),
-                        const SizedBox(width: 10),
-                        Container(
-                          width: 22,
-                          height: 22,
-                          decoration: BoxDecoration(
-                            color: completed
-                                ? colors.success
-                                : colors.surface,
-                            borderRadius: BorderRadius.circular(7),
-                            border: Border.all(
-                              color: completed
-                                  ? colors.success
-                                  : subjectStyle.accent,
-                              width: 1.6,
+                        const SizedBox(width: 8),
+                        GestureDetector(
+                          behavior: HitTestBehavior.opaque,
+                          onTap: () => onToggleBlock(block.id),
+                          child: Padding(
+                            padding: const EdgeInsets.all(2),
+                            child: Container(
+                              width: 22,
+                              height: 22,
+                              decoration: BoxDecoration(
+                                color: completed
+                                    ? colors.success
+                                    : colors.surface,
+                                borderRadius: BorderRadius.circular(7),
+                                border: Border.all(
+                                  color: completed
+                                      ? colors.success
+                                      : subjectStyle.accent,
+                                  width: 1.6,
+                                ),
+                              ),
+                              child: completed
+                                  ? const Icon(
+                                      Icons.check_rounded,
+                                      size: 14,
+                                      color: Colors.white,
+                                    )
+                                  : null,
                             ),
                           ),
-                          child: completed
-                              ? const Icon(
-                                  Icons.check_rounded,
-                                  size: 14,
-                                  color: Colors.white,
-                                )
-                              : null,
                         ),
-                        const SizedBox(width: 10),
+                        const SizedBox(width: 8),
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -1300,7 +1540,10 @@ class _TodayScheduleCard extends StatelessWidget {
                               Text(
                                 '${block.startTime.isNotEmpty ? '${block.startTime} • ' : ''}'
                                 '${block.durationMinutes} dk'
-                                '${block.targetQuestions > 0 ? ' • ${block.targetQuestions} soru' : ''}',
+                                '${block.targetQuestions > 0 ? ' • ${block.targetQuestions} soru' : ''}'
+                                '${block.recurrence != ScheduleRecurrence.weekly ? ' • ${block.recurrence.label}' : ''}',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
                                 style: Theme.of(context)
                                     .textTheme
                                     .labelSmall
@@ -1310,29 +1553,71 @@ class _TodayScheduleCard extends StatelessWidget {
                           ),
                         ),
                         if (block.videoUrl.trim().isNotEmpty)
-                          Padding(
-                            padding: const EdgeInsets.only(left: 4),
-                            child: Icon(
+                          IconButton(
+                            tooltip: 'Videoyu Aç',
+                            visualDensity: VisualDensity.compact,
+                            constraints: const BoxConstraints(
+                              minWidth: 30,
+                              minHeight: 30,
+                            ),
+                            padding: const EdgeInsets.all(2),
+                            onPressed: () => onOpenVideo(block.videoUrl),
+                            icon: Icon(
                               Icons.play_circle_outline_rounded,
-                              size: 17,
+                              size: 18,
                               color: colors.danger,
                             ),
                           ),
                         if (block.imagePaths.isNotEmpty)
-                          Padding(
-                            padding: const EdgeInsets.only(left: 4),
-                            child: Icon(
+                          IconButton(
+                            tooltip: 'Fotoğrafları Aç',
+                            visualDensity: VisualDensity.compact,
+                            constraints: const BoxConstraints(
+                              minWidth: 30,
+                              minHeight: 30,
+                            ),
+                            padding: const EdgeInsets.all(2),
+                            onPressed: () => onOpenImages(block),
+                            icon: Icon(
                               Icons.photo_outlined,
-                              size: 16,
+                              size: 17,
                               color: subjectStyle.accent,
                             ),
                           ),
+                        IconButton(
+                          tooltip: 'Görevi Kopyala',
+                          visualDensity: VisualDensity.compact,
+                          constraints: const BoxConstraints(
+                            minWidth: 30,
+                            minHeight: 30,
+                          ),
+                          padding: const EdgeInsets.all(2),
+                          onPressed: () => onCopyBlock(block),
+                          icon: Icon(
+                            Icons.copy_rounded,
+                            size: 17,
+                            color: colors.textSecondary,
+                          ),
+                        ),
                       ],
                     ),
                   ),
                 ),
               );
             }),
+            if (dayBlocks.length > 5)
+              Align(
+                alignment: Alignment.centerRight,
+                child: TextButton(
+                  onPressed: onOpenFullSchedule,
+                  style: TextButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 6),
+                    minimumSize: const Size(0, 28),
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                  child: Text('+ ${dayBlocks.length - 5} görev daha gör'),
+                ),
+              ),
           ],
         ],
       ),

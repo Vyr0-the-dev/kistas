@@ -1,7 +1,9 @@
 enum ScheduleRecurrence {
   weekly,
   biweekly,
-  once;
+  once,
+  dailyInWeek,
+  everyTwoDaysInWeek;
 
   static ScheduleRecurrence fromString(String? raw) {
     switch (raw) {
@@ -9,10 +11,18 @@ enum ScheduleRecurrence {
         return ScheduleRecurrence.biweekly;
       case 'once':
         return ScheduleRecurrence.once;
+      case 'dailyInWeek':
+        return ScheduleRecurrence.dailyInWeek;
+      case 'everyTwoDaysInWeek':
+        return ScheduleRecurrence.everyTwoDaysInWeek;
       default:
         return ScheduleRecurrence.weekly;
     }
   }
+
+  bool get isWeekScopedMultiDay =>
+      this == ScheduleRecurrence.dailyInWeek ||
+      this == ScheduleRecurrence.everyTwoDaysInWeek;
 
   String get label {
     switch (this) {
@@ -22,6 +32,10 @@ enum ScheduleRecurrence {
         return '2 Haftada Bir';
       case ScheduleRecurrence.once:
         return 'Tek Seferlik';
+      case ScheduleRecurrence.dailyInWeek:
+        return 'Her Gün (Bu Hafta)';
+      case ScheduleRecurrence.everyTwoDaysInWeek:
+        return '2 Günde Bir (Bu Hafta)';
     }
   }
 }
@@ -84,12 +98,34 @@ class StudyScheduleBlock {
     return mondayOf(parsed);
   }
 
+  static List<int> weekdaysForRecurrence(
+    int startWeekday,
+    ScheduleRecurrence recurrence,
+  ) {
+    final safeStart = startWeekday.clamp(DateTime.monday, DateTime.sunday);
+    switch (recurrence) {
+      case ScheduleRecurrence.weekly:
+      case ScheduleRecurrence.biweekly:
+      case ScheduleRecurrence.once:
+        return [safeStart];
+      case ScheduleRecurrence.dailyInWeek:
+        return [for (var d = safeStart; d <= DateTime.sunday; d++) d];
+      case ScheduleRecurrence.everyTwoDaysInWeek:
+        return [for (var d = safeStart; d <= DateTime.sunday; d += 2) d];
+    }
+  }
+
+  List<int> activeWeekdaysInWeek() =>
+      weekdaysForRecurrence(weekday, recurrence);
+
   bool occursInWeek(DateTime weekMonday) {
     final target = mondayOf(weekMonday);
     final anchor = parseWeekKey(startWeekKey);
 
     switch (recurrence) {
       case ScheduleRecurrence.once:
+      case ScheduleRecurrence.dailyInWeek:
+      case ScheduleRecurrence.everyTwoDaysInWeek:
         if (anchor == null) return true;
         return target.year == anchor.year &&
             target.month == anchor.month &&
@@ -105,22 +141,41 @@ class StudyScheduleBlock {
     }
   }
 
-  bool isCompletedForWeek(String weekKey) {
-    if (completedWeeks.contains(weekKey)) return true;
-    // Backward compatibility for legacy blocks without completedWeeks
-    if (completedWeeks.isEmpty && isCompleted && weekKey == weekKeyFor(DateTime.now())) {
+  bool occursOnDay(DateTime weekMonday, int targetWeekday) {
+    if (!occursInWeek(weekMonday)) return false;
+    return activeWeekdaysInWeek().contains(targetWeekday);
+  }
+
+  String completionKey(String weekKey, {int? weekday}) {
+    if (recurrence.isWeekScopedMultiDay) {
+      final safeDay =
+          (weekday ?? this.weekday).clamp(DateTime.monday, DateTime.sunday);
+      return '$weekKey-d$safeDay';
+    }
+    return weekKey;
+  }
+
+  bool isCompletedForWeek(String weekKey, {int? weekday}) {
+    final key = completionKey(weekKey, weekday: weekday);
+    if (completedWeeks.contains(key)) return true;
+    // Backward compatibility for legacy single-day blocks without completedWeeks
+    if (!recurrence.isWeekScopedMultiDay &&
+        completedWeeks.isEmpty &&
+        isCompleted &&
+        weekKey == weekKeyFor(DateTime.now())) {
       return true;
     }
     return false;
   }
 
-  StudyScheduleBlock toggleCompletedForWeek(String weekKey) {
+  StudyScheduleBlock toggleCompletedForWeek(String weekKey, {int? weekday}) {
+    final key = completionKey(weekKey, weekday: weekday);
     final next = Set<String>.from(completedWeeks);
-    if (isCompletedForWeek(weekKey)) {
-      next.remove(weekKey);
+    if (isCompletedForWeek(weekKey, weekday: weekday)) {
+      next.remove(key);
       return copyWith(completedWeeks: next.toList(), isCompleted: false);
     }
-    next.add(weekKey);
+    next.add(key);
     return copyWith(completedWeeks: next.toList(), isCompleted: true);
   }
 

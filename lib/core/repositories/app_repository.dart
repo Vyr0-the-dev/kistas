@@ -45,6 +45,7 @@ const _catalogInitializedKey = 'catalog_initialized_v2';
 
 class AppRepository {
   static int _customTopicSeq = 0;
+  static int _scheduleBlockSeq = 0;
 
   AppRepository._(this._prefs, this._db)
       : questionEntries = ValueNotifier<List<QuestionEntry>>([]),
@@ -519,7 +520,7 @@ class AppRepository {
     final resolvedMonday =
         StudyScheduleBlock.mondayOf(weekMonday ?? DateTime.now());
     final dayBlocks = weeklySchedule.value
-        .where((b) => b.weekday == weekday && b.occursInWeek(resolvedMonday))
+        .where((b) => b.occursOnDay(resolvedMonday, weekday))
         .toList();
     dayBlocks.sort((a, b) {
       final orderCmp = a.sortOrder.compareTo(b.sortOrder);
@@ -536,6 +537,53 @@ class AppRepository {
         scheduleForDay(block.weekday, weekMonday: anchorMonday).length;
     final indexed = block.copyWith(sortOrder: dayCount);
     await _saveWeeklySchedule([...weeklySchedule.value, indexed]);
+  }
+
+  Future<int> copyScheduleBlockToDays(
+    StudyScheduleBlock source, {
+    required Iterable<int> targetWeekdays,
+    required String targetWeekKey,
+  }) async {
+    final uniqueDays = targetWeekdays
+        .map((d) => d.clamp(DateTime.monday, DateTime.sunday))
+        .toSet()
+        .toList()
+      ..sort();
+    if (uniqueDays.isEmpty) return 0;
+
+    final anchorMonday = StudyScheduleBlock.parseWeekKey(targetWeekKey) ??
+        StudyScheduleBlock.mondayOf(DateTime.now());
+    final resolvedWeekKey = StudyScheduleBlock.weekKeyFor(anchorMonday);
+    final copiedRecurrence = source.recurrence.isWeekScopedMultiDay
+        ? ScheduleRecurrence.once
+        : source.recurrence;
+
+    final now = DateTime.now().microsecondsSinceEpoch;
+    final nextList = [...weeklySchedule.value];
+    final dayCounts = <int, int>{};
+
+    for (var i = 0; i < uniqueDays.length; i++) {
+      final day = uniqueDays[i];
+      final existingCount = dayCounts[day] ??
+          scheduleForDay(day, weekMonday: anchorMonday).length;
+      dayCounts[day] = existingCount + 1;
+
+      nextList.add(
+        source.copyWith(
+          id: 'blk-$now-${++_scheduleBlockSeq}-$i',
+          weekday: day,
+          sortOrder: existingCount,
+          isCompleted: false,
+          completedWeeks: const [],
+          recurrence: copiedRecurrence,
+          startWeekKey: resolvedWeekKey,
+          imagePaths: List<String>.from(source.imagePaths),
+        ),
+      );
+    }
+
+    await _saveWeeklySchedule(nextList);
+    return uniqueDays.length;
   }
 
   Future<void> updateScheduleBlock(StudyScheduleBlock block) async {
@@ -613,12 +661,13 @@ class AppRepository {
   Future<void> toggleScheduleBlockCompleted(
     String blockId, {
     String? weekKey,
+    int? weekday,
   }) async {
     final resolvedKey =
         weekKey ?? StudyScheduleBlock.weekKeyFor(DateTime.now());
     final list = weeklySchedule.value.map((b) {
       if (b.id == blockId) {
-        return b.toggleCompletedForWeek(resolvedKey);
+        return b.toggleCompletedForWeek(resolvedKey, weekday: weekday);
       }
       return b;
     }).toList();
@@ -644,8 +693,11 @@ class AppRepository {
   Future<void> resetWeeklyCompletion({String? weekKey}) async {
     final resolvedKey =
         weekKey ?? StudyScheduleBlock.weekKeyFor(DateTime.now());
+    final dayPrefix = '$resolvedKey-d';
     final list = weeklySchedule.value.map((b) {
-      final next = b.completedWeeks.where((k) => k != resolvedKey).toList();
+      final next = b.completedWeeks
+          .where((k) => k != resolvedKey && !k.startsWith(dayPrefix))
+          .toList();
       return b.copyWith(completedWeeks: next, isCompleted: false);
     }).toList();
     await _saveWeeklySchedule(list);

@@ -659,7 +659,7 @@ void main() {
       expect(find.text('Analiz'), findsOneWidget);
       expect(find.text('Profil'), findsOneWidget);
       expect(find.byIcon(Icons.add_rounded), findsWidgets);
-      expect(find.text('Bugünün Programı'), findsOneWidget);
+      expect(find.text('Ders Programı'), findsOneWidget);
     });
 
     testWidgets('HomeScreen defaults to paper light theme, toggles dark mode, and deletes with Undo', (tester) async {
@@ -968,6 +968,242 @@ void main() {
           .toSet();
       expect(remainingAfterChip.contains('Maarif TYT Din Kültürü'), isFalse);
       expect(remainingAfterChip.contains('Maarif TYT Matematik'), isTrue);
+    });
+
+    test('week-scoped daily & every-two-days recurrences isolate days and weeks', () async {
+      SharedPreferences.setMockInitialValues({});
+      final repo = await AppRepository.init(_InMemoryDatabaseService());
+      final thisMonday = DateTime(2026, 11, 23);
+      final nextMonday = DateTime(2026, 11, 30);
+      final weekKey = StudyScheduleBlock.weekKeyFor(thisMonday);
+
+      final dailyBlock = StudyScheduleBlock(
+        id: 'daily-1',
+        weekday: DateTime.monday,
+        subject: 'Paragraf',
+        recurrence: ScheduleRecurrence.dailyInWeek,
+        startWeekKey: weekKey,
+      );
+      final everyTwoDaysBlock = StudyScheduleBlock(
+        id: 'two-days-1',
+        weekday: DateTime.tuesday,
+        subject: 'Geometri',
+        recurrence: ScheduleRecurrence.everyTwoDaysInWeek,
+        startWeekKey: weekKey,
+      );
+
+      await repo.addScheduleBlock(dailyBlock);
+      await repo.addScheduleBlock(everyTwoDaysBlock);
+
+      // Daily block appears on all 7 days of anchor week, never next week
+      for (var day = DateTime.monday; day <= DateTime.sunday; day++) {
+        final subjects = repo
+            .scheduleForDay(day, weekMonday: thisMonday)
+            .map((b) => b.subject)
+            .toList();
+        expect(subjects.contains('Paragraf'), isTrue);
+        expect(
+          repo.scheduleForDay(day, weekMonday: nextMonday),
+          isEmpty,
+        );
+      }
+
+      // Every-two-days starting Tuesday appears ONLY on Tue (2), Thu (4), Sat (6)
+      for (var day = DateTime.monday; day <= DateTime.sunday; day++) {
+        final hasGeo = repo
+            .scheduleForDay(day, weekMonday: thisMonday)
+            .any((b) => b.subject == 'Geometri');
+        expect(hasGeo, [2, 4, 6].contains(day));
+      }
+
+      // Per-day completion toggles Monday without affecting Tuesday
+      await repo.toggleScheduleBlockCompleted(
+        'daily-1',
+        weekKey: weekKey,
+        weekday: DateTime.monday,
+      );
+      final updatedDaily =
+          repo.weeklySchedule.value.firstWhere((b) => b.id == 'daily-1');
+      expect(
+        updatedDaily.isCompletedForWeek(weekKey, weekday: DateTime.monday),
+        isTrue,
+      );
+      expect(
+        updatedDaily.isCompletedForWeek(weekKey, weekday: DateTime.tuesday),
+        isFalse,
+      );
+
+      // JSON round-trip preserves recurrence and per-day completion keys
+      final roundTrip = StudyScheduleBlock.fromJson(updatedDaily.toJson());
+      expect(roundTrip.recurrence, ScheduleRecurrence.dailyInWeek);
+      expect(
+        roundTrip.isCompletedForWeek(weekKey, weekday: DateTime.monday),
+        isTrue,
+      );
+      expect(
+        roundTrip.isCompletedForWeek(weekKey, weekday: DateTime.tuesday),
+        isFalse,
+      );
+
+      // Weekly reset clears day-specific completion keys
+      await repo.resetWeeklyCompletion(weekKey: weekKey);
+      final resetDaily =
+          repo.weeklySchedule.value.firstWhere((b) => b.id == 'daily-1');
+      expect(
+        resetDaily.isCompletedForWeek(weekKey, weekday: DateTime.monday),
+        isFalse,
+      );
+    });
+
+    test('copyScheduleBlockToDays duplicates task to chosen days independently', () async {
+      SharedPreferences.setMockInitialValues({});
+      final repo = await AppRepository.init(_InMemoryDatabaseService());
+      final thisMonday = DateTime(2026, 11, 23);
+      final weekKey = StudyScheduleBlock.weekKeyFor(thisMonday);
+
+      final source = StudyScheduleBlock(
+        id: 'src-1',
+        weekday: DateTime.monday,
+        subject: 'Fizik',
+        topic: 'Optik',
+        videoUrl: 'https://youtu.be/demo',
+        imagePaths: const ['/tmp/note.jpg'],
+        recurrence: ScheduleRecurrence.weekly,
+        startWeekKey: weekKey,
+        completedWeeks: [weekKey],
+      );
+      await repo.addScheduleBlock(source);
+
+      final count = await repo.copyScheduleBlockToDays(
+        source,
+        targetWeekdays: const [
+          DateTime.wednesday,
+          DateTime.friday,
+          DateTime.sunday,
+        ],
+        targetWeekKey: weekKey,
+      );
+      expect(count, 3);
+      expect(repo.weeklySchedule.value.length, 4);
+
+      for (final day in [DateTime.wednesday, DateTime.friday, DateTime.sunday]) {
+        final dayList = repo.scheduleForDay(day, weekMonday: thisMonday);
+        expect(dayList.length, 1);
+        expect(dayList.first.subject, 'Fizik');
+        expect(dayList.first.topic, 'Optik');
+        expect(dayList.first.videoUrl, 'https://youtu.be/demo');
+        expect(dayList.first.imagePaths, ['/tmp/note.jpg']);
+        expect(dayList.first.isCompletedForWeek(weekKey, weekday: day), isFalse);
+      }
+
+      // Copying a week-scoped multi-day task creates single-day 'once' copies
+      final multiSource = StudyScheduleBlock(
+        id: 'multi-1',
+        weekday: DateTime.monday,
+        subject: 'Kimya',
+        recurrence: ScheduleRecurrence.dailyInWeek,
+        startWeekKey: weekKey,
+      );
+      await repo.copyScheduleBlockToDays(
+        multiSource,
+        targetWeekdays: const [DateTime.tuesday, DateTime.thursday],
+        targetWeekKey: weekKey,
+      );
+      final kimyaCopies =
+          repo.weeklySchedule.value.where((b) => b.subject == 'Kimya').toList();
+      expect(kimyaCopies.length, 2);
+      expect(
+        kimyaCopies.every((b) => b.recurrence == ScheduleRecurrence.once),
+        isTrue,
+      );
+    });
+
+    testWidgets('HomeScreen creates schedule with week-scoped recurrence and copies task to all days', (tester) async {
+      SharedPreferences.setMockInitialValues({});
+      final repo = await AppRepository.init(_InMemoryDatabaseService());
+      final now = DateTime.now();
+      final monday = StudyScheduleBlock.mondayOf(now);
+      final weekKey = StudyScheduleBlock.weekKeyFor(monday);
+
+      // Seed one Monday task to test copying directly from HomeScreen
+      await repo.addScheduleBlock(
+        StudyScheduleBlock(
+          id: 'home-copy-1',
+          weekday: DateTime.monday,
+          subject: 'Tarih',
+          topic: 'Osmanlı',
+          recurrence: ScheduleRecurrence.once,
+          startWeekKey: weekKey,
+        ),
+      );
+
+      await tester.pumpWidget(
+        wrapWithApp(repo, const Scaffold(body: HomeScreen())),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Ders Programı'), findsOneWidget);
+
+      // Switch to Monday on HomeScreen's 7-day strip and copy 'Tarih' to all remaining days
+      final pztPill = find.text('Pzt').first;
+      await tester.ensureVisible(pztPill);
+      await tester.tap(pztPill);
+      await tester.pumpAndSettle();
+      expect(find.text('Tarih • Osmanlı'), findsOneWidget);
+
+      final copyBtn = find.byTooltip('Görevi Kopyala').first;
+      await tester.ensureVisible(copyBtn);
+      await tester.tap(copyBtn);
+      await tester.pumpAndSettle();
+      expect(find.text('Görevi Kopyala'), findsOneWidget);
+
+      await tester.tap(find.text('Tüm Günler'));
+      await tester.pumpAndSettle();
+      expect(find.text('6 Güne Kopyala'), findsOneWidget);
+
+      await tester.tap(find.text('6 Güne Kopyala'));
+      await tester.pumpAndSettle();
+
+      for (var day = DateTime.monday; day <= DateTime.sunday; day++) {
+        expect(
+          repo
+              .scheduleForDay(day, weekMonday: monday)
+              .any((b) => b.subject == 'Tarih'),
+          isTrue,
+        );
+      }
+
+      // Now add a new '2 Günde Bir (Bu Hafta)' task directly from HomeScreen
+      final addTaskPill = find.text('Görev').first;
+      await tester.ensureVisible(addTaskPill);
+      await tester.tap(addTaskPill);
+      await tester.pumpAndSettle();
+      expect(find.text('Çalışma Görevi Ekle'), findsOneWidget);
+
+      await tester.tap(find.text('2 Günde Bir (Bu Hafta)'));
+      await tester.pumpAndSettle();
+      expect(
+        find.text('Bu haftaya özel günler (4): Pzt, Çar, Cum, Paz'),
+        findsOneWidget,
+      );
+
+      await tester.enterText(
+        find.widgetWithText(TextField, 'Ders'),
+        'Biyoloji',
+      );
+      await tester.pumpAndSettle();
+
+      final saveBtn = find.widgetWithText(ElevatedButton, 'Ekle');
+      await tester.ensureVisible(saveBtn);
+      await tester.tap(saveBtn);
+      await tester.pumpAndSettle();
+
+      for (var day = DateTime.monday; day <= DateTime.sunday; day++) {
+        final hasBio = repo
+            .scheduleForDay(day, weekMonday: monday)
+            .any((b) => b.subject == 'Biyoloji');
+        expect(hasBio, [1, 3, 5, 7].contains(day));
+      }
     });
   });
 }
